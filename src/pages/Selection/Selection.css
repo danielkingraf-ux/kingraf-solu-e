@@ -1,0 +1,202 @@
+.selection-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background-color: var(--bg-main);
+    background-image:
+        radial-gradient(at 0% 0%, rgba(255, 92, 0, 0.03) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%);
+    position: relative;
+}
+
+.selection-logout-btn {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.selection-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #FCA5A5;
+}
+
+.selection-header {
+    text-align: center;
+    margin-bottom: 60px;
+    max-width: 600px;
+    animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.logo-large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 32px;
+}
+
+.selection-logo-img {
+    height: 80px;
+    width: auto;
+    object-fit: contain;
+}
+
+.logo-large .logo-subtitle {
+    font-size: 14px;
+    letter-spacing: 6px;
+    color: var(--text-muted);
+    font-weight: 800;
+    margin-top: 4px;
+    opacity: 0.8;
+}
+
+.selection-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.selection-header p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.module-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    width: 100%;
+    max-width: 1100px;
+}
+
+.module-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    /* Initial state for animation */
+}
+
+.module-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: var(--module-color);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.module-card:hover {
+    transform: translateY(-12px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    border-color: var(--module-color);
+}
+
+.module-card:active {
+    transform: translateY(-4px) scale(0.98);
+}
+
+.module-card:hover::before {
+    opacity: 1;
+}
+
+.module-icon-box {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background-color: var(--module-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--module-color);
+    margin-bottom: 24px;
+    transition: all 0.3s ease;
+}
+
+.module-card:hover .module-icon-box {
+    transform: scale(1.1);
+    background-color: var(--module-color);
+    color: white;
+}
+
+.module-info h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.module-info p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    min-height: 60px;
+}
+
+.module-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--module-color);
+    margin-top: auto;
+}
+
+.selection-footer {
+    margin-top: 80px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+@media (max-width: 1024px) {
+    .module-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .module-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .selection-header h1 {
+        font-size: 24px;
+    }
+
+    .module-card {
+        padding: 32px;
+    }
+}

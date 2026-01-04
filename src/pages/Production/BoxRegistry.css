@@ -1,0 +1,389 @@
+.box-registry-container {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 32px;
+    padding: 8px;
+    /* Extra padding for shadows */
+}
+
+.registry-main {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.registry-section {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.registry-section:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--kingraf-orange-alpha);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+    color: var(--text-primary);
+    border-left: 4px solid var(--kingraf-orange);
+    padding-left: 16px;
+    margin-left: -32px;
+}
+
+.section-header h2 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-transform: uppercase;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+.quantity-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-group.span-2 {
+    grid-column: span 2;
+}
+
+.form-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.form-group input {
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid #D1D5DB !important;
+    background-color: #F8FAFC !important;
+    color: #0F172A !important;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+}
+
+.form-group input:hover {
+    border-color: #94A3B8 !important;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--kingraf-orange) !important;
+    background-color: #FFFFFF !important;
+    box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
+    transform: translateY(-1px);
+}
+
+.photo-placeholder {
+    width: 100%;
+    height: 240px;
+    border: 2px dashed #CBD5E1;
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #F8FAFC;
+}
+
+.photo-placeholder:hover {
+    border-color: var(--kingraf-orange);
+    color: var(--kingraf-orange);
+    background-color: var(--kingraf-orange-alpha);
+}
+
+.photo-hint {
+    font-size: 13px;
+    font-weight: 500;
+    color: #94A3B8;
+}
+
+.photo-preview-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.photo-preview {
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+}
+
+.remove-photo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background-color: #FEF2F2;
+    color: #EF4444;
+    border: 1px solid #FEE2E2;
+    background-color: #FFFFFF;
+    box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
+}
+
+.form-field input[readonly] {
+    background-color: #E2E8F0;
+    cursor: not-allowed;
+    border-color: #CBD5E1;
+}
+
+.registry-select {
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid #D1D5DB !important;
+    background-color: #F8FAFC !important;
+    color: #0F172A !important;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 18px;
+}
+
+.registry-select:focus {
+    outline: none;
+    border-color: var(--kingraf-orange) !important;
+    background-color: #FFFFFF !important;
+    box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
+}
+
+.input-hint.error {
+    font-size: 12px;
+    color: var(--danger);
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.calculations-preview {
+    background: var(--kingraf-orange-alpha);
+    padding: 24px;
+    border-radius: 18px;
+    border: 1px solid var(--kingraf-orange-alpha);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.calc-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.calc-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--kingraf-orange);
+    text-transform: uppercase;
+}
+
+.calc-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.submit-btn {
+    background: var(--kingraf-orange-gradient);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 1200px) {
+    .box-registry-container {
+        grid-template-columns: 1fr;
+    }
+
+    .registry-sidebar {
+        position: static;
+    }
+}
+
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .quantity-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Sidebar */
+.registry-sidebar {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    height: fit-content;
+}
+
+/* Calculations Card */
+.calculations-card {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+}
+
+.calculations-card .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.calculations-card .card-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.calculations-card .card-header svg {
+    color: var(--kingraf-orange);
+}
+
+/* Calc Result */
+.calc-result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background-color: #F8FAFC;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #E2E8F0;
+}
+
+.calc-result.active {
+    background-color: var(--kingraf-orange-alpha);
+    border-color: var(--kingraf-orange);
+}
+
+.calc-result .calc-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--kingraf-orange);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.calc-result .calc-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.calc-result.active .calc-value {
+    color: var(--kingraf-orange);
+}
+
+.calc-result .calc-formula {
+    font-size: 12px;
+    color: #64748B;
+    font-weight: 500;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.action-buttons .btn-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #FFFFFF;
+    color: #64748B;
+    border: 1px solid #D1D5DB;
+}
+
+.action-buttons .btn-secondary:hover {
+    background-color: #F1F5F9;
+    border-color: #94A3B8;
+}
+
+.action-buttons .btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--kingraf-orange-gradient);
+    color: #FFFFFF;
+    border: none;
+    box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.39);
+}
+
+.action-buttons .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px 0 rgba(249, 115, 22, 0.5);
+}
+
+.action-buttons .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}

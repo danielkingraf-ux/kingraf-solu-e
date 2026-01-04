@@ -1,0 +1,626 @@
+/* Box Label Container */
+.box-label-container {
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow: hidden;
+    font-family: 'Sora', sans-serif;
+}
+
+/* Sidebar */
+.box-label-sidebar {
+    width: 400px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    z-index: 10;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.box-label-sidebar .sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.box-label-sidebar .sidebar-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0;
+}
+
+.box-label-sidebar .sidebar-content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.box-label-sidebar .sidebar-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.box-label-sidebar .sidebar-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+/* Form Sections */
+.form-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-section:last-child {
+    border-bottom: none;
+}
+
+.section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--kingraf-orange);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+.box-label-sidebar .form-group {
+    margin-bottom: 1rem;
+}
+
+.box-label-sidebar .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.box-label-sidebar .form-group input,
+.box-label-sidebar .form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.box-label-sidebar .form-group textarea {
+    resize: none;
+    line-height: 1.4;
+}
+
+.box-label-sidebar .form-group input:focus,
+.box-label-sidebar .form-group textarea:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+    background-color: rgba(255, 92, 0, 0.05);
+    box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.15);
+}
+
+.box-label-sidebar .form-group input.highlight-input {
+    border-color: var(--kingraf-orange);
+    background-color: rgba(255, 92, 0, 0.08);
+}
+
+.box-label-sidebar .registry-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.box-label-sidebar .registry-select:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+    background-color: rgba(255, 92, 0, 0.05);
+}
+
+.box-label-sidebar .registry-select option {
+    background-color: var(--bg-sidebar);
+    color: white;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* Range Control */
+.range-control {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.range-control .form-group {
+    margin-bottom: 0;
+}
+
+.copies-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    text-align: center;
+}
+
+/* Tabs Header */
+.box-label-sidebar .tabs-header {
+    display: flex;
+    gap: 8px;
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.box-label-sidebar .tab-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.box-label-sidebar .tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #FFFFFF;
+}
+
+.box-label-sidebar .tab-btn.active {
+    background: var(--kingraf-orange);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(255, 92, 0, 0.3);
+}
+
+/* Save Button */
+.box-label-sidebar .save-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.box-label-sidebar .save-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.box-label-sidebar .save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Search Section */
+.search-section {
+    margin-bottom: 1.5rem;
+}
+
+.search-row {
+    display: flex;
+    gap: 8px;
+}
+
+.search-row input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+}
+
+.search-row input:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+}
+
+.search-btn {
+    padding: 0.75rem 1rem;
+    background: var(--kingraf-orange);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+    background: var(--kingraf-orange-dark);
+    transform: scale(1.05);
+}
+
+/* Archive List */
+.archive-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+}
+
+.archive-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.archive-item:hover {
+    background: rgba(255, 92, 0, 0.1);
+    border-color: var(--kingraf-orange);
+}
+
+.archive-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.archive-item-header strong {
+    color: var(--kingraf-orange);
+    font-size: 0.95rem;
+}
+
+.archive-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.archive-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.archive-item-footer {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Sidebar Footer */
+.box-label-sidebar .sidebar-footer {
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.box-label-sidebar .print-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--kingraf-orange-gradient);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 20px rgba(255, 92, 0, 0.2);
+}
+
+.box-label-sidebar .print-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(255, 92, 0, 0.4);
+}
+
+/* Preview Area */
+.box-label-preview-area {
+    flex: 1;
+    background-color: #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2rem;
+    overflow: auto;
+}
+
+.box-label-preview-area .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #6B7280;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+/* A4 Page Preview */
+.a4-page-preview {
+    width: 210mm;
+    min-height: 297mm;
+    background: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    padding: 5mm;
+    box-sizing: border-box;
+}
+
+/* Labels Grid - 2x4 layout for 8 labels */
+.labels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 3mm;
+    width: 100%;
+    height: 100%;
+    min-height: calc(297mm - 10mm);
+}
+
+/* Individual Box Label - approximately 10.5cm x 7.4cm (105mm x 74mm) */
+.box-label-item {
+    width: 100%;
+    height: 100%;
+    min-height: 68mm;
+    max-height: 70mm;
+    background: #FFFFFF;
+    border: 2px solid #000000;
+    border-radius: 3px;
+    padding: 3mm;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    color: #000000;
+    box-sizing: border-box;
+    /* overflow: hidden; */
+    /* Disabled for debugging */
+}
+
+/* Label Brand Header */
+.label-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 2mm;
+    margin-bottom: 2mm;
+}
+
+.brand-name {
+    font-size: 12pt;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+}
+
+.brand-subtitle {
+    font-size: 7pt;
+    font-weight: 600;
+    color: #444;
+}
+
+/* Label Main Content */
+.label-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1mm;
+}
+
+.label-field-row {
+    display: flex;
+    gap: 2mm;
+}
+
+.label-field-row.two-cols .label-field {
+    flex: 1;
+}
+
+.label-field-row.three-cols .label-field {
+    flex: 1;
+}
+
+.label-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5mm;
+}
+
+.label-field.full {
+    flex: 1;
+}
+
+.field-label {
+    font-size: 5.5pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #333;
+    border-bottom: 1px solid #999;
+    padding-bottom: 0.3mm;
+}
+
+.field-value {
+    font-size: 9pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.field-value.compact {
+    font-size: 8pt;
+}
+
+/* Highlighted field (for Validade) */
+.label-field.highlight {
+    background: #FFF3CD;
+    padding: 1mm;
+    border-radius: 2px;
+    border: 1px solid #FFCC00;
+}
+
+.label-field.highlight .field-label {
+    color: #856404;
+    border-bottom-color: #856404;
+}
+
+.label-field.highlight .field-value {
+    color: #856404;
+}
+
+/* Footer Info */
+.label-footer-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1.5px solid #000;
+    padding-top: 1.5mm;
+    margin-top: auto;
+}
+
+.sequence-display {
+    font-size: 10pt;
+    font-weight: 900;
+}
+
+.sequence-number {
+    font-size: 14pt;
+    text-decoration: underline;
+}
+
+.time-display {
+    font-size: 6.5pt;
+    font-weight: 700;
+    color: #444;
+}
+
+/* Print Styles */
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 5mm;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    .box-label-sidebar,
+    .preview-header {
+        display: none !important;
+    }
+
+    .box-label-container {
+        display: block;
+        height: auto;
+        background: white;
+    }
+
+    .box-label-preview-area {
+        padding: 0;
+        background: white;
+        display: block;
+    }
+
+    .a4-page-preview {
+        width: 100%;
+        min-height: auto;
+        box-shadow: none;
+        padding: 0;
+        border-radius: 0;
+    }
+
+    .labels-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 2mm;
+        width: 200mm;
+        height: 287mm;
+        page-break-inside: avoid;
+    }
+
+    .box-label-item {
+        min-height: 68mm;
+        max-height: 70mm;
+        page-break-inside: avoid;
+        border: 1.8px solid #000;
+    }
+
+    .label-field.highlight {
+        background: #FFF3CD !important;
+        border: 1px solid #FFCC00 !important;
+    }
+
+    .label-footer-info {
+        border-top: 2px solid #000 !important;
+    }
+}
+
+/* Responsive adjustments for preview */
+@media screen and (max-width: 1400px) {
+    .a4-page-preview {
+        transform: scale(0.85);
+        transform-origin: top center;
+    }
+}
+
+@media screen and (max-width: 1200px) {
+    .a4-page-preview {
+        transform: scale(0.7);
+        transform-origin: top center;
+    }
+}

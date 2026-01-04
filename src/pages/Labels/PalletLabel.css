@@ -1,0 +1,381 @@
+/* Pallet Label Container */
+.pallet-label-container {
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow: hidden;
+    font-family: 'Sora', sans-serif;
+}
+
+/* Sidebar (same as BoxLabel for consistency) */
+.pallet-label-sidebar {
+    width: 400px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.pallet-label-sidebar .sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pallet-label-sidebar .sidebar-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0;
+}
+
+.pallet-label-sidebar .sidebar-content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.pallet-label-sidebar .form-group {
+    margin-bottom: 1rem;
+}
+
+.pallet-label-sidebar .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pallet-label-sidebar .form-group input,
+.pallet-label-sidebar .registry-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pallet-label-sidebar .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.pallet-label-sidebar .range-control {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.pallet-label-sidebar .sidebar-footer {
+    padding: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pallet-label-sidebar .print-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--kingraf-orange-gradient);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(255, 92, 0, 0.2);
+}
+
+/* Preview Area */
+.pallet-label-preview-area {
+    flex: 1;
+    background-color: #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    padding-top: 3.5rem;
+    /* Extra top padding for header */
+    overflow: auto;
+    position: relative;
+}
+
+.preview-header {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(30, 41, 59, 0.9);
+    color: #FFF;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.pallet-a4 {
+    width: 210mm;
+    min-height: 297mm;
+    background: white;
+    padding: 8mm;
+    box-sizing: border-box;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Pallet single page container */
+.pallet-single-page {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+/* ========== NEW COMPACT LAYOUT ========== */
+.pallet-label-item.full-page {
+    width: 100%;
+    height: 280mm;
+    border: 5px solid #000;
+    padding: 8mm;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Arial', sans-serif;
+    color: #000;
+    background: white;
+    page-break-after: always;
+    box-sizing: border-box;
+}
+
+/* HEADER */
+.pl-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    border-bottom: 5px solid #000;
+    padding-bottom: 5mm;
+    margin-bottom: 6mm;
+}
+
+.pl-brand {
+    font-size: 48pt;
+    font-weight: 900;
+    letter-spacing: -2px;
+}
+
+.pl-subtitle {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #555;
+}
+
+.pl-title {
+    margin-left: auto;
+    font-size: 16pt;
+    font-weight: 900;
+    background: #000;
+    color: #FFF;
+    padding: 3mm 6mm;
+}
+
+/* CONTENT */
+.pl-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5mm;
+}
+
+.pl-row {
+    display: flex;
+    gap: 5mm;
+}
+
+.pl-row.two-col .pl-field {
+    flex: 1;
+}
+
+.pl-row.three-col .pl-field {
+    flex: 1;
+}
+
+.pl-row.three-col .pl-field.weight-field {
+    flex: 1.5;
+}
+
+.pl-field {
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 3mm;
+}
+
+.pl-field.full {
+    width: 100%;
+}
+
+.pl-label {
+    font-size: 11pt;
+    font-weight: 800;
+    color: #666;
+    margin-bottom: 2mm;
+    text-transform: uppercase;
+}
+
+.pl-value {
+    font-size: 28pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.pl-value.bold {
+    font-size: 32pt;
+    font-weight: 900;
+}
+
+.pl-value.highlight {
+    background: #000;
+    color: #FFF;
+    padding: 2mm 4mm;
+    display: inline-block;
+    font-size: 30pt;
+}
+
+.pl-value.peso {
+    font-size: 64pt;
+    color: #D00;
+    font-weight: 900;
+    line-height: 0.9;
+}
+
+.pl-field.weight-field {
+    background: #FFF9E6;
+    border: 4px solid #FFCC00;
+    border-radius: 10px;
+    padding: 4mm;
+}
+
+.pl-field.weight-field .pl-label {
+    color: #856404;
+}
+
+/* FOOTER */
+.pl-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 5px solid #000;
+    padding-top: 5mm;
+    margin-top: auto;
+}
+
+.pl-pallet-num {
+    display: flex;
+    align-items: baseline;
+    gap: 3mm;
+}
+
+.pl-pallet-label {
+    font-size: 18pt;
+    font-weight: 900;
+}
+
+.pl-pallet-value {
+    font-size: 48pt;
+    font-weight: 950;
+    text-decoration: underline;
+}
+
+.pl-pallet-sep {
+    font-size: 32pt;
+    color: #999;
+}
+
+.pl-pallet-total {
+    font-size: 32pt;
+    color: #666;
+}
+
+.pl-timestamp {
+    text-align: right;
+}
+
+.pl-ts-label {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #999;
+    margin-bottom: 1mm;
+}
+
+.pl-ts-value {
+    font-size: 14pt;
+    font-weight: 800;
+    color: #333;
+}
+
+/* Print Styles */
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    .pallet-label-sidebar,
+    .preview-header {
+        display: none !important;
+    }
+
+    .pallet-label-container {
+        display: block;
+        height: auto;
+        background: white;
+    }
+
+    .pallet-label-preview-area {
+        padding: 0;
+        background: white;
+        display: block;
+    }
+
+    .pallet-a4 {
+        width: 210mm;
+        min-height: 297mm;
+        box-shadow: none;
+        padding: 5mm;
+    }
+
+    .pallet-label-item.full-page {
+        width: 200mm;
+        height: 287mm;
+        border-width: 4mm !important;
+        page-break-after: always;
+        padding: 8mm;
+    }
+}
