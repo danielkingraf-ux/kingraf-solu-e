@@ -6,7 +6,6 @@ import {
     Search,
     Plus,
     X,
-    Check,
     Edit2,
     Trash2,
     UserCheck

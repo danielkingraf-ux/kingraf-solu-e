@@ -63,7 +63,7 @@ const NewRevision: React.FC = () => {
     const [acumuladoAprovada, setAcumuladoAprovada] = useState(0);
     const [observacaoGeral, setObservacaoGeral] = useState('');
     const [desvios, setDesvios] = useState<DesvioItem[]>([]);
-    const [temposAnteriores, setTemposAnteriores] = useState<any[]>([]);
+    const [_temposAnteriores, setTemposAnteriores] = useState<any[]>([]);
 
     const [loading, setLoading] = useState(false);
     const [showRevisorModal, setShowRevisorModal] = useState(false);
@@ -86,7 +86,7 @@ const NewRevision: React.FC = () => {
         if (!numeroOp || revisaId) return;
 
         try {
-            const { data: revisao, error } = await supabase
+            const { data: revisao, error: _error } = await supabase
                 .from('qual_revisoes')
                 .select(`
                     *,

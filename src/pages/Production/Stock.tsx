@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, X, Calendar as CalendarIcon, Package, AlertCircle } from 'lucide-react';
+import { Search, Plus, X, Package } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import './Stock.css';
 
