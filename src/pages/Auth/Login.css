@@ -351,6 +351,27 @@
     border-radius: 2px;
 }
 
+.toggle-password {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.toggle-password:hover {
+    color: #FF5C00;
+}
+
 /* ========== ERROR ========== */
 .login-error-modern {
     background: rgba(239, 68, 68, 0.1);

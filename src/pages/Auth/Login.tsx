@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 import logoFull from '../../assets/logo/logo-full.png';
 import './Login.css';
 
@@ -11,6 +11,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -107,13 +108,21 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     <Lock size={18} />
                                 </div>
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="Sua senha"
                                     required
                                     autoComplete="current-password"
                                 />
+                                <button
+                                    type="button"
+                                    className="toggle-password"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
                                 <div className="input-focus-line"></div>
                             </div>
 
