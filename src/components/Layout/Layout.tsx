@@ -59,6 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
       { id: 'history', label: 'Histórico', icon: <ClipboardList size={20} />, group: 'Operacional' },
       { id: 'reports', label: 'Relatórios', icon: <FileText size={20} />, group: 'Operacional' },
       { id: 'registrations', label: 'Cadastros', icon: <Settings size={20} />, group: 'Configurações' },
+      { id: 'users', label: 'Usuários', icon: <Users size={20} />, group: 'Configurações' },
     ];
   };
 

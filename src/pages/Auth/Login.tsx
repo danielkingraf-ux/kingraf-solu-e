@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
+import logoFull from '../../assets/logo/logo-full.png';
 import './Login.css';
 
 interface LoginProps {
@@ -41,56 +43,101 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="login-container">
-            <div className="login-background">
-                <div className="login-gradient"></div>
+        <div className="login-page">
+            {/* Animated Background */}
+            <div className="login-bg">
+                <div className="login-bg-gradient"></div>
+                <div className="login-bg-glow glow-1"></div>
+                <div className="login-bg-glow glow-2"></div>
+                <div className="login-bg-glow glow-3"></div>
+                <div className="login-bg-grid"></div>
+                <div className="login-bg-particles">
+                    {[...Array(20)].map((_, i) => (
+                        <div key={i} className="particle" style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 5}s`,
+                            animationDuration: `${15 + Math.random() * 10}s`
+                        }}></div>
+                    ))}
+                </div>
             </div>
 
-            <div className="login-card">
-                <div className="login-header">
-                    <h1 className="login-brand">KINGRAF</h1>
-                    <span className="login-subtitle">Indústria Gráfica</span>
-                    <p className="login-tagline">Plataforma de Produção, Qualidade e Etiquetas</p>
+            {/* Main Content */}
+            <div className="login-content">
+                {/* Logo Section */}
+                <div className="login-logo-section">
+                    <div className="logo-glow-ring"></div>
+                    <img src={logoFull} alt="Kingraf" className="login-logo" />
+                    <div className="logo-tagline">
+                        <Sparkles size={14} />
+                        <span>Plataforma Industrial Inteligente</span>
+                    </div>
                 </div>
 
-                <form className="login-form" onSubmit={handleLogin}>
-                    <div className="form-group">
-                        <label>E-mail</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="seu@email.com"
-                            required
-                            autoComplete="email"
-                        />
+                {/* Login Card */}
+                <div className="login-card-modern">
+                    <div className="card-header-bar">
+                        <div className="bar-dot"></div>
+                        <div className="bar-dot"></div>
+                        <div className="bar-dot"></div>
                     </div>
 
-                    <div className="form-group">
-                        <label>Senha</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                            autoComplete="current-password"
-                        />
+                    <div className="login-card-inner">
+                        <h2 className="login-title">Bem-vindo de volta</h2>
+                        <p className="login-desc">Acesse sua conta para continuar</p>
+
+                        <form className="login-form-modern" onSubmit={handleLogin}>
+                            <div className="input-group">
+                                <div className="input-icon">
+                                    <Mail size={18} />
+                                </div>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Seu e-mail"
+                                    required
+                                    autoComplete="email"
+                                />
+                                <div className="input-focus-line"></div>
+                            </div>
+
+                            <div className="input-group">
+                                <div className="input-icon">
+                                    <Lock size={18} />
+                                </div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Sua senha"
+                                    required
+                                    autoComplete="current-password"
+                                />
+                                <div className="input-focus-line"></div>
+                            </div>
+
+                            {error && (
+                                <div className="login-error-modern">
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <button type="submit" className="login-btn-modern" disabled={loading}>
+                                <span>{loading ? 'Entrando...' : 'Entrar na Plataforma'}</span>
+                                <ArrowRight size={18} className="btn-arrow" />
+                                <div className="btn-shine"></div>
+                            </button>
+                        </form>
                     </div>
+                </div>
 
-                    {error && (
-                        <div className="login-error">
-                            {error}
-                        </div>
-                    )}
-
-                    <button type="submit" className="login-btn" disabled={loading}>
-                        {loading ? 'Entrando...' : 'Entrar'}
-                    </button>
-                </form>
-
-                <div className="login-footer">
-                    <span>© 2026 KINGRAF - Todos os direitos reservados</span>
+                {/* Footer */}
+                <div className="login-footer-modern">
+                    <span>© 2026 Kingraf • Sistema de Produção Industrial</span>
+                    <a href="https://danielolliweb.com/" target="_blank" rel="noopener noreferrer" className="dev-credit">
+                        Desenvolvido por danielolliweb
+                    </a>
                 </div>
             </div>
         </div>

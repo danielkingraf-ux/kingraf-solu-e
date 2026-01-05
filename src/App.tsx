@@ -96,6 +96,7 @@ function App() {
     if (selectedModule === 'history') return <RevisionHistory />;
     if (selectedModule === 'reports') return <QualityReports />;
     if (selectedModule === 'registrations') return <Registrations />;
+    if (selectedModule === 'users') return <Users />;
 
     // Dashboard padrão (Qualidade)
     return <Dashboard />;
