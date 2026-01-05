@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, X, Users as UsersIcon, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, X, Users as UsersIcon, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import './Stock.css'; // Reusing base styles from Stock
+import './Stock.css';
 
 interface ProdUser {
     id: string;
-    nome_completo: string;
     email: string;
-    perfil: string;
+    created_at: string;
+    user_metadata?: {
+        full_name?: string;
+        profile?: string;
+    };
 }
 
 const Users: React.FC = () => {
     const [items, setItems] = useState<ProdUser[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-
-    // UI State
-    const [showPassword, setShowPassword] = useState(false);
+    const [success, setSuccess] = useState('');
+    const [error, setError] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -33,13 +35,26 @@ const Users: React.FC = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
+            // Buscar da tabela prod_usuarios (metadados locais)
             const { data, error } = await supabase
                 .from('prod_usuarios')
                 .select('*')
                 .order('nome_completo', { ascending: true });
 
             if (error) throw error;
-            if (data) setItems(data);
+            if (data) {
+                // Mapear para o formato esperado
+                const mappedUsers = data.map((u: any) => ({
+                    id: u.id,
+                    email: u.email,
+                    created_at: u.created_at,
+                    user_metadata: {
+                        full_name: u.nome_completo,
+                        profile: u.perfil
+                    }
+                }));
+                setItems(mappedUsers);
+            }
         } catch (error) {
             console.error('Error fetching users:', error);
         } finally {
@@ -49,25 +64,68 @@ const Users: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (formData.password.length < 6) {
+            setError('A senha deve ter pelo menos 6 caracteres.');
+            return;
+        }
+
         try {
             setLoading(true);
-            const payload = {
-                nome_completo: formData.fullName,
+
+            // 1. Criar usuário no Supabase Auth usando signUp
+            // Isso enviará um e-mail de confirmação para o novo usuário
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
-                senha_hash: formData.password, // NOTA: Em app real, nunca salvar senha crua. Usar Supabase Auth.
-                perfil: formData.profile
-            };
+                password: formData.password,
+                options: {
+                    data: {
+                        full_name: formData.fullName,
+                        profile: formData.profile
+                    }
+                }
+            });
 
-            const { error } = await supabase.from('prod_usuarios').insert([payload]);
-            if (error) throw error;
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    setError('Este e-mail já está cadastrado no sistema.');
+                } else {
+                    setError(authError.message);
+                }
+                return;
+            }
 
-            alert('Usuário cadastrado com sucesso!');
-            setIsModalOpen(false);
-            fetchUsers();
+            // 2. Salvar metadados na tabela local prod_usuarios
+            if (authData.user) {
+                const { error: dbError } = await supabase
+                    .from('prod_usuarios')
+                    .insert([{
+                        id: authData.user.id,
+                        nome_completo: formData.fullName,
+                        email: formData.email,
+                        perfil: formData.profile
+                    }]);
+
+                if (dbError) {
+                    console.error('Erro ao salvar metadados:', dbError);
+                    // Não é crítico, continuar
+                }
+            }
+
+            setSuccess(`✓ Convite enviado para ${formData.email}! O usuário deve verificar o e-mail para ativar a conta.`);
             setFormData({ fullName: '', email: '', password: '', profile: 'Operador' });
+            fetchUsers();
+
+            // Fechar modal após 3 segundos
+            setTimeout(() => {
+                setIsModalOpen(false);
+                setSuccess('');
+            }, 3000);
 
         } catch (error: any) {
-            alert('Erro ao salvar: ' + error.message);
+            setError('Erro ao cadastrar: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -84,22 +142,44 @@ const Users: React.FC = () => {
                     </div>
                     <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
                         <Plus size={18} />
-                        Novo Usuário
+                        Convidar Usuário
                     </button>
                 </div>
             </div>
+
+            {items.length === 0 && !loading && (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '60px 20px',
+                    color: '#64748B'
+                }}>
+                    <UsersIcon size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                    <p>Nenhum usuário cadastrado ainda.</p>
+                    <p style={{ fontSize: '14px' }}>Clique em "Convidar Usuário" para começar.</p>
+                </div>
+            )}
 
             <div className="stock-grid">
                 {items.map(item => (
                     <div key={item.id} className="stock-card">
                         <div className="card-header">
-                            <h3 style={{ margin: 0, color: '#F3F4F6' }}>{item.nome_completo}</h3>
-                            <span className="status-badge received" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60A5FA' }}>
-                                {item.perfil}
+                            <h3 style={{ margin: 0, color: '#F3F4F6' }}>
+                                {item.user_metadata?.full_name || 'Sem nome'}
+                            </h3>
+                            <span className="status-badge received" style={{
+                                background: item.user_metadata?.profile === 'Administrador'
+                                    ? 'rgba(239, 68, 68, 0.2)'
+                                    : 'rgba(59, 130, 246, 0.2)',
+                                color: item.user_metadata?.profile === 'Administrador'
+                                    ? '#F87171'
+                                    : '#60A5FA'
+                            }}>
+                                {item.user_metadata?.profile || 'Operador'}
                             </span>
                         </div>
                         <div className="card-content">
-                            <p style={{ color: '#9CA3AF', fontSize: '0.875rem', margin: 0 }}>
+                            <p style={{ color: '#9CA3AF', fontSize: '0.875rem', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Mail size={14} />
                                 {item.email}
                             </p>
                         </div>
@@ -111,9 +191,46 @@ const Users: React.FC = () => {
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
-                            <h3>Novo Usuário</h3>
-                            <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+                            <h3>Convidar Novo Usuário</h3>
+                            <button onClick={() => { setIsModalOpen(false); setError(''); setSuccess(''); }}>
+                                <X size={20} />
+                            </button>
                         </div>
+
+                        {success && (
+                            <div style={{
+                                padding: '12px 16px',
+                                backgroundColor: '#ECFDF5',
+                                border: '1px solid #10B981',
+                                borderRadius: '8px',
+                                color: '#047857',
+                                marginBottom: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <CheckCircle size={18} />
+                                {success}
+                            </div>
+                        )}
+
+                        {error && (
+                            <div style={{
+                                padding: '12px 16px',
+                                backgroundColor: '#FEF2F2',
+                                border: '1px solid #EF4444',
+                                borderRadius: '8px',
+                                color: '#DC2626',
+                                marginBottom: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <AlertCircle size={18} />
+                                {error}
+                            </div>
+                        )}
+
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label>Nome Completo *</label>
@@ -137,32 +254,15 @@ const Users: React.FC = () => {
                             </div>
 
                             <div className="form-group">
-                                <label>Senha *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        value={formData.password}
-                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                        style={{ width: '100%', paddingRight: '2.5rem' }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '0.5rem',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'none',
-                                            border: 'none',
-                                            color: '#6B7280',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                </div>
+                                <label>Senha Inicial * <span style={{ fontSize: '11px', color: '#64748B' }}>(mínimo 6 caracteres)</span></label>
+                                <input
+                                    type="password"
+                                    required
+                                    minLength={6}
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                />
                             </div>
 
                             <div className="form-group">
@@ -171,23 +271,42 @@ const Users: React.FC = () => {
                                     value={formData.profile}
                                     onChange={e => setFormData({ ...formData, profile: e.target.value })}
                                     style={{
-                                        padding: '0.5rem',
-                                        borderRadius: '0.375rem',
-                                        border: '1px solid #F97316', // Orange border as seen in screenshot
-                                        backgroundColor: '#F3F4F6',
-                                        color: '#111827'
+                                        padding: '0.75rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid #E2E8F0',
+                                        backgroundColor: '#F8FAFC',
+                                        color: '#0F172A',
+                                        fontSize: '14px'
                                     }}
                                 >
                                     <option value="Operador">Operador</option>
-                                    <option value="Administrador">Administrador</option>
                                     <option value="Supervisor">Supervisor</option>
+                                    <option value="Administrador">Administrador</option>
                                 </select>
                             </div>
 
+                            <p style={{
+                                fontSize: '12px',
+                                color: '#64748B',
+                                marginTop: '8px',
+                                padding: '12px',
+                                backgroundColor: '#F1F5F9',
+                                borderRadius: '8px'
+                            }}>
+                                <Mail size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                                O usuário receberá um e-mail para confirmar o cadastro e ativar a conta.
+                            </p>
+
                             <div className="modal-actions">
-                                <button type="button" className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                                <button type="submit" className="btn-orange" disabled={loading}>
-                                    {loading ? 'Cadastrando...' : 'Cadastrar'}
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={() => { setIsModalOpen(false); setError(''); setSuccess(''); }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn-orange" disabled={loading || !!success}>
+                                    {loading ? 'Enviando...' : 'Enviar Convite'}
                                 </button>
                             </div>
                         </form>
@@ -199,3 +318,4 @@ const Users: React.FC = () => {
 };
 
 export default Users;
+

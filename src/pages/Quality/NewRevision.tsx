@@ -41,6 +41,14 @@ interface DesvioItem {
     foto_preview?: string;
 }
 
+// Helper para obter datetime-local no fuso horário local
+const getLocalDateTimeString = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const localDate = new Date(now.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+};
+
 const NewRevision: React.FC = () => {
     // Dados de referência
     const [revisores, setRevisores] = useState<Revisor[]>([]);
@@ -70,7 +78,7 @@ const NewRevision: React.FC = () => {
 
     useEffect(() => {
         carregarDadosReferencia();
-        setDataInicio(new Date().toISOString().slice(0, 16));
+        setDataInicio(getLocalDateTimeString());
 
         // Suporte para carregar OP da URL (ex: ?op=123)
         const params = new URLSearchParams(window.location.search);
@@ -267,7 +275,7 @@ const NewRevision: React.FC = () => {
                 setAcumuladoAprovada(prev => prev + quantidadeAprovada);
 
                 // Prepara para novo período
-                setDataInicio(new Date().toISOString().slice(0, 16));
+                setDataInicio(getLocalDateTimeString());
                 setDataFim('');
                 setQuantidadeRevisada(0);
                 setQuantidadeAprovada(0);
@@ -294,7 +302,7 @@ const NewRevision: React.FC = () => {
         setSetorOrigemId('');
         setOperadorId('');
         setSelectedRevisores([]);
-        setDataInicio(new Date().toISOString().slice(0, 16));
+        setDataInicio(getLocalDateTimeString());
         setDataFim('');
         setQuantidadeRevisada(0);
         setQuantidadeAprovada(0);

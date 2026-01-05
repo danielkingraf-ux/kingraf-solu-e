@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -28,6 +28,15 @@ import logoFull from '../../assets/logo/logo-full.png';
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
+
+  // Atualiza o relógio a cada segundo
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('pt-BR'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const getMenuItems = () => {
     // Check if we are in any production-related page
@@ -129,7 +138,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
               <div className="status-dot"></div>
               <span>Sistema Online</span>
             </div>
-            <div className="time-display">23:31:23</div>
+            <div className="time-display">{currentTime}</div>
           </div>
         </header>
 
