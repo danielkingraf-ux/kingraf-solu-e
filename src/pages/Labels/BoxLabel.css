@@ -611,24 +611,34 @@
     }
 }
 
-/* Responsive adjustments for preview */
+/* Responsive adjustments for preview - Zoom reduction */
+@media screen and (max-height: 1100px) {
+    .a4-page-preview {
+        transform: scale(0.75);
+        transform-origin: top center;
+        margin-bottom: -220px;
+    }
+}
+
 @media screen and (max-height: 900px) {
     .a4-page-preview {
-        transform: scale(0.8);
+        transform: scale(0.55);
         transform-origin: top center;
+        margin-bottom: -450px;
+    }
+}
+
+@media screen and (max-height: 720px) {
+    .a4-page-preview {
+        transform: scale(0.45);
+        transform-origin: top center;
+        margin-bottom: -550px;
     }
 }
 
 @media screen and (max-width: 1400px) {
     .a4-page-preview {
-        transform: scale(0.85);
-        transform-origin: top center;
-    }
-}
-
-@media screen and (max-width: 1200px) {
-    .a4-page-preview {
-        transform: scale(0.7);
+        transform: scale(0.8);
         transform-origin: top center;
     }
 }

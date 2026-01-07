@@ -290,7 +290,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             <span>Visualização: Etiquetas para {labelType.charAt(0).toUpperCase() + labelType.slice(1)}</span>
                         </div>
 
-                        <div className={`label-mockup animate-scale-in model-${labelType}`} id="printable-label">
+                        <div className={`label-mockup a4-page-preview animate-scale-in model-${labelType}`} id="printable-label">
                             <div className="label-header">
                                 <div className="label-brand-box">
                                     <span className="label-title">Kingraf</span>
@@ -410,7 +410,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         </div>
                     </div>
                 )}
-            </main>
+            </main >
         </div >
     );
 };

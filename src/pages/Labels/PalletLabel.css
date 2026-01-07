@@ -136,12 +136,13 @@
 
 .pallet-a4 {
     width: 210mm;
-    min-height: 295mm;
+    height: 295mm;
+    /* Changed to fixed height to match A4 ratio */
     background: white;
     padding: 0;
-    /* Removing padding to allow label to take full space if needed */
     box-sizing: border-box;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    transform-origin: top center;
 }
 
 /* Pallet single page container */
@@ -178,7 +179,8 @@
 }
 
 .pl-brand {
-    font-size: 48pt;
+    font-size: 38pt;
+    /* Reduced from 48pt */
     font-weight: 900;
     letter-spacing: -2px;
 }
@@ -248,7 +250,8 @@
 }
 
 .pl-value.bold {
-    font-size: 32pt;
+    font-size: 28pt;
+    /* Reduced from 32pt */
     font-weight: 900;
 }
 
@@ -261,7 +264,8 @@
 }
 
 .pl-value.peso {
-    font-size: 64pt;
+    font-size: 58pt;
+    /* Reduced from 64pt */
     color: #D00;
     font-weight: 900;
     line-height: 0.9;
@@ -295,12 +299,14 @@
 }
 
 .pl-pallet-label {
-    font-size: 18pt;
+    font-size: 14pt;
+    /* Reduced from 18pt */
     font-weight: 900;
 }
 
 .pl-pallet-value {
-    font-size: 48pt;
+    font-size: 42pt;
+    /* Reduced from 48pt */
     font-weight: 950;
     text-decoration: underline;
 }
@@ -386,17 +392,35 @@
     }
 }
 
-/* Responsive Preview */
+/* Responsive Preview - Aggressive zoom-out to match Box Labels */
+@media screen and (max-height: 1100px) {
+    .pallet-a4 {
+        transform: scale(0.7);
+        transform-origin: top center;
+        margin-bottom: -320px;
+    }
+}
+
 @media screen and (max-height: 900px) {
     .pallet-a4 {
-        transform: scale(0.8);
+        transform: scale(0.52);
+        /* Matching Box label feel */
         transform-origin: top center;
+        margin-bottom: -500px;
+    }
+}
+
+@media screen and (max-height: 720px) {
+    .pallet-a4 {
+        transform: scale(0.42);
+        transform-origin: top center;
+        margin-bottom: -600px;
     }
 }
 
 @media screen and (max-width: 1400px) {
     .pallet-a4 {
-        transform: scale(0.9);
+        transform: scale(0.85);
         transform-origin: top center;
     }
 }
