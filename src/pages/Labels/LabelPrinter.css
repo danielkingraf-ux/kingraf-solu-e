@@ -348,8 +348,8 @@
 }
 
 .label-title {
-    font-size: 4rem;
-    /* Reduced from 5rem to avoid overlap */
+    font-size: 3rem;
+    /* Reduced from 4rem */
     font-weight: 900;
     text-transform: uppercase;
     display: block;
@@ -358,7 +358,8 @@
 }
 
 .label-subtitle {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
+    /* Reduced from 1.8rem */
     font-weight: 700;
     text-transform: uppercase;
     color: #4B5563;
@@ -387,15 +388,17 @@
 }
 
 .label-field .value {
-    font-size: 2.5rem;
+    font-size: 1.8rem;
+    /* Reduced from 2.5rem */
     font-weight: 800;
-    padding: 8px 0;
+    padding: 6px 0;
     color: #000;
     text-transform: uppercase;
 }
 
 .label-field.large .value {
-    font-size: 3.5rem;
+    font-size: 2.8rem;
+    /* Reduced from 3.5rem */
     font-weight: 950;
     line-height: 1;
 }

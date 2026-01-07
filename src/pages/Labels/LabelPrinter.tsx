@@ -28,6 +28,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         especifico: {
             lote: '',
             peso: '',
+            pesoPorCaixa: '',
             destino: '',
             obs: '',
             operador: '',
@@ -68,7 +69,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        if (['lote', 'peso', 'destino', 'obs', 'operador', 'qtdCaixas', 'qtdPorCaixa'].includes(name)) {
+        if (['lote', 'peso', 'pesoPorCaixa', 'destino', 'obs', 'operador', 'qtdCaixas', 'qtdPorCaixa'].includes(name)) {
             setLabelData((prev: any) => ({
                 ...prev,
                 especifico: { ...prev.especifico, [name]: value }
@@ -203,12 +204,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             <>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <div className="form-group animate-fade-in-up delay-400">
-                                        <label>Lote</label>
-                                        <input name="lote" value={labelData.especifico.lote} onChange={handleChange} />
+                                        <label>Peso Total (kg)</label>
+                                        <input name="peso" value={labelData.especifico.peso} onChange={handleChange} />
                                     </div>
                                     <div className="form-group animate-fade-in-up delay-400">
-                                        <label>Peso Total</label>
-                                        <input name="peso" value={labelData.especifico.peso} onChange={handleChange} />
+                                        <label>Peso por Caixa (kg)</label>
+                                        <input name="pesoPorCaixa" value={labelData.especifico.pesoPorCaixa} onChange={handleChange} />
                                     </div>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -330,14 +331,37 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
                                 <div style={{ display: 'flex', gap: '25px' }}>
                                     <div className="label-field" style={{ flex: 1 }}>
-                                        <label>{labelType === 'pallet' ? 'LOTE' : 'OP'}</label>
-                                        <div className="value">{labelType === 'pallet' ? (labelData.especifico.lote || '0000') : (labelData.op || '000000')}</div>
+                                        <label>OP / ORDEM</label>
+                                        <div className="value">{labelData.op || '000000'}</div>
                                     </div>
-                                    <div className="label-field" style={{ flex: 1 }}>
+                                    {labelType === 'pallet' && (
+                                        <div className="label-field" style={{ flex: 1 }}>
+                                            <label>LOTE</label>
+                                            <div className="value">{labelData.especifico.lote || '0000'}</div>
+                                        </div>
+                                    )}
+                                    <div className="label-field" style={{ flex: 0.8 }}>
                                         <label>HORA</label>
                                         <div className="value">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
                                 </div>
+
+                                {labelType === 'pallet' && (
+                                    <div style={{ display: 'flex', gap: '20px', marginBottom: '8px' }}>
+                                        <div className="label-field" style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '1rem', borderBottomWidth: '2px' }}>PESO TOTAL (KG)</label>
+                                            <div className="value" style={{ color: '#D00', fontSize: '2.5rem', fontWeight: 900, lineHeight: 1 }}>
+                                                {labelData.especifico.peso || '---'}
+                                            </div>
+                                        </div>
+                                        <div className="label-field" style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '1rem', borderBottomWidth: '2px' }}>PESO / CAIXA (KG)</label>
+                                            <div className="value" style={{ fontSize: '1.8rem', fontWeight: 800 }}>
+                                                {labelData.especifico.pesoPorCaixa || '---'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div style={{ display: 'flex', gap: '25px' }}>
                                     <div className="label-field" style={{ flex: 1 }}>
