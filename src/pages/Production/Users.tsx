@@ -76,7 +76,7 @@ const Users: React.FC = () => {
             setLoading(true);
 
             // 1. Criar usuário no Supabase Auth usando signUp
-            // Isso enviará um e-mail de confirmação para o novo usuário
+            console.log('Tentando criar usuário:', formData.email);
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -89,13 +89,16 @@ const Users: React.FC = () => {
             });
 
             if (authError) {
+                console.error('Erro no signUp:', authError);
                 if (authError.message.includes('already registered')) {
                     setError('Este e-mail já está cadastrado no sistema.');
                 } else {
-                    setError(authError.message);
+                    setError(`Erro de Autenticação: ${authError.message}`);
                 }
                 return;
             }
+
+            console.log('Usuário criado no Auth com sucesso:', authData.user?.id);
 
             // 2. Salvar metadados na tabela local prod_usuarios
             if (authData.user) {
@@ -110,22 +113,27 @@ const Users: React.FC = () => {
 
                 if (dbError) {
                     console.error('Erro ao salvar metadados:', dbError);
-                    // Não é crítico, continuar
+                    setError(`O usuário foi criado, mas houve um erro ao salvar os dados adicionais: ${dbError.message}`);
+                    return; // Interromper se não conseguir salvar no banco
                 }
+            } else {
+                setError('O usuário não pôde ser criado. Verifique as configurações de Auth do Supabase.');
+                return;
             }
 
             setSuccess(`✓ Convite enviado para ${formData.email}! O usuário deve verificar o e-mail para ativar a conta.`);
             setFormData({ fullName: '', email: '', password: '', profile: 'Operador' });
             fetchUsers();
 
-            // Fechar modal após 3 segundos
+            // Fechar modal após 4 segundos para dar tempo de ler
             setTimeout(() => {
                 setIsModalOpen(false);
                 setSuccess('');
-            }, 3000);
+            }, 4000);
 
         } catch (error: any) {
-            setError('Erro ao cadastrar: ' + error.message);
+            console.error('Erro capturado no catch:', error);
+            setError('Erro inesperado: ' + error.message);
         } finally {
             setLoading(false);
         }

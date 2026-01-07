@@ -5,7 +5,9 @@ import {
     Eye,
     X,
     AlertCircle,
-    Users
+    Users,
+    Trash2,
+    Pencil
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import '../Production/Stock.css';
@@ -43,6 +45,8 @@ const RevisionHistory: React.FC = () => {
     const [selectedRevisao, setSelectedRevisao] = useState<Revisao | null>(null);
     const [desviosDetalhe, setDesviosDetalhe] = useState<DesvioDetalhe[]>([]);
     const [revisoresDetalhe, setRevisoresDetalhe] = useState<RevisorDetalhe[]>([]);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editFormData, setEditFormData] = useState<Revisao | null>(null);
 
     useEffect(() => {
         carregarRevisoes();
@@ -109,6 +113,64 @@ const RevisionHistory: React.FC = () => {
 
         setDesviosDetalhe((desvios || []) as any);
         setRevisoresDetalhe((revisores || []) as any);
+    };
+
+    const excluirRevisao = async (id: string) => {
+        if (!window.confirm('Tem certeza que deseja excluir esta revisão? Esta ação não pode ser desfeita.')) return;
+
+        try {
+            setLoading(true);
+            // Deletar dados relacionados primeiro
+            await supabase.from('qual_revisao_desvios').delete().eq('revisao_id', id);
+            await supabase.from('qual_revisao_revisores').delete().eq('revisao_id', id);
+            await supabase.from('qual_revisao_tempos').delete().eq('revisao_id', id);
+
+            // Deletar a revisão principal
+            const { error } = await supabase.from('qual_revisoes').delete().eq('id', id);
+            if (error) throw error;
+
+            alert('Revisão excluída com sucesso!');
+            carregarRevisoes();
+        } catch (error) {
+            console.error('Erro ao excluir revisão:', error);
+            alert('Erro ao excluir revisão.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const editarRevisao = (revisao: Revisao) => {
+        setEditFormData({ ...revisao });
+        setIsEditing(true);
+    };
+
+    const salvarEdicao = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editFormData) return;
+
+        try {
+            setLoading(true);
+            const { error } = await supabase
+                .from('qual_revisoes')
+                .update({
+                    quantidade_revisada: editFormData.quantidade_revisada,
+                    quantidade_aprovada: editFormData.quantidade_aprovada,
+                    quantidade_reprovada: editFormData.quantidade_reprovada,
+                    observacao_geral: editFormData.observacao_geral
+                })
+                .eq('id', editFormData.id);
+
+            if (error) throw error;
+
+            alert('Revisão atualizada com sucesso!');
+            setIsEditing(false);
+            carregarRevisoes();
+        } catch (error) {
+            console.error('Erro ao atualizar revisão:', error);
+            alert('Erro ao atualizar revisão.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const filteredRevisoes = revisoes.filter(r =>
@@ -261,6 +323,42 @@ const RevisionHistory: React.FC = () => {
                                                     <ClipboardList size={14} /> Retomar
                                                 </button>
                                             )}
+                                            <button
+                                                onClick={() => editarRevisao(r)}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '8px 12px',
+                                                    backgroundColor: '#F8FAFC',
+                                                    border: '1px solid #E2E8F0',
+                                                    borderRadius: '8px',
+                                                    color: '#64748B',
+                                                    fontWeight: 600,
+                                                    fontSize: '13px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <Pencil size={14} /> Editar
+                                            </button>
+                                            <button
+                                                onClick={() => excluirRevisao(r.id)}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '8px 12px',
+                                                    backgroundColor: '#FEF2F2',
+                                                    border: '1px solid #FEE2E2',
+                                                    borderRadius: '8px',
+                                                    color: '#EF4444',
+                                                    fontWeight: 600,
+                                                    fontSize: '13px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <Trash2 size={14} /> Excluir
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -269,6 +367,63 @@ const RevisionHistory: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Modal de Edição */}
+            {isEditing && editFormData && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '500px' }}>
+                        <div className="modal-header">
+                            <h3>Editar Revisão - OP {editFormData.op}</h3>
+                            <button onClick={() => setIsEditing(false)}><X size={20} /></button>
+                        </div>
+                        <form onSubmit={salvarEdicao}>
+                            <div className="form-group">
+                                <label>Quantidade Revisada</label>
+                                <input
+                                    type="number"
+                                    value={editFormData.quantidade_revisada}
+                                    onChange={e => setEditFormData({ ...editFormData, quantidade_revisada: Number(e.target.value) })}
+                                    className="input-orange-focus"
+                                />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Aprovadas</label>
+                                    <input
+                                        type="number"
+                                        value={editFormData.quantidade_aprovada}
+                                        onChange={e => setEditFormData({ ...editFormData, quantidade_aprovada: Number(e.target.value) })}
+                                        className="input-orange-focus"
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginLeft: '16px' }}>
+                                    <label>Reprovadas</label>
+                                    <input
+                                        type="number"
+                                        value={editFormData.quantidade_reprovada}
+                                        onChange={e => setEditFormData({ ...editFormData, quantidade_reprovada: Number(e.target.value) })}
+                                        className="input-orange-focus"
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label>Observação Geral</label>
+                                <textarea
+                                    rows={4}
+                                    value={editFormData.observacao_geral || ''}
+                                    onChange={e => setEditFormData({ ...editFormData, observacao_geral: e.target.value })}
+                                />
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn-cancel" onClick={() => setIsEditing(false)}>Cancelar</button>
+                                <button type="submit" className="btn-orange" disabled={loading}>
+                                    {loading ? 'Salvando...' : 'Salvar Alterações'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Detalhes */}
             {selectedRevisao && (
