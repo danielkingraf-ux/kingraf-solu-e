@@ -104,12 +104,13 @@
 /* Preview Area */
 .pallet-label-preview-area {
     flex: 1;
+    height: 100vh;
     background-color: #E5E7EB;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2rem;
-    padding-top: 3.5rem;
+    justify-content: flex-start;
+    padding: 3.5rem 2rem 2rem 2rem;
     /* Extra top padding for header */
     overflow: auto;
     position: relative;
@@ -137,7 +138,8 @@
     width: 210mm;
     min-height: 295mm;
     background: white;
-    padding: 0; /* Removing padding to allow label to take full space if needed */
+    padding: 0;
+    /* Removing padding to allow label to take full space if needed */
     box-sizing: border-box;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
@@ -381,5 +383,20 @@
         page-break-after: always;
         padding: 10mm;
         margin: 0;
+    }
+}
+
+/* Responsive Preview */
+@media screen and (max-height: 900px) {
+    .pallet-a4 {
+        transform: scale(0.8);
+        transform-origin: top center;
+    }
+}
+
+@media screen and (max-width: 1400px) {
+    .pallet-a4 {
+        transform: scale(0.9);
+        transform-origin: top center;
     }
 }

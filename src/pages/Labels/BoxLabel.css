@@ -363,12 +363,13 @@
 /* Preview Area */
 .box-label-preview-area {
     flex: 1;
+    height: 100vh;
     background-color: #E5E7EB;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: 2rem;
+    padding: 3rem 2rem;
     overflow: auto;
 }
 
@@ -611,6 +612,13 @@
 }
 
 /* Responsive adjustments for preview */
+@media screen and (max-height: 900px) {
+    .a4-page-preview {
+        transform: scale(0.8);
+        transform-origin: top center;
+    }
+}
+
 @media screen and (max-width: 1400px) {
     .a4-page-preview {
         transform: scale(0.85);
