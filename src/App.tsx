@@ -93,7 +93,7 @@ function App() {
 
     // Módulo de Qualidade
     if (selectedModule === 'revisions') return <NewRevision />;
-    if (selectedModule === 'history') return <RevisionHistory />;
+    if (selectedModule === 'history') return <RevisionHistory onNavigate={handleNavigate} />;
     if (selectedModule === 'reports') return <QualityReports />;
     if (selectedModule === 'registrations') return <Registrations />;
     if (selectedModule === 'users') return <Users />;

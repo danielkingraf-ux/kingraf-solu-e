@@ -38,15 +38,19 @@ interface RevisorDetalhe {
     revisor: { nome: string } | null;
 }
 
-const RevisionHistory: React.FC = () => {
+interface RevisionHistoryProps {
+    onNavigate?: (page: string) => void;
+}
+
+const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
     const [revisoes, setRevisoes] = useState<Revisao[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRevisao, setSelectedRevisao] = useState<Revisao | null>(null);
     const [desviosDetalhe, setDesviosDetalhe] = useState<DesvioDetalhe[]>([]);
     const [revisoresDetalhe, setRevisoresDetalhe] = useState<RevisorDetalhe[]>([]);
-    const [isEditing, setIsEditing] = useState(false);
-    const [editFormData, setEditFormData] = useState<Revisao | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [confirmReopenRevisao, setConfirmReopenRevisao] = useState<Revisao | null>(null);
 
     useEffect(() => {
         carregarRevisoes();
@@ -89,6 +93,7 @@ const RevisionHistory: React.FC = () => {
     };
 
     const abrirDetalhes = async (revisao: Revisao) => {
+        console.log('Abrindo detalhes para:', revisao.id);
         setSelectedRevisao(revisao);
 
         // Carregar desvios
@@ -116,7 +121,7 @@ const RevisionHistory: React.FC = () => {
     };
 
     const excluirRevisao = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja excluir esta revisão? Esta ação não pode ser desfeita.')) return;
+        console.log('Executando exclusão para id:', id);
 
         try {
             setLoading(true);
@@ -139,37 +144,42 @@ const RevisionHistory: React.FC = () => {
         }
     };
 
-    const editarRevisao = (revisao: Revisao) => {
-        setEditFormData({ ...revisao });
-        setIsEditing(true);
-    };
+    const reabrirERetomar = async (revisao: Revisao) => {
+        console.log('reabrirERetomar chamado para:', revisao.id, 'status:', revisao.status);
+        if (revisao.status === 'finalizada' && !confirmReopenRevisao) {
+            setConfirmReopenRevisao(revisao);
+            return;
+        }
 
-    const salvarEdicao = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editFormData) return;
+        if (revisao.status === 'finalizada' && confirmReopenRevisao) {
 
-        try {
-            setLoading(true);
-            const { error } = await supabase
-                .from('qual_revisoes')
-                .update({
-                    quantidade_revisada: editFormData.quantidade_revisada,
-                    quantidade_aprovada: editFormData.quantidade_aprovada,
-                    quantidade_reprovada: editFormData.quantidade_reprovada,
-                    observacao_geral: editFormData.observacao_geral
-                })
-                .eq('id', editFormData.id);
+            try {
+                setLoading(true);
+                const { error } = await supabase
+                    .from('qual_revisoes')
+                    .update({ status: 'em_andamento' })
+                    .eq('id', revisao.id);
 
-            if (error) throw error;
+                if (error) throw error;
+                console.log('Revisão reaberta com sucesso:', revisao.id);
+            } catch (error) {
+                console.error('Erro ao reabrir revisão:', error);
+                alert('Erro ao reabrir revisão.');
+                setLoading(false);
+                return;
+            } finally {
+                setLoading(false);
+                setConfirmReopenRevisao(null);
+            }
+        }
 
-            alert('Revisão atualizada com sucesso!');
-            setIsEditing(false);
-            carregarRevisoes();
-        } catch (error) {
-            console.error('Erro ao atualizar revisão:', error);
-            alert('Erro ao atualizar revisão.');
-        } finally {
-            setLoading(false);
+        const url = `/qualidade/nova?op=${revisao.op}`;
+        window.history.pushState({}, '', url);
+
+        if (onNavigate) {
+            onNavigate('revisions');
+        } else {
+            window.location.href = url;
         }
     };
 
@@ -211,7 +221,7 @@ const RevisionHistory: React.FC = () => {
             </div>
 
             {/* Tabela */}
-            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
@@ -224,7 +234,7 @@ const RevisionHistory: React.FC = () => {
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Reprovadas</th>
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Duração</th>
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Status</th>
-                            <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Ações</th>
+                            <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B', minWidth: '280px' }}>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -286,7 +296,8 @@ const RevisionHistory: React.FC = () => {
                                     <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                             <button
-                                                onClick={() => abrirDetalhes(r)}
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); abrirDetalhes(r); }}
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -303,28 +314,9 @@ const RevisionHistory: React.FC = () => {
                                             >
                                                 <Eye size={14} /> Ver
                                             </button>
-                                            {r.status === 'em_andamento' && (
-                                                <button
-                                                    onClick={() => window.location.href = `/qualidade/nova?op=${r.op}`}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        padding: '8px 12px',
-                                                        backgroundColor: 'var(--kingraf-orange-alpha)',
-                                                        border: '1px solid var(--kingraf-orange)',
-                                                        borderRadius: '8px',
-                                                        color: 'var(--kingraf-orange)',
-                                                        fontWeight: 600,
-                                                        fontSize: '13px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <ClipboardList size={14} /> Retomar
-                                                </button>
-                                            )}
                                             <button
-                                                onClick={() => editarRevisao(r)}
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); reabrirERetomar(r); }}
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -342,7 +334,8 @@ const RevisionHistory: React.FC = () => {
                                                 <Pencil size={14} /> Editar
                                             </button>
                                             <button
-                                                onClick={() => excluirRevisao(r.id)}
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -367,63 +360,6 @@ const RevisionHistory: React.FC = () => {
                     </tbody>
                 </table>
             </div>
-
-            {/* Modal de Edição */}
-            {isEditing && editFormData && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '500px' }}>
-                        <div className="modal-header">
-                            <h3>Editar Revisão - OP {editFormData.op}</h3>
-                            <button onClick={() => setIsEditing(false)}><X size={20} /></button>
-                        </div>
-                        <form onSubmit={salvarEdicao}>
-                            <div className="form-group">
-                                <label>Quantidade Revisada</label>
-                                <input
-                                    type="number"
-                                    value={editFormData.quantidade_revisada}
-                                    onChange={e => setEditFormData({ ...editFormData, quantidade_revisada: Number(e.target.value) })}
-                                    className="input-orange-focus"
-                                />
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Aprovadas</label>
-                                    <input
-                                        type="number"
-                                        value={editFormData.quantidade_aprovada}
-                                        onChange={e => setEditFormData({ ...editFormData, quantidade_aprovada: Number(e.target.value) })}
-                                        className="input-orange-focus"
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginLeft: '16px' }}>
-                                    <label>Reprovadas</label>
-                                    <input
-                                        type="number"
-                                        value={editFormData.quantidade_reprovada}
-                                        onChange={e => setEditFormData({ ...editFormData, quantidade_reprovada: Number(e.target.value) })}
-                                        className="input-orange-focus"
-                                    />
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label>Observação Geral</label>
-                                <textarea
-                                    rows={4}
-                                    value={editFormData.observacao_geral || ''}
-                                    onChange={e => setEditFormData({ ...editFormData, observacao_geral: e.target.value })}
-                                />
-                            </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn-cancel" onClick={() => setIsEditing(false)}>Cancelar</button>
-                                <button type="submit" className="btn-orange" disabled={loading}>
-                                    {loading ? 'Salvando...' : 'Salvar Alterações'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {/* Modal de Detalhes */}
             {selectedRevisao && (
@@ -556,6 +492,53 @@ const RevisionHistory: React.FC = () => {
 
                         <div className="modal-actions">
                             <button className="btn-orange" onClick={() => setSelectedRevisao(null)}>Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Confirmação de Exclusão */}
+            {confirmDeleteId && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <AlertCircle size={48} color="#EF4444" style={{ marginBottom: '16px' }} />
+                        <h3>Confirmar Exclusão</h3>
+                        <p style={{ color: '#64748B', marginBottom: '24px' }}>
+                            Tem certeza que deseja excluir esta revisão? Esta ação não pode ser desfeita.
+                        </p>
+                        <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                            <button className="btn-cancel" onClick={() => setConfirmDeleteId(null)}>Cancelar</button>
+                            <button
+                                className="btn-orange"
+                                style={{ backgroundColor: '#EF4444' }}
+                                onClick={() => {
+                                    excluirRevisao(confirmDeleteId);
+                                    setConfirmDeleteId(null);
+                                }}
+                            >
+                                Excluir Permanentemente
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Confirmação de Reabertura */}
+            {confirmReopenRevisao && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <Pencil size={48} color="var(--kingraf-orange)" style={{ marginBottom: '16px' }} />
+                        <h3>Reabrir Revisão</h3>
+                        <p style={{ color: '#64748B', marginBottom: '24px' }}>
+                            Esta revisão está finalizada. Deseja reabri-la para edição?
+                        </p>
+                        <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                            <button className="btn-cancel" onClick={() => setConfirmReopenRevisao(null)}>Cancelar</button>
+                            <button
+                                className="btn-orange"
+                                onClick={() => reabrirERetomar(confirmReopenRevisao)}
+                            >
+                                Reabrir e Editar
+                            </button>
                         </div>
                     </div>
                 </div>

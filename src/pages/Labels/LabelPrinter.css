@@ -307,15 +307,14 @@
 }
 
 .label-mockup {
-    width: 380px;
-    height: 570px;
-    /* ~100x150mm ratio */
+    width: 600px;
+    height: 842px;
+    /* Maintaining A4 ratio in preview */
     background-color: white;
     color: black;
     border-radius: 4px;
     box-shadow: var(--shadow-premium);
-    padding: 8mm;
-    /* Reduced padding for cleaner look */
+    padding: 15mm;
     display: flex;
     flex-direction: column;
     font-family: 'Arial', sans-serif;
@@ -329,24 +328,33 @@
 }
 
 .label-header {
-    border-bottom: 3px solid #000;
+    border-bottom: 5px solid #000;
     padding-bottom: 12px;
     margin-bottom: 20px;
-    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     position: relative;
 }
 
+.label-brand-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
 .label-title {
-    font-size: 2.2rem;
+    font-size: 4rem;
+    /* Reduced from 5rem to avoid overlap */
     font-weight: 900;
     text-transform: uppercase;
     display: block;
     line-height: 1;
-    letter-spacing: -1px;
+    letter-spacing: -2px;
 }
 
 .label-subtitle {
-    font-size: 0.85rem;
+    font-size: 1.8rem;
     font-weight: 700;
     text-transform: uppercase;
     color: #4B5563;
@@ -366,28 +374,26 @@
 }
 
 .label-field label {
-    font-size: 0.65rem;
+    font-size: 1.2rem;
     font-weight: 800;
     text-transform: uppercase;
-    border-bottom: 1px solid #000;
-    margin-bottom: 4px;
+    border-bottom: 3px solid #000;
+    margin-bottom: 8px;
     color: #000;
 }
 
 .label-field .value {
-    font-size: 1.1rem;
-    /* Reduced from 1.25rem */
+    font-size: 2.5rem;
     font-weight: 800;
-    padding: 2px 0;
+    padding: 8px 0;
     color: #000;
     text-transform: uppercase;
 }
 
 .label-field.large .value {
-    font-size: 1.2rem;
-    /* Reduced to fit more content */
-    font-weight: 900;
-    line-height: 1.1;
+    font-size: 3.5rem;
+    font-weight: 950;
+    line-height: 1;
 }
 
 .label-footer {
@@ -422,20 +428,28 @@
 }
 
 .qr-placeholder {
-    width: 70px;
-    height: 70px;
+    width: 140px;
+    height: 140px;
     background-color: transparent;
-    border: 2px solid #000;
+    border: 4px solid #000;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #000;
-    position: absolute;
-    top: 0;
-    right: 0;
+    /* Removed absolute position to let flexbox handle it */
+}
+
+.qr-placeholder svg {
+    width: 100px !important;
+    height: 100px !important;
 }
 
 @media print {
+
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
 
     .label-sidebar,
     .preview-header,
@@ -445,7 +459,7 @@
 
     .label-printer-container,
     .label-preview-area {
-        background: none;
+        background: none !important;
         height: auto;
         display: block;
         padding: 0;
@@ -454,10 +468,10 @@
 
     .label-mockup {
         box-shadow: none;
-        width: 100mm;
-        height: 150mm;
+        width: 210mm;
+        height: 295mm;
         border: none;
-        padding: 5mm;
+        padding: 15mm;
         margin: 0;
         transform: none !important;
         page-break-after: always;

@@ -292,10 +292,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
                         <div className={`label-mockup animate-scale-in model-${labelType}`} id="printable-label">
                             <div className="label-header">
-                                <span className="label-title">Kingraf</span>
-                                <span className="label-subtitle">
-                                    {labelType === 'pallet' ? 'Controle de Paletização' : 'Identificação Geral'}
-                                </span>
+                                <div className="label-brand-box">
+                                    <span className="label-title">Kingraf</span>
+                                    <span className="label-subtitle">
+                                        {labelType === 'pallet' ? 'Controle de Paletização' : 'Identificação Geral'}
+                                    </span>
+                                </div>
                                 <div className="qr-placeholder">
                                     <QrCode size={40} strokeWidth={2.5} />
                                 </div>
