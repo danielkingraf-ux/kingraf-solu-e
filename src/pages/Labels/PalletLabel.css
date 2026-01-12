@@ -83,6 +83,9 @@
 .pallet-label-sidebar .sidebar-footer {
     padding: 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .pallet-label-sidebar .print-btn {
@@ -151,15 +154,27 @@
 .preview-header {
     position: absolute;
     top: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 1rem;
+    right: 1rem;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 0.5rem;
     background: rgba(30, 41, 59, 0.9);
     color: #FFF;
     padding: 0.5rem 1rem;
     border-radius: 8px;
+}
+
+.preview-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 0.5rem;
+}
     font-size: 0.85rem;
     font-weight: 600;
     z-index: 100;

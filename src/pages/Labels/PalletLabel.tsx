@@ -208,16 +208,6 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                 </div>
 
                 <div className="sidebar-footer">
-                    <button className="save-btn" onClick={handleSave}>
-                        <Save size={20} />
-                        {savedId ? 'Atualizar' : 'Salvar'}
-                    </button>
-                    {savedId && (
-                        <button className="delete-btn" onClick={handleDelete}>
-                            <Trash2 size={20} />
-                            Excluir
-                        </button>
-                    )}
                     <button className="print-btn" onClick={handlePrint}>
                         <Printer size={20} />
                         Imprimir Etiquetas
@@ -227,8 +217,26 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
             <main className="pallet-label-preview-area">
                 <div className="preview-header">
-                    <Copy size={16} color="var(--kingraf-orange)" />
-                    <span>Pré-visualização: Palete {palletInfo.current} de {palletInfo.total}</span>
+                    <div className="preview-info">
+                        <Copy size={16} color="var(--kingraf-orange)" />
+                        <span>Pré-visualização: Palete {palletInfo.current} de {palletInfo.total}</span>
+                    </div>
+                    <div className="preview-actions">
+                        <button className="save-btn" onClick={handleSave}>
+                            <Save size={20} />
+                            {savedId ? 'Atualizar' : 'Salvar'}
+                        </button>
+                        {savedId && (
+                            <button className="delete-btn" onClick={handleDelete}>
+                                <Trash2 size={20} />
+                                Excluir
+                            </button>
+                        )}
+                        <button className="print-btn" onClick={handlePrint}>
+                            <Printer size={20} />
+                            Imprimir
+                        </button>
+                    </div>
                 </div>
 
                 <div className="a4-page-preview pallet-a4">
