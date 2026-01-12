@@ -17,6 +17,8 @@ interface Revisao {
     op: string;
     setor_origem: { nome: string } | null;
     operador: { nome: string } | null;
+    setores?: { setor: { nome: string } | null }[];
+    operadores?: { operador: { nome: string } | null }[];
     quantidade_revisada: number;
     quantidade_aprovada: number;
     quantidade_reprovada: number;
@@ -38,6 +40,14 @@ interface RevisorDetalhe {
     revisor: { nome: string } | null;
 }
 
+interface OperadorDetalhe {
+    operador: { nome: string } | null;
+}
+
+interface SetorDetalhe {
+    setor: { nome: string } | null;
+}
+
 interface RevisionHistoryProps {
     onNavigate?: (page: string) => void;
 }
@@ -49,6 +59,8 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
     const [selectedRevisao, setSelectedRevisao] = useState<Revisao | null>(null);
     const [desviosDetalhe, setDesviosDetalhe] = useState<DesvioDetalhe[]>([]);
     const [revisoresDetalhe, setRevisoresDetalhe] = useState<RevisorDetalhe[]>([]);
+    const [operadoresDetalhe, setOperadoresDetalhe] = useState<OperadorDetalhe[]>([]);
+    const [setoresDetalhe, setSetoresDetalhe] = useState<SetorDetalhe[]>([]);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [confirmReopenRevisao, setConfirmReopenRevisao] = useState<Revisao | null>(null);
 
@@ -65,7 +77,9 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                     *,
                     setor_origem:qual_setores(nome),
                     operador:qual_operadores(nome),
-                    tempos:qual_revisao_tempos(data_inicio, data_fim)
+                    tempos:qual_revisao_tempos(data_inicio, data_fim),
+                    operadores:qual_revisao_operadores(operador:qual_operadores(nome)),
+                    setores:qual_revisao_setores(setor:qual_setores(nome))
                 `)
                 .order('created_at', { ascending: false });
 
@@ -116,8 +130,24 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
             `)
             .eq('revisao_id', revisao.id);
 
+        const { data: operadores } = await supabase
+            .from('qual_revisao_operadores')
+            .select(`
+                operador:qual_operadores(nome)
+            `)
+            .eq('revisao_id', revisao.id);
+
+        const { data: setores } = await supabase
+            .from('qual_revisao_setores')
+            .select(`
+                setor:qual_setores(nome)
+            `)
+            .eq('revisao_id', revisao.id);
+
         setDesviosDetalhe((desvios || []) as any);
         setRevisoresDetalhe((revisores || []) as any);
+        setOperadoresDetalhe((operadores || []) as any);
+        setSetoresDetalhe((setores || []) as any);
     };
 
     const excluirRevisao = async (id: string) => {
@@ -128,6 +158,8 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
             // Deletar dados relacionados primeiro
             await supabase.from('qual_revisao_desvios').delete().eq('revisao_id', id);
             await supabase.from('qual_revisao_revisores').delete().eq('revisao_id', id);
+            await supabase.from('qual_revisao_operadores').delete().eq('revisao_id', id);
+            await supabase.from('qual_revisao_setores').delete().eq('revisao_id', id);
             await supabase.from('qual_revisao_tempos').delete().eq('revisao_id', id);
 
             // Deletar a revisão principal
@@ -405,6 +437,58 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {setoresDetalhe.length > 0 && (
+                            <div style={{ marginBottom: '24px' }}>
+                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Setores (causadores)
+                                </h4>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {setoresDetalhe.map((s, i) => (
+                                        <span
+                                            key={i}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: '#F8FAFC',
+                                                borderRadius: '8px',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                color: '#0F172A',
+                                                border: '1px solid #E2E8F0'
+                                            }}
+                                        >
+                                            {s.setor?.nome || 'Setor'}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {operadoresDetalhe.length > 0 && (
+                            <div style={{ marginBottom: '24px' }}>
+                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Operadores (causadores)
+                                </h4>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {operadoresDetalhe.map((o, i) => (
+                                        <span
+                                            key={i}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: '#F8FAFC',
+                                                borderRadius: '8px',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                color: '#0F172A',
+                                                border: '1px solid #E2E8F0'
+                                            }}
+                                        >
+                                            {o.operador?.nome || 'Operador'}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Revisores */}
                         {revisoresDetalhe.length > 0 && (

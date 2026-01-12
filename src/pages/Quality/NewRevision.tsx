@@ -60,8 +60,8 @@ const NewRevision: React.FC = () => {
     const [revisaId, setRevisaoId] = useState<string | null>(null);
     const [activeOp, setActiveOp] = useState('');
     const [op, setOp] = useState('');
-    const [setorOrigemId, setSetorOrigemId] = useState('');
-    const [operadorId, setOperadorId] = useState('');
+    const [selectedSetores, setSelectedSetores] = useState<string[]>([]);
+    const [selectedOperadores, setSelectedOperadores] = useState<string[]>([]);
     const [selectedRevisores, setSelectedRevisores] = useState<string[]>([]);
     const [dataInicio, setDataInicio] = useState('');
     const [dataFim, setDataFim] = useState('');
@@ -76,6 +76,8 @@ const NewRevision: React.FC = () => {
 
     const [loading, setLoading] = useState(false);
     const [showRevisorModal, setShowRevisorModal] = useState(false);
+    const [showOperadorModal, setShowOperadorModal] = useState(false);
+    const [showSetorModal, setShowSetorModal] = useState(false);
 
     useEffect(() => {
         carregarDadosReferencia();
@@ -101,7 +103,9 @@ const NewRevision: React.FC = () => {
                 .select(`
                     *,
                     revisores:qual_revisao_revisores(revisor_id),
-                    tempos:qual_revisao_tempos(*)
+                    tempos:qual_revisao_tempos(*),
+                    operadores:qual_revisao_operadores(operador_id),
+                    setores:qual_revisao_setores(setor_id)
                 `)
                 .eq('op', opValue)
                 .eq('status', 'em_andamento')
@@ -110,8 +114,26 @@ const NewRevision: React.FC = () => {
             if (revisao) {
                 setRevisaoId(revisao.id);
                 setActiveOp(revisao.op || opValue);
-                setSetorOrigemId(revisao.setor_origem_id || '');
-                setOperadorId(revisao.operador_id || '');
+                const setorIds = (revisao.setores || [])
+                    .map((item: any) => item.setor_id)
+                    .filter(Boolean);
+                const operadorIds = (revisao.operadores || [])
+                    .map((item: any) => item.operador_id)
+                    .filter(Boolean);
+                setSelectedSetores(
+                    setorIds.length > 0
+                        ? setorIds
+                        : revisao.setor_origem_id
+                            ? [revisao.setor_origem_id]
+                            : []
+                );
+                setSelectedOperadores(
+                    operadorIds.length > 0
+                        ? operadorIds
+                        : revisao.operador_id
+                            ? [revisao.operador_id]
+                            : []
+                );
                 setAcumuladoRevisada(revisao.quantidade_revisada || 0);
                 setAcumuladoAprovada(revisao.quantidade_aprovada || 0);
                 setObservacaoGeral(revisao.observacao_geral || '');
@@ -181,14 +203,30 @@ const NewRevision: React.FC = () => {
         }
     };
 
+    const toggleOperador = (id: string) => {
+        if (selectedOperadores.includes(id)) {
+            setSelectedOperadores(selectedOperadores.filter(o => o !== id));
+        } else {
+            setSelectedOperadores([...selectedOperadores, id]);
+        }
+    };
+
+    const toggleSetor = (id: string) => {
+        if (selectedSetores.includes(id)) {
+            setSelectedSetores(selectedSetores.filter(s => s !== id));
+        } else {
+            setSelectedSetores([...selectedSetores, id]);
+        }
+    };
+
     const handleSave = async (finalizar: boolean = false) => {
-        if (!op || !setorOrigemId || selectedRevisores.length === 0 || !dataInicio) {
-            alert('Por favor, preencha OP, Setor, Revisores e Data de inicio.');
+        if (!op || selectedSetores.length === 0 || selectedRevisores.length === 0 || !dataInicio) {
+            alert('Por favor, preencha OP, Setores, Revisores e Data de inicio.');
             return;
         }
 
-        if (!operadorId) {
-            alert('Por favor, selecione um operador antes de salvar.');
+        if (selectedOperadores.length === 0) {
+            alert('Por favor, selecione operador(es) antes de salvar.');
             return;
         }
 
@@ -221,10 +259,12 @@ const NewRevision: React.FC = () => {
             // 1. Criar ou Atualizar a revisão
             const totalRevisada = acumuladoRevisada + quantidadeRevisada;
             const totalAprovada = acumuladoAprovada + quantidadeAprovada;
+            const primarySetorId = selectedSetores[0] || null;
+            const primaryOperadorId = selectedOperadores[0] || null;
             const revisionData = {
                 op,
-                setor_origem_id: setorOrigemId,
-                operador_id: operadorId || null,
+                setor_origem_id: primarySetorId,
+                operador_id: primaryOperadorId,
                 quantidade_revisada: totalRevisada,
                 quantidade_aprovada: totalAprovada,
                 quantidade_reprovada: Math.max(0, totalRevisada - totalAprovada),
@@ -277,6 +317,40 @@ const NewRevision: React.FC = () => {
                 .from('qual_revisao_revisores')
                 .insert(revisoresPayload);
             if (revError) throw revError;
+
+            const { error: deleteOperadoresError } = await supabase
+                .from('qual_revisao_operadores')
+                .delete()
+                .eq('revisao_id', currentRevisaoId);
+            if (deleteOperadoresError) throw deleteOperadoresError;
+
+            if (selectedOperadores.length > 0) {
+                const operadoresPayload = selectedOperadores.map(operadorId => ({
+                    revisao_id: currentRevisaoId,
+                    operador_id: operadorId
+                }));
+                const { error: operError } = await supabase
+                    .from('qual_revisao_operadores')
+                    .insert(operadoresPayload);
+                if (operError) throw operError;
+            }
+
+            const { error: deleteSetoresError } = await supabase
+                .from('qual_revisao_setores')
+                .delete()
+                .eq('revisao_id', currentRevisaoId);
+            if (deleteSetoresError) throw deleteSetoresError;
+
+            if (selectedSetores.length > 0) {
+                const setoresPayload = selectedSetores.map(setorId => ({
+                    revisao_id: currentRevisaoId,
+                    setor_id: setorId
+                }));
+                const { error: setorError } = await supabase
+                    .from('qual_revisao_setores')
+                    .insert(setoresPayload);
+                if (setorError) throw setorError;
+            }
 
             // 4. Inserir desvios (com upload de fotos)
             if (desvios.length > 0) {
@@ -350,8 +424,8 @@ const NewRevision: React.FC = () => {
             setOp('');
         }
         setActiveOp('');
-        setSetorOrigemId('');
-        setOperadorId('');
+        setSelectedSetores([]);
+        setSelectedOperadores([]);
         setSelectedRevisores([]);
         setDataInicio(getLocalDateTimeString());
         setDataFim('');
@@ -417,48 +491,48 @@ const NewRevision: React.FC = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Setor de Origem *</label>
-                                <select
-                                    required
-                                    value={setorOrigemId}
-                                    onChange={e => setSetorOrigemId(e.target.value)}
+                                <label>Setores (causadores) *</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSetorModal(true)}
                                     style={{
                                         padding: '12px 16px',
                                         border: '1px solid #D1D5DB',
                                         borderRadius: '12px',
                                         backgroundColor: '#F8FAFC',
-                                        color: '#0F172A',
+                                        color: selectedSetores.length > 0 ? '#0F172A' : '#94A3B8',
                                         fontSize: '14px',
-                                        fontWeight: 500
+                                        fontWeight: 500,
+                                        textAlign: 'left',
+                                        cursor: 'pointer'
                                     }}
                                 >
-                                    <option value="">Selecione o setor</option>
-                                    {setores.map(s => (
-                                        <option key={s.id} value={s.id}>{s.nome}</option>
-                                    ))}
-                                </select>
+                                    {selectedSetores.length > 0
+                                        ? `${selectedSetores.length} setor(es) selecionado(s)`
+                                        : 'Clique para selecionar setores'}
+                                </button>
                             </div>
                             <div className="form-group">
-                                <label>Operador (Produção) *</label>
-                                <select
-                                    required
-                                    value={operadorId}
-                                    onChange={e => setOperadorId(e.target.value)}
+                                <label>Operadores (causadores) *</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOperadorModal(true)}
                                     style={{
                                         padding: '12px 16px',
                                         border: '1px solid #D1D5DB',
                                         borderRadius: '12px',
                                         backgroundColor: '#F8FAFC',
-                                        color: '#0F172A',
+                                        color: selectedOperadores.length > 0 ? '#0F172A' : '#94A3B8',
                                         fontSize: '14px',
-                                        fontWeight: 500
+                                        fontWeight: 500,
+                                        textAlign: 'left',
+                                        cursor: 'pointer'
                                     }}
                                 >
-                                    <option value="">Selecione o operador</option>
-                                    {operadores.map(o => (
-                                        <option key={o.id} value={o.id}>{o.nome}</option>
-                                    ))}
-                                </select>
+                                    {selectedOperadores.length > 0
+                                        ? `${selectedOperadores.length} operador(es) selecionado(s)`
+                                        : 'Clique para selecionar operadores'}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -854,6 +928,136 @@ const NewRevision: React.FC = () => {
                                 onClick={() => setShowRevisorModal(false)}
                             >
                                 Confirmar ({selectedRevisores.length})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showOperadorModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h3>Selecionar Operadores</h3>
+                            <button onClick={() => setShowOperadorModal(false)}><X size={20} /></button>
+                        </div>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {operadores.map(o => (
+                                <label
+                                    key={o.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '12px 16px',
+                                        marginBottom: '8px',
+                                        backgroundColor: selectedOperadores.includes(o.id) ? 'var(--kingraf-orange-alpha)' : '#F8FAFC',
+                                        border: selectedOperadores.includes(o.id) ? '1px solid var(--kingraf-orange)' : '1px solid #E2E8F0',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedOperadores.includes(o.id)}
+                                        onChange={() => toggleOperador(o.id)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div
+                                        style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            borderRadius: '6px',
+                                            border: selectedOperadores.includes(o.id) ? '2px solid var(--kingraf-orange)' : '2px solid #CBD5E1',
+                                            backgroundColor: selectedOperadores.includes(o.id) ? 'var(--kingraf-orange)' : 'transparent',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        {selectedOperadores.includes(o.id) && (
+                                            <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
+                                                <path d="M1 5L5 9L13 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{o.nome}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn-orange"
+                                onClick={() => setShowOperadorModal(false)}
+                            >
+                                Confirmar ({selectedOperadores.length})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showSetorModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h3>Selecionar Setores</h3>
+                            <button onClick={() => setShowSetorModal(false)}><X size={20} /></button>
+                        </div>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {setores.map(s => (
+                                <label
+                                    key={s.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '12px 16px',
+                                        marginBottom: '8px',
+                                        backgroundColor: selectedSetores.includes(s.id) ? 'var(--kingraf-orange-alpha)' : '#F8FAFC',
+                                        border: selectedSetores.includes(s.id) ? '1px solid var(--kingraf-orange)' : '1px solid #E2E8F0',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedSetores.includes(s.id)}
+                                        onChange={() => toggleSetor(s.id)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div
+                                        style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            borderRadius: '6px',
+                                            border: selectedSetores.includes(s.id) ? '2px solid var(--kingraf-orange)' : '2px solid #CBD5E1',
+                                            backgroundColor: selectedSetores.includes(s.id) ? 'var(--kingraf-orange)' : 'transparent',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        {selectedSetores.includes(s.id) && (
+                                            <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
+                                                <path d="M1 5L5 9L13 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{s.nome}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn-orange"
+                                onClick={() => setShowSetorModal(false)}
+                            >
+                                Confirmar ({selectedSetores.length})
                             </button>
                         </div>
                     </div>
