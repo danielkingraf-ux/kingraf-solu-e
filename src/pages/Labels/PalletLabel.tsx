@@ -127,7 +127,7 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                 .eq('id', savedId);
             if (error) throw error;
             setSavedId(null);
-            alert('Etiqueta excluída com sucesso!');
+            alert('Etiqueta excluida com sucesso!');
         } catch (error) {
             console.error('Erro ao excluir:', error);
             alert('Erro ao excluir a etiqueta.');

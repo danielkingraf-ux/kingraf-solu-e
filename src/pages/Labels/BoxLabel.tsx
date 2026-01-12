@@ -99,7 +99,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const handleSave = async (): Promise<boolean> => {
         if (loading) return false;
         if (!labelData.opOf) {
-            alert('Por favor, preencha o número da OP/OF antes de salvar.');
+            alert('Por favor, preencha o numero da OP/OF antes de salvar.');
             return false;
         }
         try {

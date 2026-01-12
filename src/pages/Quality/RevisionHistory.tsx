@@ -134,11 +134,11 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
             const { error } = await supabase.from('qual_revisoes').delete().eq('id', id);
             if (error) throw error;
 
-            alert('Revisão excluída com sucesso!');
+            alert('Revisao excluida com sucesso!');
             carregarRevisoes();
         } catch (error) {
             console.error('Erro ao excluir revisão:', error);
-            alert('Erro ao excluir revisão.');
+            alert('Erro ao excluir revisao.');
         } finally {
             setLoading(false);
         }
@@ -164,7 +164,7 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                 console.log('Revisão reaberta com sucesso:', revisao.id);
             } catch (error) {
                 console.error('Erro ao reabrir revisão:', error);
-                alert('Erro ao reabrir revisão.');
+                alert('Erro ao reabrir revisao.');
                 setLoading(false);
                 return;
             } finally {

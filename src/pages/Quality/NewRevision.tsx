@@ -183,7 +183,7 @@ const NewRevision: React.FC = () => {
 
     const handleSave = async (finalizar: boolean = false) => {
         if (!op || !setorOrigemId || selectedRevisores.length === 0 || !dataInicio) {
-            alert('Por favor, preencha OP, Setor, Revisores e Data de Início.');
+            alert('Por favor, preencha OP, Setor, Revisores e Data de inicio.');
             return;
         }
 
@@ -199,12 +199,12 @@ const NewRevision: React.FC = () => {
         }
 
         if (quantidadeRevisada < 0 || quantidadeAprovada < 0) {
-            alert('As quantidades nÇœo podem ser negativas.');
+            alert('As quantidades nao podem ser negativas.');
             return;
         }
 
         if (quantidadeAprovada > quantidadeRevisada) {
-            alert('A quantidade aprovada nÇœo pode ser maior que a revisada.');
+            alert('A quantidade aprovada nao pode ser maior que a revisada.');
             return;
         }
 
@@ -212,7 +212,7 @@ const NewRevision: React.FC = () => {
         const inicioMs = new Date(dataInicio).getTime();
         const fimMs = new Date(dataFimValue).getTime();
         if (Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs < inicioMs) {
-            alert('A data/hora de tÇ¸rmino nÇœo pode ser menor que a de inÇðcio.');
+            alert('A data/hora de termino nao pode ser menor que a de inicio.');
             return;
         }
 
@@ -314,7 +314,7 @@ const NewRevision: React.FC = () => {
             }
 
             if (finalizar) {
-                alert('Revisão finalizada com sucesso!');
+                alert('Revisao finalizada com sucesso!');
                 resetForm();
             } else {
                 alert('Progresso salvo!');

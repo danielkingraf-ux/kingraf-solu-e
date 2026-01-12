@@ -99,7 +99,7 @@ const Sizes: React.FC = () => {
                 .eq('id', id);
 
             if (error) throw error;
-            alert('Tamanho excluído com sucesso!');
+            alert('Tamanho excluido com sucesso!');
             fetchSizes();
         } catch (error: any) {
             alert('Erro ao excluir: ' + error.message);

@@ -140,7 +140,7 @@ const BoxRegistry: React.FC = () => {
 
     const handleSave = async () => {
         if (!formData.op || !formData.client || !formData.product) {
-            alert('Por favor, preencha os campos obrigatórios (OP, Cliente, Produto).');
+            alert('Por favor, preencha os campos obrigatorios (OP, Cliente, Produto).');
             return;
         }
 
