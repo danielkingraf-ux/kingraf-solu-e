@@ -14,6 +14,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const [labelType, setLabelType] = useState<'pallet' | 'info'>('pallet');
     const [showBoxLabel, setShowBoxLabel] = useState(false);
     const [boxEditItem, setBoxEditItem] = useState<any | null>(null);
+    const [savedId, setSavedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,8 +25,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         op: '',
         client: '',
         product: '',
-        sku: '',
-        quantity: '',
         boxNumber: '1/10',
         date: new Date().toLocaleDateString('pt-BR'),
         especifico: {
@@ -132,23 +131,41 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
         const quantidade = labelType === 'pallet'
             ? String(totalPallet())
-            : (labelData.quantity || '0');
+            : null;
 
         try {
             // 1. Salvar no historico para auditoria/rastreabilidade
-            const { error } = await supabase
-                .from('prod_etiquetas_historico')
-                .insert([{
-                    tipo: labelType,
-                    op: labelData.op,
-                    cliente: labelType === 'info' ? '' : labelData.client,
-                    produto: labelType === 'info' ? '' : labelData.product,
-                    sku: labelData.sku || null,
-                    quantidade,
-                    volume: labelData.boxNumber,
-                    data: labelData.date,
-                    info_extra: labelData.especifico
-                }]);
+            const payload = {
+                tipo: labelType,
+                op: labelData.op,
+                cliente: labelType === 'info' ? '' : labelData.client,
+                produto: labelType === 'info' ? '' : labelData.product,
+                quantidade,
+                volume: labelData.boxNumber,
+                data: labelData.date,
+                info_extra: labelData.especifico
+            };
+
+            let error;
+            let insertedId: string | undefined;
+            if (savedId) {
+                const result = await supabase
+                    .from('prod_etiquetas_historico')
+                    .update(payload)
+                    .eq('id', savedId);
+                error = result.error;
+            } else {
+                const result = await supabase
+                    .from('prod_etiquetas_historico')
+                    .insert([payload])
+                    .select('id');
+                error = result.error;
+                insertedId = result.data?.[0]?.id;
+            }
+
+            if (!savedId && insertedId) {
+                setSavedId(insertedId);
+            }
 
             if (error) {
                 console.error('Erro ao salvar no historico:', error);
@@ -164,18 +181,17 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         }
     };
 
-    const loadFromHistory = (item: any) => {
+    const loadFromHistory = (item: any, forEdit = false) => {
         setLabelType(item.tipo);
         setLabelData({
             op: item.op || '',
             client: item.cliente || '',
             product: item.produto || '',
-            sku: item.sku || '',
-            quantity: item.quantidade || '',
             boxNumber: item.volume || '',
             date: item.data || '',
             especifico: item.info_extra || { lote: '', destino: '', obs: '' }
         });
+        setSavedId(forEdit ? item.id : null);
         setActiveTab('new');
     };
 
@@ -185,7 +201,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             setShowBoxLabel(true);
             return;
         }
-        loadFromHistory(item.raw || item);
+        loadFromHistory(item.raw || item, true);
     };
 
     const handleDelete = async (item: any) => {
@@ -212,7 +228,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             const haystack = [
                 item.tipo,
                 item.op,
-                item.sku,
                 item.cliente,
                 item.info_extra?.destino
             ]
@@ -250,7 +265,10 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 <div className="tabs-header">
                     <button
                         className={`tab-btn ${activeTab === 'new' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('new')}
+                        onClick={() => {
+                            setSavedId(null);
+                            setActiveTab('new');
+                        }}
                     >
                         Nova Etiqueta
                     </button>
@@ -267,21 +285,30 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         <div className="model-selector animate-fade-in-up" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                             <button
                                 className={`model-option ${labelType === 'pallet' ? 'active' : ''}`}
-                                onClick={() => setLabelType('pallet')}
+                                onClick={() => {
+                                    setSavedId(null);
+                                    setLabelType('pallet');
+                                }}
                             >
                                 <Layers size={18} />
                                 <span>Pallet</span>
                             </button>
                             <button
                                 className={`model-option ${labelType === 'info' ? 'active' : ''}`}
-                                onClick={() => setLabelType('info')}
+                                onClick={() => {
+                                    setSavedId(null);
+                                    setLabelType('info');
+                                }}
                             >
                                 <Info size={18} />
                                 <span>Infor</span>
                             </button>
                             <button
                                 className="model-option"
-                                onClick={() => setShowBoxLabel(true)}
+                                onClick={() => {
+                                    setSavedId(null);
+                                    setShowBoxLabel(true);
+                                }}
                             >
                                 <Package size={18} />
                                 <span>8x Caixa</span>
@@ -396,7 +423,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                 <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhuma etiqueta encontrada.</p>
                             ) : (
                                 filteredHistory.map((item: any) => {
-                                    const reference = item.op || item.sku || '---';
+                                    const reference = item.op || item.volume || '---';
                                     const description = item.cliente || item.info_extra?.destino || 'Sem cliente/destino';
                                     const detail = item.tipo === 'caixa'
                                         ? `Seq: ${item.info_extra?.range_start || '-'} - ${item.info_extra?.range_end || '-'}`
@@ -519,12 +546,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '25px' }}>
-                            <div className="label-field" style={{ flex: 1 }}>
-                                <label>{labelType === 'pallet' ? 'TOTAL PALLET' : 'QUANTIDADE'}</label>
-                                <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? totalPallet() : (labelData.quantity || '0')}</div>
-                            </div>
-                            <div className="label-field" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', gap: '25px', justifyContent: labelType === 'pallet' ? 'flex-start' : 'center' }}>
+                            {labelType === 'pallet' && (
+                                <div className="label-field" style={{ flex: 1 }}>
+                                    <label>TOTAL PALLET</label>
+                                    <div className="value" style={{ fontSize: '3.4rem' }}>{totalPallet()}</div>
+                                </div>
+                            )}
+                            <div className="label-field" style={labelType === 'pallet' ? { flex: 1 } : { width: '60%', textAlign: 'center' }}>
                                 <label>{labelType === 'pallet' ? 'CAIXAS' : 'DATA'}</label>
                                 <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? (labelData.especifico.qtdCaixas || '0') : labelData.date}</div>
                             </div>
@@ -561,15 +590,3 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 };
 
 export default LabelPrinter;
-
-
-
-
-
-
-
-
-
-
-
-

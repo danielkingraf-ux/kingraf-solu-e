@@ -58,6 +58,7 @@ const NewRevision: React.FC = () => {
 
     // Estado do formulário
     const [revisaId, setRevisaoId] = useState<string | null>(null);
+    const [activeOp, setActiveOp] = useState('');
     const [op, setOp] = useState('');
     const [setorOrigemId, setSetorOrigemId] = useState('');
     const [operadorId, setOperadorId] = useState('');
@@ -91,7 +92,8 @@ const NewRevision: React.FC = () => {
 
     // Busca revisão ativa ao mudar a OP
     const buscarOpAtiva = async (numeroOp: string) => {
-        if (!numeroOp || revisaId) return;
+        const opValue = numeroOp.trim();
+        if (!opValue || (revisaId && activeOp === opValue)) return;
 
         try {
             const { data: revisao, error: _error } = await supabase
@@ -101,22 +103,32 @@ const NewRevision: React.FC = () => {
                     revisores:qual_revisao_revisores(revisor_id),
                     tempos:qual_revisao_tempos(*)
                 `)
-                .eq('op', numeroOp)
+                .eq('op', opValue)
                 .eq('status', 'em_andamento')
                 .maybeSingle();
 
             if (revisao) {
                 setRevisaoId(revisao.id);
+                setActiveOp(revisao.op || opValue);
                 setSetorOrigemId(revisao.setor_origem_id || '');
                 setOperadorId(revisao.operador_id || '');
                 setAcumuladoRevisada(revisao.quantidade_revisada || 0);
                 setAcumuladoAprovada(revisao.quantidade_aprovada || 0);
                 setObservacaoGeral(revisao.observacao_geral || '');
                 setTemposAnteriores(revisao.tempos || []);
+                setDataInicio(getLocalDateTimeString());
+                setDataFim('');
+                setQuantidadeRevisada(0);
+                setQuantidadeAprovada(0);
+                setQuantidadeReprovada(0);
+                setDesvios([]);
 
                 if (revisao.revisores) {
                     setSelectedRevisores(revisao.revisores.map((r: any) => r.revisor_id));
                 }
+            } else if (revisaId && activeOp && activeOp !== opValue) {
+                resetForm(true);
+                setOp(opValue);
             }
         } catch (err) {
             console.error('Erro ao buscar OP ativa:', err);
@@ -175,16 +187,47 @@ const NewRevision: React.FC = () => {
             return;
         }
 
+        if (!operadorId) {
+            alert('Por favor, selecione um operador antes de salvar.');
+            return;
+        }
+
+        const opValue = op.trim();
+        if (revisaId && activeOp && opValue !== activeOp) {
+            alert('A OP foi alterada. Recarregue a OP antes de salvar.');
+            return;
+        }
+
+        if (quantidadeRevisada < 0 || quantidadeAprovada < 0) {
+            alert('As quantidades nÇœo podem ser negativas.');
+            return;
+        }
+
+        if (quantidadeAprovada > quantidadeRevisada) {
+            alert('A quantidade aprovada nÇœo pode ser maior que a revisada.');
+            return;
+        }
+
+        const dataFimValue = dataFim || getLocalDateTimeString();
+        const inicioMs = new Date(dataInicio).getTime();
+        const fimMs = new Date(dataFimValue).getTime();
+        if (Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs < inicioMs) {
+            alert('A data/hora de tÇ¸rmino nÇœo pode ser menor que a de inÇðcio.');
+            return;
+        }
+
         setLoading(true);
         try {
             // 1. Criar ou Atualizar a revisão
+            const totalRevisada = acumuladoRevisada + quantidadeRevisada;
+            const totalAprovada = acumuladoAprovada + quantidadeAprovada;
             const revisionData = {
                 op,
                 setor_origem_id: setorOrigemId,
                 operador_id: operadorId || null,
-                quantidade_revisada: acumuladoRevisada + quantidadeRevisada,
-                quantidade_aprovada: acumuladoAprovada + quantidadeAprovada,
-                quantidade_reprovada: (acumuladoRevisada + quantidadeRevisada) - (acumuladoAprovada + quantidadeAprovada),
+                quantidade_revisada: totalRevisada,
+                quantidade_aprovada: totalAprovada,
+                quantidade_reprovada: Math.max(0, totalRevisada - totalAprovada),
                 observacao_geral: observacaoGeral,
                 status: finalizar ? 'finalizada' : 'em_andamento'
             };
@@ -206,6 +249,7 @@ const NewRevision: React.FC = () => {
                 if (insertError) throw insertError;
                 currentRevisaoId = newRev.id;
                 setRevisaoId(newRev.id);
+                setActiveOp(op);
             }
 
             // 2. Salvar o período de tempo
@@ -214,21 +258,25 @@ const NewRevision: React.FC = () => {
                 .insert([{
                     revisao_id: currentRevisaoId,
                     data_inicio: dataInicio,
-                    data_fim: dataFim || null
+                    data_fim: dataFimValue
                 }]);
             if (tempoError) throw tempoError;
 
             // 3. Vincular revisores (apenas se for nova revisão)
-            if (!revisaId) {
-                const revisoresPayload = selectedRevisores.map(rid => ({
-                    revisao_id: currentRevisaoId,
-                    revisor_id: rid
-                }));
-                const { error: revError } = await supabase
-                    .from('qual_revisao_revisores')
-                    .insert(revisoresPayload);
-                if (revError) throw revError;
-            }
+            const { error: deleteRevisoresError } = await supabase
+                .from('qual_revisao_revisores')
+                .delete()
+                .eq('revisao_id', currentRevisaoId);
+            if (deleteRevisoresError) throw deleteRevisoresError;
+
+            const revisoresPayload = selectedRevisores.map(rid => ({
+                revisao_id: currentRevisaoId,
+                revisor_id: rid
+            }));
+            const { error: revError } = await supabase
+                .from('qual_revisao_revisores')
+                .insert(revisoresPayload);
+            if (revError) throw revError;
 
             // 4. Inserir desvios (com upload de fotos)
             if (desvios.length > 0) {
@@ -296,9 +344,12 @@ const NewRevision: React.FC = () => {
         }
     };
 
-    const resetForm = () => {
+    const resetForm = (keepOp: boolean = false) => {
         setRevisaoId(null);
-        setOp('');
+        if (!keepOp) {
+            setOp('');
+        }
+        setActiveOp('');
         setSetorOrigemId('');
         setOperadorId('');
         setSelectedRevisores([]);
