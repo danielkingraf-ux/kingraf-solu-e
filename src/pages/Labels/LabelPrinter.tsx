@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, X, LayoutTemplate, QrCode, Layers, Info, Search, Edit2, Package } from 'lucide-react';
+﻿import React, { useEffect, useState } from 'react';
+import { Printer, X, LayoutTemplate, QrCode, Layers, Info, Search, Edit2, Package, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import './LabelPrinter.css';
 import BoxLabel from './BoxLabel';
@@ -13,13 +13,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'library'>('new');
     const [labelType, setLabelType] = useState<'pallet' | 'info'>('pallet');
     const [showBoxLabel, setShowBoxLabel] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState('');
+    const [boxEditItem, setBoxEditItem] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [libraryTab, setLibraryTab] = useState<'pallet' | 'info' | 'caixa'>('pallet');
 
     // Form State
     const [labelData, setLabelData] = useState({
-        category: '',
         op: '',
         client: '',
         product: '',
@@ -47,15 +48,56 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const fetchHistory = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('prod_etiquetas_historico')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const [historicoResult, caixaResult] = await Promise.all([
+                supabase
+                    .from('prod_etiquetas_historico')
+                    .select('*')
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('prod_etiquetas_caixa')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+            ]);
 
-            if (error) throw error;
-            setHistory(data || []);
+            if (historicoResult.error) throw historicoResult.error;
+            if (caixaResult.error) throw caixaResult.error;
+
+            const historicoItems = (historicoResult.data || []).map((item: any) => ({
+                ...item,
+                source: 'historico',
+                raw: item
+            }));
+
+            const caixaItems = (caixaResult.data || []).map((item: any) => ({
+                id: item.id,
+                tipo: 'caixa',
+                op: item.op,
+                cliente: item.cliente,
+                quantidade: item.quantidade,
+                created_at: item.created_at,
+                info_extra: {
+                    lote: item.lote,
+                    cli: item.cli,
+                    laudo: item.laudo,
+                    data_acabamento: item.data_acabamento,
+                    validade: item.validade,
+                    emissor: item.emissor,
+                    operador: item.operador,
+                    hora: item.hora,
+                    range_start: item.range_start,
+                    range_end: item.range_end,
+                    range_total: item.range_total
+                },
+                source: 'caixa',
+                raw: item
+            }));
+
+            const merged = [...historicoItems, ...caixaItems].sort(
+                (a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+            );
+            setHistory(merged);
         } catch (error) {
-            console.error('Erro ao buscar histórico:', error);
+            console.error('Erro ao buscar historico:', error);
         } finally {
             setLoading(false);
         }
@@ -83,38 +125,48 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     };
 
     const handlePrint = async () => {
-        try {
-            // 1. Abrir diálogo de impressão do sistema
-            window.print();
+        if (!labelData.op) {
+            alert('Por favor, preencha a OP antes de salvar.');
+            return;
+        }
 
-            // 2. Salvar no histórico para auditoria/rastreabilidade
+        const quantidade = labelType === 'pallet'
+            ? String(totalPallet())
+            : (labelData.quantity || '0');
+
+        try {
+            // 1. Salvar no historico para auditoria/rastreabilidade
             const { error } = await supabase
                 .from('prod_etiquetas_historico')
                 .insert([{
                     tipo: labelType,
-                    categoria: labelData.category,
                     op: labelData.op,
                     cliente: labelType === 'info' ? '' : labelData.client,
                     produto: labelType === 'info' ? '' : labelData.product,
-                    sku: labelData.sku,
-                    quantidade: labelData.quantity,
+                    sku: labelData.sku || null,
+                    quantidade,
                     volume: labelData.boxNumber,
                     data: labelData.date,
                     info_extra: labelData.especifico
                 }]);
 
             if (error) {
-                console.error('Erro ao salvar no histórico:', error);
+                console.error('Erro ao salvar no historico:', error);
+                alert(`Erro ao salvar a etiqueta: ${error.message || error.code || 'Erro desconhecido'}`);
+                return;
             }
-        } catch (err) {
-            console.error('Falha no processo de impressão/registro:', err);
+
+            // 2. Abrir dialogo de impressao do sistema
+            window.print();
+        } catch (err: any) {
+            console.error('Falha no processo de impressao/registro:', err);
+            alert(`Erro ao salvar a etiqueta: ${err?.message || 'Erro desconhecido'}`);
         }
     };
 
     const loadFromHistory = (item: any) => {
         setLabelType(item.tipo);
         setLabelData({
-            category: item.categoria || '',
             op: item.op || '',
             client: item.cliente || '',
             product: item.produto || '',
@@ -127,8 +179,60 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         setActiveTab('new');
     };
 
+    const handleEdit = (item: any) => {
+        if (item.source === 'caixa') {
+            setBoxEditItem(item.raw);
+            setShowBoxLabel(true);
+            return;
+        }
+        loadFromHistory(item.raw || item);
+    };
+
+    const handleDelete = async (item: any) => {
+        if (!confirm('Tem certeza que deseja excluir esta etiqueta?')) return;
+        try {
+            const table = item.source === 'caixa' ? 'prod_etiquetas_caixa' : 'prod_etiquetas_historico';
+            const { error } = await supabase
+                .from(table)
+                .delete()
+                .eq('id', item.id);
+            if (error) throw error;
+            setHistory(prev => prev.filter(entry => !(entry.id === item.id && entry.source === item.source)));
+            alert('Etiqueta excluida com sucesso!');
+        } catch (error) {
+            console.error('Erro ao excluir:', error);
+            alert('Erro ao excluir a etiqueta.');
+        }
+    };
+
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const typeHistory = history.filter((item: any) => item.tipo === libraryTab);
+    const filteredHistory = normalizedSearch
+        ? typeHistory.filter((item: any) => {
+            const haystack = [
+                item.tipo,
+                item.op,
+                item.sku,
+                item.cliente,
+                item.info_extra?.destino
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(normalizedSearch);
+        })
+        : typeHistory;
+
     if (showBoxLabel) {
-        return <BoxLabel onBack={() => setShowBoxLabel(false)} />;
+        return (
+            <BoxLabel
+                onBack={() => {
+                    setShowBoxLabel(false);
+                    setBoxEditItem(null);
+                }}
+                initialItem={boxEditItem || undefined}
+            />
+        );
     }
 
     // Pallet and Info labels both render in the main mockup view
@@ -185,17 +289,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         </div>
 
                         <div className="form-group animate-fade-in-up delay-100">
-                            <label>Categoria</label>
-                            <select name="category" value={labelData.category} onChange={handleChange}>
-                                <option value="">Selecione...</option>
-                                <option value="Produção">Produção</option>
-                                <option value="Qualidade">Qualidade</option>
-                                <option value="Expedição">Expedição</option>
-                                <option value="Outro">Outro</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group animate-fade-in-up delay-100">
                             <label>Ordem de Produção (OP)</label>
                             <input name="op" value={labelData.op} onChange={handleChange} placeholder="Ex: 123456" />
                         </div>
@@ -243,17 +336,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                            <div className="form-group animate-fade-in-up delay-500">
-                                <label>SKU / Código</label>
-                                <input name="sku" value={labelData.sku} onChange={handleChange} />
-                            </div>
-                            <div className="form-group animate-fade-in-up delay-500">
-                                <label>Quantidade</label>
-                                <input name="quantity" value={labelData.quantity} onChange={handleChange} />
-                            </div>
-                        </div>
-
                         {labelType === 'info' && (
                             <div className="form-group animate-fade-in-up delay-600">
                                 <label>Observações</label>
@@ -265,15 +347,105 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             <label>Numeração / Volume</label>
                             <input name="boxNumber" value={labelData.boxNumber} onChange={handleChange} />
                         </div>
+
+
                     </div>
                 ) : (
                     <div className="sidebar-content">
-                        <div className="form-group animate-fade-in-up">
-                            <label>Pesquisar no Histórico</label>
-                            <div style={{ position: 'relative' }}>
-                                <input placeholder="Buscar por OP ou Cliente..." />
-                                <Search size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                        <div className="tabs-header">
+                            <button
+                                className={`tab-btn ${libraryTab === 'pallet' ? 'active' : ''}`}
+                                onClick={() => setLibraryTab('pallet')}
+                            >
+                                Pallet
+                            </button>
+                            <button
+                                className={`tab-btn ${libraryTab === 'info' ? 'active' : ''}`}
+                                onClick={() => setLibraryTab('info')}
+                            >
+                                Infor
+                            </button>
+                            <button
+                                className={`tab-btn ${libraryTab === 'caixa' ? 'active' : ''}`}
+                                onClick={() => setLibraryTab('caixa')}
+                            >
+                                Caixa
+                            </button>
+                        </div>
+
+                        <div className="search-section">
+                            <h3 className="section-title">Buscar</h3>
+                            <div className="search-row">
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Buscar por OP, cliente ou destino..."
+                                    onKeyDown={(e) => e.key === 'Enter' && fetchHistory()}
+                                />
+                                <button className="search-btn" onClick={fetchHistory} title="Atualizar lista">
+                                    <Search size={18} />
+                                </button>
                             </div>
+                        </div>
+
+                        <div className="archive-list">
+                            {loading ? (
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Carregando...</p>
+                            ) : filteredHistory.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhuma etiqueta encontrada.</p>
+                            ) : (
+                                filteredHistory.map((item: any) => {
+                                    const reference = item.op || item.sku || '---';
+                                    const description = item.cliente || item.info_extra?.destino || 'Sem cliente/destino';
+                                    const detail = item.tipo === 'caixa'
+                                        ? `Seq: ${item.info_extra?.range_start || '-'} - ${item.info_extra?.range_end || '-'}`
+                                        : `Volume: ${item.volume || '---'}`;
+
+                                    return (
+                                        <div key={`${item.source}-${item.id}`} className="archive-item" onClick={() => handleEdit(item)}>
+                                            <div className="archive-item-header">
+                                                <div className="archive-item-title">
+                                                    <strong>OP: {reference}</strong>
+                                                    <span className={`label-type-tag tag-${item.tipo}`}>{item.tipo}</span>
+                                                </div>
+                                                <div className="archive-item-meta">
+                                                    <span className="archive-date">{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                                                    <div className="archive-item-actions">
+                                                        <button
+                                                            className="action-btn-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleEdit(item);
+                                                            }}
+                                                            title="Editar/Re-imprimir"
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="action-btn-sm delete"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDelete(item);
+                                                            }}
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="archive-item-body">
+                                                <span>{description}</span>
+                                                <span>{item.produto || 'Sem produto'}</span>
+                                            </div>
+                                            <div className="archive-item-footer">
+                                                <span>{detail}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
                 )}
@@ -287,160 +459,117 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             </aside>
 
             <main className="label-preview-area">
-                {activeTab === 'new' ? (
-                    <>
-                        <div className="preview-header animate-fade-in-up">
-                            <LayoutTemplate size={16} color="var(--kingraf-orange)" />
-                            <span>Visualização: Etiquetas para {labelType.charAt(0).toUpperCase() + labelType.slice(1)}</span>
+                <div className="preview-header animate-fade-in-up">
+                    <LayoutTemplate size={16} color="var(--kingraf-orange)" />
+                    <span>Visualização: Etiquetas para {labelType.charAt(0).toUpperCase() + labelType.slice(1)}</span>
+                </div>
+
+                <div className={`label-mockup a4-page-preview animate-scale-in model-${labelType}`} id="printable-label">
+                    <div className="label-header">
+                        <div className="label-brand-box">
+                            <span className="label-title">Kingraf</span>
+                            <span className="label-subtitle">
+                                {labelType === 'pallet' ? 'Controle de Paletização' : 'Identificação Geral'}
+                            </span>
                         </div>
-
-                        <div className={`label-mockup a4-page-preview animate-scale-in model-${labelType}`} id="printable-label">
-                            <div className="label-header">
-                                <div className="label-brand-box">
-                                    <span className="label-title">Kingraf</span>
-                                    <span className="label-subtitle">
-                                        {labelType === 'pallet' ? 'Controle de Paletização' : 'Identificação Geral'}
-                                    </span>
-                                </div>
-                                <div className="qr-placeholder">
-                                    <QrCode size={40} strokeWidth={2.5} />
-                                </div>
-                            </div>
-
-                            <div className="label-content">
-                                {labelType === 'info' ? (
-                                    <>
-                                        <div className="label-field large">
-                                            <label>DESTINO / SETOR</label>
-                                            <div className="value">{labelData.especifico.destino || 'SETOR DE LOGÍSTICA'}</div>
-                                        </div>
-                                        <div className="label-field large">
-                                            <label>CONTEÚDO / OBS</label>
-                                            <div className="value">{labelData.especifico.obs || 'INFORMAÇÃO DE CONTROLE'}</div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="label-field large">
-                                            <label>CLIENTE</label>
-                                            <div className="value">{labelData.client || 'CLIENTE MODELO LTDA'}</div>
-                                        </div>
-                                        <div className="label-field large">
-                                            <label>PRODUTO</label>
-                                            <div className="value">{labelData.product || 'CAIXA DE PAPELÃO PADRÃO'}</div>
-                                        </div>
-                                    </>
-                                )}
-
-                                <div style={{ display: 'flex', gap: '25px' }}>
-                                    <div className="label-field" style={{ flex: 1 }}>
-                                        <label>OP / ORDEM</label>
-                                        <div className="value">{labelData.op || '000000'}</div>
-                                    </div>
-                                    {labelType === 'pallet' && (
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label>LOTE</label>
-                                            <div className="value">{labelData.especifico.lote || '0000'}</div>
-                                        </div>
-                                    )}
-                                    <div className="label-field" style={{ flex: 0.8 }}>
-                                        <label>HORA</label>
-                                        <div className="value">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '25px' }}>
-                                    <div className="label-field" style={{ flex: 1 }}>
-                                        <label>{labelType === 'pallet' ? 'TOTAL PALLET' : 'QUANTIDADE'}</label>
-                                        <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? totalPallet() : (labelData.quantity || '0')}</div>
-                                    </div>
-                                    <div className="label-field" style={{ flex: 1 }}>
-                                        <label>{labelType === 'pallet' ? 'CAIXAS' : 'DATA'}</label>
-                                        <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? (labelData.especifico.qtdCaixas || '0') : labelData.date}</div>
-                                    </div>
-                                    {labelType === 'pallet' && (
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label>QTD POR CAIXA</label>
-                                            <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.especifico.qtdPorCaixa || '0'}</div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {labelType === 'pallet' && (
-                                    <div style={{ display: 'flex', gap: '25px' }}>
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label>OPERADOR</label>
-                                            <div className="value">{labelData.especifico.operador || '---'}</div>
-                                        </div>
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label>DATA</label>
-                                            <div className="value">{labelData.date}</div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="label-field" style={{ flex: 1 }}>
-                                    <label>VOLUME / SEQUÊNCIA</label>
-                                    <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.boxNumber}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="history-container animate-fade-in-up">
-                        <div className="form-group" style={{ marginBottom: '1rem' }}>
-                            <label>Filtrar por Categoria</label>
-                            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                                <option value="">Todas</option>
-                                <option value="Produção">Produção</option>
-                                <option value="Qualidade">Qualidade</option>
-                                <option value="Expedição">Expedição</option>
-                                <option value="Outro">Outro</option>
-                            </select>
-                        </div>
-                        <div className="history-card">
-                            <table className="history-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tipo</th>
-                                        <th>Categoria</th>
-                                        <th>OP / Ref</th>
-                                        <th>Cliente / Destino</th>
-                                        <th>Qtd</th>
-                                        <th>Data</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr><td colSpan={7} style={{ textAlign: 'center' }}>Carregando dados...</td></tr>
-                                    ) : history.length === 0 ? (
-                                        <tr><td colSpan={7} style={{ textAlign: 'center' }}>Nenhuma etiqueta encontrada.</td></tr>
-                                    ) : (
-                                        (selectedCategory ? history.filter(item => item.categoria === selectedCategory) : history).map((item: any) => (
-                                            <tr key={item.id}>
-                                                <td><span className={`label-type-tag tag-${item.tipo}`}>{item.tipo}</span></td>
-                                                <td>{item.categoria}</td>
-                                                <td><strong>{item.op || item.sku}</strong></td>
-                                                <td>{item.cliente || item.info_extra?.destino}</td>
-                                                <td>{item.quantidade}</td>
-                                                <td>{new Date(item.created_at).toLocaleDateString()}</td>
-                                                <td style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="action-btn-sm" onClick={() => loadFromHistory(item)} title="Editar/Re-imprimir">
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                        <div className="qr-placeholder">
+                            <QrCode size={40} strokeWidth={2.5} />
                         </div>
                     </div>
-                )}
-            </main >
+
+                    <div className="label-content">
+                        {labelType === 'info' ? (
+                            <>
+                                <div className="label-field large">
+                                    <label>DESTINO / SETOR</label>
+                                    <div className="value">{labelData.especifico.destino || 'SETOR DE LOGÍSTICA'}</div>
+                                </div>
+                                <div className="label-field large">
+                                    <label>CONTEÚDO / OBS</label>
+                                    <div className="value">{labelData.especifico.obs || 'INFORMAÇÃO DE CONTROLE'}</div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="label-field large">
+                                    <label>CLIENTE</label>
+                                    <div className="value">{labelData.client || 'CLIENTE MODELO LTDA'}</div>
+                                </div>
+                                <div className="label-field large">
+                                    <label>PRODUTO</label>
+                                    <div className="value">{labelData.product || 'CAIXA DE PAPELÃO PADRÃO'}</div>
+                                </div>
+                            </>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '25px' }}>
+                            <div className="label-field" style={{ flex: 1 }}>
+                                <label>OP / ORDEM</label>
+                                <div className="value">{labelData.op || '000000'}</div>
+                            </div>
+                            {labelType === 'pallet' && (
+                                <div className="label-field" style={{ flex: 1 }}>
+                                    <label>LOTE</label>
+                                    <div className="value">{labelData.especifico.lote || '0000'}</div>
+                                </div>
+                            )}
+                            <div className="label-field" style={{ flex: 0.8 }}>
+                                <label>HORA</label>
+                                <div className="value">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '25px' }}>
+                            <div className="label-field" style={{ flex: 1 }}>
+                                <label>{labelType === 'pallet' ? 'TOTAL PALLET' : 'QUANTIDADE'}</label>
+                                <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? totalPallet() : (labelData.quantity || '0')}</div>
+                            </div>
+                            <div className="label-field" style={{ flex: 1 }}>
+                                <label>{labelType === 'pallet' ? 'CAIXAS' : 'DATA'}</label>
+                                <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? (labelData.especifico.qtdCaixas || '0') : labelData.date}</div>
+                            </div>
+                            {labelType === 'pallet' && (
+                                <div className="label-field" style={{ flex: 1 }}>
+                                    <label>QTD POR CAIXA</label>
+                                    <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.especifico.qtdPorCaixa || '0'}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {labelType === 'pallet' && (
+                            <div style={{ display: 'flex', gap: '25px' }}>
+                                <div className="label-field" style={{ flex: 1 }}>
+                                    <label>OPERADOR</label>
+                                    <div className="value">{labelData.especifico.operador || '---'}</div>
+                                </div>
+                                <div className="label-field" style={{ flex: 1 }}>
+                                    <label>DATA</label>
+                                    <div className="value">{labelData.date}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="label-field" style={{ flex: 1 }}>
+                            <label>VOLUME / SEQUÊNCIA</label>
+                            <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.boxNumber}</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div >
     );
 };
 
 export default LabelPrinter;
+
+
+
+
+
+
+
+
+
+
+
+

@@ -63,34 +63,42 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
         setLabelData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
+        const saved = await handleSave();
+        if (!saved) return;
         window.print();
     };
 
-    const handleSave = async () => {
+    const handleSave = async (): Promise<boolean> => {
         try {
             const dataToSave = {
                 tipo: 'pallet',
+                op: labelData.op,
                 cliente: labelData.cliente,
                 produto: labelData.produto,
-                lote: labelData.lote,
-                op: labelData.op,
-                operador: labelData.operadorMaquina,
-                turno: labelData.turno,
-                quantidade_por_caixa: labelData.quantidadePorCaixa,
-                caixas_por_pallet: labelData.caixasPorPallet,
+                sku: '',
+                quantidade: totalQuantity,
+                volume: `${palletInfo.current}/${palletInfo.total}`,
                 data: labelData.data,
-                hora: labelData.hora
+                info_extra: {
+                    lote: labelData.lote,
+                    operador: labelData.operadorMaquina,
+                    turno: labelData.turno,
+                    quantidadePorCaixa: labelData.quantidadePorCaixa,
+                    caixasPorPallet: labelData.caixasPorPallet,
+                    hora: labelData.hora
+                }
             };
 
             if (savedId) {
                 // Update
                 const { error } = await supabase
                     .from('prod_etiquetas_historico')
-                    .update({ info_extra: dataToSave })
+                    .update({ info_extra: dataToSave.info_extra, quantidade: dataToSave.quantidade, volume: dataToSave.volume, data: dataToSave.data })
                     .eq('id', savedId);
                 if (error) throw error;
                 alert('Etiqueta atualizada com sucesso!');
+                return true;
             } else {
                 // Insert
                 const { data, error } = await supabase
@@ -100,10 +108,12 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                 if (error) throw error;
                 setSavedId(data[0].id);
                 alert('Etiqueta salva com sucesso!');
+                return true;
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
             alert('Erro ao salvar a etiqueta.');
+            return false;
         }
     };
 

@@ -205,6 +205,127 @@
     background: rgba(255, 92, 0, 0.02);
 }
 
+.section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--kingraf-orange);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+/* Search Section */
+.search-section {
+    margin-bottom: 1.5rem;
+}
+
+.search-row {
+    display: flex;
+    gap: 8px;
+}
+
+.search-row input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+}
+
+.search-row input:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+}
+
+.search-btn {
+    padding: 0.75rem 1rem;
+    background: var(--kingraf-orange);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+    background: var(--kingraf-orange-dark);
+    transform: scale(1.05);
+}
+
+/* Archive List */
+.archive-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+}
+
+.archive-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.archive-item:hover {
+    background: rgba(255, 92, 0, 0.1);
+    border-color: var(--kingraf-orange);
+}
+
+.archive-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.archive-item-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.archive-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.archive-item-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.archive-item-header strong {
+    color: var(--kingraf-orange);
+    font-size: 0.95rem;
+}
+
+.archive-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.archive-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.archive-item-footer {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
 .label-type-tag {
     padding: 4px 10px;
     border-radius: 20px;
@@ -234,11 +355,21 @@
     background: var(--bg-main);
     color: var(--text-secondary);
     transition: all 0.2s;
+    cursor: pointer;
 }
 
 .action-btn-sm:hover {
     background: var(--kingraf-orange-alpha);
     color: var(--kingraf-orange);
+}
+
+.action-btn-sm.delete {
+    background: #f44336;
+    color: white;
+}
+
+.action-btn-sm.delete:hover {
+    background: #d32f2f;
 }
 
 /* Model Selector */

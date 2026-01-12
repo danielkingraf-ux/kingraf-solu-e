@@ -5,6 +5,7 @@ import './BoxLabel.css';
 
 interface BoxLabelProps {
     onBack: () => void;
+    initialItem?: any;
 }
 
 interface LabelData {
@@ -22,7 +23,7 @@ interface LabelData {
     hora: string;
 }
 
-const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
+const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const [range, setRange] = useState({ start: 1, end: 8, total: 8 });
     const [validityMonths, setValidityMonths] = useState<string>('');
     const [isTimeManual, setIsTimeManual] = useState(false);
@@ -30,6 +31,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
     const [searchOP, setSearchOP] = useState('');
     const [archivedLabels, setArchivedLabels] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [savedId, setSavedId] = useState<string | null>(null);
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
@@ -87,15 +89,18 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
         }
     };
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
+        const saved = await handleSave();
+        if (!saved) return;
         window.print();
     };
 
     // Save labels to database
-    const handleSave = async () => {
+    const handleSave = async (): Promise<boolean> => {
+        if (loading) return false;
         if (!labelData.opOf) {
             alert('Por favor, preencha o número da OP/OF antes de salvar.');
-            return;
+            return false;
         }
         try {
             setLoading(true);
@@ -117,16 +122,30 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
                 range_total: range.total
             };
             console.log('Salvando dados:', insertData);
-            const { error } = await supabase.from('prod_etiquetas_caixa').insert(insertData);
+            let error;
+            let insertedId: string | undefined;
+            if (savedId) {
+                const result = await supabase.from('prod_etiquetas_caixa').update(insertData).eq('id', savedId);
+                error = result.error;
+            } else {
+                const result = await supabase.from('prod_etiquetas_caixa').insert(insertData).select('id');
+                error = result.error;
+                insertedId = result.data?.[0]?.id;
+            }
             if (error) {
                 console.error('Erro Supabase:', error);
                 alert(`Erro: ${error.message || error.code || 'Erro desconhecido'}`);
-                return;
+                return false;
             }
-            alert('Etiquetas arquivadas com sucesso!');
+            if (!savedId && insertedId) {
+                setSavedId(insertedId);
+            }
+            alert(savedId ? 'Etiqueta atualizada com sucesso!' : 'Etiquetas arquivadas com sucesso!');
+            return true;
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
             alert(`Erro ao salvar: ${error?.message || 'Erro desconhecido'}`);
+            return false;
         } finally {
             setLoading(false);
         }
@@ -151,7 +170,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
     };
 
     // Load from archive into form
-    const loadFromArchive = (item: any) => {
+    const loadFromArchive = (item: any, forEdit = false) => {
         setLabelData({
             cliente: item.cliente || '',
             produto: item.produto || '',
@@ -171,6 +190,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
             end: item.range_end || 8,
             total: item.range_total || 8
         });
+        setSavedId(forEdit ? item.id : null);
+        setIsTimeManual(true);
         setActiveTab('nova');
     };
 
@@ -180,6 +201,12 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
             handleSearch();
         }
     }, [activeTab]);
+
+    useEffect(() => {
+        if (initialItem) {
+            loadFromArchive(initialItem, true);
+        }
+    }, [initialItem]);
 
     const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -447,7 +474,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack }) => {
                     {activeTab === 'nova' && (
                         <button className="save-btn" onClick={handleSave} disabled={loading}>
                             <Save size={20} />
-                            {loading ? 'Salvando...' : 'Arquivar'}
+                            {loading ? 'Salvando...' : (savedId ? 'Atualizar' : 'Arquivar')}
                         </button>
                     )}
                     <button className="print-btn" onClick={handlePrint}>
