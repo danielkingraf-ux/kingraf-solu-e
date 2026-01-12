@@ -215,10 +215,30 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
         }
     };
 
-    const filteredRevisoes = revisoes.filter(r =>
-        r.op.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.setor_origem?.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const formatList = (items: string[], limit: number = 2) => {
+        if (items.length === 0) return '-';
+        if (items.length <= limit) return items.join(', ');
+        const head = items.slice(0, limit).join(', ');
+        return `${head} +${items.length - limit}`;
+    };
+
+    const filteredRevisoes = revisoes.filter(r => {
+        const term = searchTerm.toLowerCase();
+        if (!term) return true;
+        const operadores = (r.operadores || [])
+            .map(o => o.operador?.nome)
+            .filter(Boolean) as string[];
+        const setores = (r.setores || [])
+            .map(s => s.setor?.nome)
+            .filter(Boolean) as string[];
+        return (
+            r.op.toLowerCase().includes(term) ||
+            (r.setor_origem?.nome || '').toLowerCase().includes(term) ||
+            (r.operador?.nome || '').toLowerCase().includes(term) ||
+            operadores.some(nome => nome.toLowerCase().includes(term)) ||
+            setores.some(nome => nome.toLowerCase().includes(term))
+        );
+    });
 
     const formatarDataShort = (dataStr: string) => {
         return new Date(dataStr).toLocaleString('pt-BR', {
@@ -259,8 +279,8 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                         <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                             <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Data/Hora</th>
                             <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>OP</th>
-                            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Operador</th>
-                            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Setor</th>
+                            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Operadores</th>
+                            <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Setores</th>
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Revisadas</th>
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Aprovadas</th>
                             <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '13px', color: '#64748B' }}>Reprovadas</th>
@@ -292,10 +312,28 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                                         {r.op}
                                     </td>
                                     <td style={{ padding: '14px 16px', fontSize: '14px', color: '#0F172A' }}>
-                                        {r.operador?.nome || '-'}
+                                        {(() => {
+                                            const operadores = (r.operadores || [])
+                                                .map(o => o.operador?.nome)
+                                                .filter(Boolean) as string[];
+                                            return formatList(
+                                                operadores.length > 0
+                                                    ? operadores
+                                                    : (r.operador?.nome ? [r.operador.nome] : [])
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '14px 16px', fontSize: '14px', color: '#0F172A' }}>
-                                        {r.setor_origem?.nome || '-'}
+                                        {(() => {
+                                            const setores = (r.setores || [])
+                                                .map(s => s.setor?.nome)
+                                                .filter(Boolean) as string[];
+                                            return formatList(
+                                                setores.length > 0
+                                                    ? setores
+                                                    : (r.setor_origem?.nome ? [r.setor_origem.nome] : [])
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '14px 16px', textAlign: 'center', fontSize: '14px', fontWeight: 600 }}>
                                         {r.quantidade_revisada.toLocaleString()}
@@ -422,11 +460,11 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
                         <div style={{ marginBottom: '24px' }}>
                             <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Setor de Origem</div>
+                                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Setor principal</div>
                                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{selectedRevisao.setor_origem?.nome || '-'}</div>
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Operador (Produção)</div>
+                                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Operador principal</div>
                                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{selectedRevisao.operador?.nome || '-'}</div>
                                 </div>
                                 <div style={{ flex: 1 }}>
