@@ -100,7 +100,39 @@
     cursor: pointer;
     box-shadow: 0 10px 20px rgba(255, 92, 0, 0.2);
 }
+.pallet-label-sidebar .save-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+}
 
+.pallet-label-sidebar .delete-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+}
 /* Preview Area */
 .pallet-label-preview-area {
     flex: 1;
@@ -203,21 +235,26 @@
 /* CONTENT */
 .pl-content {
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 5mm;
 }
 
-.pl-row {
-    display: flex;
-    gap: 5mm;
+.pl-field.span-1 {
+    grid-column: span 1;
 }
 
-.pl-row.two-col .pl-field {
-    flex: 1;
+.pl-field.span-2 {
+    grid-column: span 2;
 }
 
-.pl-row.three-col .pl-field {
+.pl-field.span-3 {
+    grid-column: span 3;
+}
+
+.pl-field.span-row-2 {
+    grid-row: span 2;
+}
     flex: 1;
 }
 
@@ -260,7 +297,7 @@
     color: #FFF;
     padding: 2mm 4mm;
     display: inline-block;
-    font-size: 30pt;
+    font-size: 3.4rem;
 }
 
 .pl-value.peso {

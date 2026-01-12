@@ -13,11 +13,13 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'library'>('new');
     const [labelType, setLabelType] = useState<'pallet' | 'info'>('pallet');
     const [showBoxLabel, setShowBoxLabel] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
 
     // Form State
     const [labelData, setLabelData] = useState({
+        category: '',
         op: '',
         client: '',
         product: '',
@@ -27,8 +29,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         date: new Date().toLocaleDateString('pt-BR'),
         especifico: {
             lote: '',
-            peso: '',
-            pesoPorCaixa: '',
             destino: '',
             obs: '',
             operador: '',
@@ -69,7 +69,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        if (['lote', 'peso', 'pesoPorCaixa', 'destino', 'obs', 'operador', 'qtdCaixas', 'qtdPorCaixa'].includes(name)) {
+        if (['lote', 'destino', 'obs', 'operador', 'qtdCaixas', 'qtdPorCaixa'].includes(name)) {
             setLabelData((prev: any) => ({
                 ...prev,
                 especifico: { ...prev.especifico, [name]: value }
@@ -92,6 +92,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 .from('prod_etiquetas_historico')
                 .insert([{
                     tipo: labelType,
+                    categoria: labelData.category,
                     op: labelData.op,
                     cliente: labelType === 'info' ? '' : labelData.client,
                     produto: labelType === 'info' ? '' : labelData.product,
@@ -113,6 +114,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const loadFromHistory = (item: any) => {
         setLabelType(item.tipo);
         setLabelData({
+            category: item.categoria || '',
             op: item.op || '',
             client: item.cliente || '',
             product: item.produto || '',
@@ -120,7 +122,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             quantity: item.quantidade || '',
             boxNumber: item.volume || '',
             date: item.data || '',
-            especifico: item.info_extra || { lote: '', peso: '', destino: '', obs: '' }
+            especifico: item.info_extra || { lote: '', destino: '', obs: '' }
         });
         setActiveTab('new');
     };
@@ -183,6 +185,17 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         </div>
 
                         <div className="form-group animate-fade-in-up delay-100">
+                            <label>Categoria</label>
+                            <select name="category" value={labelData.category} onChange={handleChange}>
+                                <option value="">Selecione...</option>
+                                <option value="Produção">Produção</option>
+                                <option value="Qualidade">Qualidade</option>
+                                <option value="Expedição">Expedição</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+
+                        <div className="form-group animate-fade-in-up delay-100">
                             <label>Ordem de Produção (OP)</label>
                             <input name="op" value={labelData.op} onChange={handleChange} placeholder="Ex: 123456" />
                         </div>
@@ -202,16 +215,6 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
                         {labelType === 'pallet' && (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <div className="form-group animate-fade-in-up delay-400">
-                                        <label>Peso Total (kg)</label>
-                                        <input name="peso" value={labelData.especifico.peso} onChange={handleChange} />
-                                    </div>
-                                    <div className="form-group animate-fade-in-up delay-400">
-                                        <label>Peso por Caixa (kg)</label>
-                                        <input name="pesoPorCaixa" value={labelData.especifico.pesoPorCaixa} onChange={handleChange} />
-                                    </div>
-                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <div className="form-group animate-fade-in-up delay-450">
                                         <label>Qtd. Caixas</label>
@@ -346,32 +349,21 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     </div>
                                 </div>
 
-                                {labelType === 'pallet' && (
-                                    <div style={{ display: 'flex', gap: '20px', marginBottom: '8px' }}>
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '1rem', borderBottomWidth: '2px' }}>PESO TOTAL (KG)</label>
-                                            <div className="value" style={{ color: '#D00', fontSize: '2.5rem', fontWeight: 900, lineHeight: 1 }}>
-                                                {labelData.especifico.peso || '---'}
-                                            </div>
-                                        </div>
-                                        <div className="label-field" style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '1rem', borderBottomWidth: '2px' }}>PESO / CAIXA (KG)</label>
-                                            <div className="value" style={{ fontSize: '1.8rem', fontWeight: 800 }}>
-                                                {labelData.especifico.pesoPorCaixa || '---'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div style={{ display: 'flex', gap: '25px' }}>
                                     <div className="label-field" style={{ flex: 1 }}>
                                         <label>{labelType === 'pallet' ? 'TOTAL PALLET' : 'QUANTIDADE'}</label>
-                                        <div className="value" style={{ fontSize: '2.4rem' }}>{labelType === 'pallet' ? totalPallet() : (labelData.quantity || '0')}</div>
+                                        <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? totalPallet() : (labelData.quantity || '0')}</div>
                                     </div>
                                     <div className="label-field" style={{ flex: 1 }}>
                                         <label>{labelType === 'pallet' ? 'CAIXAS' : 'DATA'}</label>
-                                        <div className="value">{labelType === 'pallet' ? (labelData.especifico.qtdCaixas || '0') : labelData.date}</div>
+                                        <div className="value" style={{ fontSize: '3.4rem' }}>{labelType === 'pallet' ? (labelData.especifico.qtdCaixas || '0') : labelData.date}</div>
                                     </div>
+                                    {labelType === 'pallet' && (
+                                        <div className="label-field" style={{ flex: 1 }}>
+                                            <label>QTD POR CAIXA</label>
+                                            <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.especifico.qtdPorCaixa || '0'}</div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {labelType === 'pallet' && (
@@ -389,18 +381,29 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
                                 <div className="label-field" style={{ flex: 1 }}>
                                     <label>VOLUME / SEQUÊNCIA</label>
-                                    <div className="value" style={{ fontSize: '1.8rem' }}>{labelData.boxNumber}</div>
+                                    <div className="value" style={{ fontSize: '3.4rem' }}>{labelData.boxNumber}</div>
                                 </div>
                             </div>
                         </div>
                     </>
                 ) : (
                     <div className="history-container animate-fade-in-up">
+                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                            <label>Filtrar por Categoria</label>
+                            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                                <option value="">Todas</option>
+                                <option value="Produção">Produção</option>
+                                <option value="Qualidade">Qualidade</option>
+                                <option value="Expedição">Expedição</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
                         <div className="history-card">
                             <table className="history-table">
                                 <thead>
                                     <tr>
                                         <th>Tipo</th>
+                                        <th>Categoria</th>
                                         <th>OP / Ref</th>
                                         <th>Cliente / Destino</th>
                                         <th>Qtd</th>
@@ -410,13 +413,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={6} style={{ textAlign: 'center' }}>Carregando dados...</td></tr>
+                                        <tr><td colSpan={7} style={{ textAlign: 'center' }}>Carregando dados...</td></tr>
                                     ) : history.length === 0 ? (
-                                        <tr><td colSpan={6} style={{ textAlign: 'center' }}>Nenhuma etiqueta encontrada.</td></tr>
+                                        <tr><td colSpan={7} style={{ textAlign: 'center' }}>Nenhuma etiqueta encontrada.</td></tr>
                                     ) : (
-                                        history.map((item: any) => (
+                                        (selectedCategory ? history.filter(item => item.categoria === selectedCategory) : history).map((item: any) => (
                                             <tr key={item.id}>
                                                 <td><span className={`label-type-tag tag-${item.tipo}`}>{item.tipo}</span></td>
+                                                <td>{item.categoria}</td>
                                                 <td><strong>{item.op || item.sku}</strong></td>
                                                 <td>{item.cliente || item.info_extra?.destino}</td>
                                                 <td>{item.quantidade}</td>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Copy } from 'lucide-react';
+import { Printer, X, Copy, Save, Trash2 } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
 import './PalletLabel.css';
 
 interface PalletLabelProps {
@@ -10,7 +11,8 @@ interface LabelData {
     cliente: string;
     produto: string;
     lote: string;
-    pesoPorCaixa: string;
+    quantidadePorCaixa: string;
+    caixasPorPallet: string;
     op: string;
     operadorMaquina: string;
     turno: string;
@@ -21,11 +23,13 @@ interface LabelData {
 const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
     const [palletInfo, setPalletInfo] = useState({ current: 1, total: 1 });
     const [isTimeManual, setIsTimeManual] = useState(false);
+    const [savedId, setSavedId] = useState<string | null>(null);
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
         lote: '',
-        pesoPorCaixa: '',
+        quantidadePorCaixa: '',
+        caixasPorPallet: '',
         op: '',
         operadorMaquina: '',
         turno: '',
@@ -49,6 +53,8 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
         return () => clearInterval(timer);
     }, [isTimeManual]);
 
+    const totalQuantity = (parseFloat(labelData.quantidadePorCaixa) || 0) * (parseInt(labelData.caixasPorPallet) || 0);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'hora' || name === 'data') {
@@ -59,6 +65,63 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const handleSave = async () => {
+        try {
+            const dataToSave = {
+                tipo: 'pallet',
+                cliente: labelData.cliente,
+                produto: labelData.produto,
+                lote: labelData.lote,
+                op: labelData.op,
+                operador: labelData.operadorMaquina,
+                turno: labelData.turno,
+                quantidade_por_caixa: labelData.quantidadePorCaixa,
+                caixas_por_pallet: labelData.caixasPorPallet,
+                data: labelData.data,
+                hora: labelData.hora
+            };
+
+            if (savedId) {
+                // Update
+                const { error } = await supabase
+                    .from('prod_etiquetas_historico')
+                    .update({ info_extra: dataToSave })
+                    .eq('id', savedId);
+                if (error) throw error;
+                alert('Etiqueta atualizada com sucesso!');
+            } else {
+                // Insert
+                const { data, error } = await supabase
+                    .from('prod_etiquetas_historico')
+                    .insert([dataToSave])
+                    .select('id');
+                if (error) throw error;
+                setSavedId(data[0].id);
+                alert('Etiqueta salva com sucesso!');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar:', error);
+            alert('Erro ao salvar a etiqueta.');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!savedId) return;
+        if (!confirm('Tem certeza que deseja excluir esta etiqueta?')) return;
+        try {
+            const { error } = await supabase
+                .from('prod_etiquetas_historico')
+                .delete()
+                .eq('id', savedId);
+            if (error) throw error;
+            setSavedId(null);
+            alert('Etiqueta excluída com sucesso!');
+        } catch (error) {
+            console.error('Erro ao excluir:', error);
+            alert('Erro ao excluir a etiqueta.');
+        }
     };
 
     const handlePalletInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,9 +164,15 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
                     <div className="form-section">
                         <h3 className="section-title">Especificações e Turno</h3>
-                        <div className="form-group">
-                            <label>Peso por Caixa (kg)</label>
-                            <input name="pesoPorCaixa" value={labelData.pesoPorCaixa} onChange={handleChange} placeholder="Ex: 12.5" />
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Quantidade por Caixa</label>
+                                <input name="quantidadePorCaixa" value={labelData.quantidadePorCaixa} onChange={handleChange} placeholder="Ex: 100" />
+                            </div>
+                            <div className="form-group">
+                                <label>Caixas por Pallet</label>
+                                <input name="caixasPorPallet" value={labelData.caixasPorPallet} onChange={handleChange} placeholder="Ex: 50" />
+                            </div>
                         </div>
                         <div className="form-row">
                             <div className="form-group">
@@ -139,6 +208,16 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                 </div>
 
                 <div className="sidebar-footer">
+                    <button className="save-btn" onClick={handleSave}>
+                        <Save size={20} />
+                        {savedId ? 'Atualizar' : 'Salvar'}
+                    </button>
+                    {savedId && (
+                        <button className="delete-btn" onClick={handleDelete}>
+                            <Trash2 size={20} />
+                            Excluir
+                        </button>
+                    )}
                     <button className="print-btn" onClick={handlePrint}>
                         <Printer size={20} />
                         Imprimir Etiquetas
@@ -164,48 +243,58 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
                             {/* Main Content Grid */}
                             <div className="pl-content">
-                                {/* Row 1: Cliente */}
-                                <div className="pl-row">
-                                    <div className="pl-field full">
-                                        <div className="pl-label">CLIENTE</div>
-                                        <div className="pl-value">{labelData.cliente || '---'}</div>
-                                    </div>
+                                {/* Cliente */}
+                                <div className="pl-field span-4 span-row-2">
+                                    <div className="pl-label">CLIENTE</div>
+                                    <div className="pl-value">{labelData.cliente || '---'}</div>
                                 </div>
 
-                                {/* Row 2: Produto */}
-                                <div className="pl-row">
-                                    <div className="pl-field full">
-                                        <div className="pl-label">PRODUTO</div>
-                                        <div className="pl-value bold">{labelData.produto || '---'}</div>
-                                    </div>
+                                {/* Produto */}
+                                <div className="pl-field span-4 span-row-2">
+                                    <div className="pl-label">PRODUTO</div>
+                                    <div className="pl-value bold">{labelData.produto || '---'}</div>
                                 </div>
 
-                                {/* Row 3: OP + Lote */}
-                                <div className="pl-row two-col">
-                                    <div className="pl-field">
-                                        <div className="pl-label">OP / ORDEM</div>
-                                        <div className="pl-value highlight">{labelData.op || '---'}</div>
-                                    </div>
-                                    <div className="pl-field">
-                                        <div className="pl-label">LOTE</div>
-                                        <div className="pl-value highlight">{labelData.lote || '---'}</div>
-                                    </div>
+                                {/* OP */}
+                                <div className="pl-field span-2">
+                                    <div className="pl-label">OP / ORDEM</div>
+                                    <div className="pl-value highlight">{labelData.op || '---'}</div>
                                 </div>
 
-                                {/* Row 4: Peso + Turno + Operador */}
-                                <div className="pl-row three-col">
-                                    <div className="pl-field weight-field">
-                                        <div className="pl-label">PESO / CAIXA (KG)</div>
-                                        <div className="pl-value peso">{labelData.pesoPorCaixa || '---'}</div>
-                                    </div>
-                                    <div className="pl-field">
-                                        <div className="pl-label">TURNO</div>
-                                        <div className="pl-value">{labelData.turno || '---'}</div>
-                                    </div>
-                                    <div className="pl-field">
-                                        <div className="pl-label">OPERADOR</div>
-                                        <div className="pl-value">{labelData.operadorMaquina || '---'}</div>
-                                    </div>
+                                {/* Lote */}
+                                <div className="pl-field span-2">
+                                    <div className="pl-label">LOTE</div>
+                                    <div className="pl-value highlight">{labelData.lote || '---'}</div>
+                                </div>
+
+                                {/* Turno */}
+                                <div className="pl-field span-2">
+                                    <div className="pl-label">TURNO</div>
+                                    <div className="pl-value">{labelData.turno || '---'}</div>
+                                </div>
+
+                                {/* Operador */}
+                                <div className="pl-field span-2">
+                                    <div className="pl-label">OPERADOR</div>
+                                    <div className="pl-value">{labelData.operadorMaquina || '---'}</div>
+                                </div>
+
+                                {/* QTD / CAIXA */}
+                                <div className="pl-field span-1">
+                                    <div className="pl-label">QTD / CAIXA</div>
+                                    <div className="pl-value">{labelData.quantidadePorCaixa || '---'}</div>
+                                </div>
+
+                                {/* CAIXAS / PALLET */}
+                                <div className="pl-field span-1">
+                                    <div className="pl-label">CAIXAS / PALLET</div>
+                                    <div className="pl-value highlight">{labelData.caixasPorPallet || '---'}</div>
+                                </div>
+
+                                {/* QTD NO PALLET */}
+                                <div className="pl-field span-2 span-row-2">
+                                    <div className="pl-label">QTD NO PALLET</div>
+                                    <div className="pl-value highlight">{totalQuantity || '---'}</div>
                                 </div>
                             </div>
 
