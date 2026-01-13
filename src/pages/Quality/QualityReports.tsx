@@ -315,7 +315,7 @@ Relatório gerado automaticamente
         <div className="stock-container">
             <div className="page-header">
                 <h2><FileText size={24} /> Relatórios de Qualidade</h2>
-                <div className="header-actions" style={{ display: 'flex', gap: '12px' }}>
+                <div className="header-actions">
                     <button
                         className="btn-orange"
                         onClick={() => setShowEmailModal(true)}
@@ -353,7 +353,7 @@ Relatório gerado automaticamente
                     </h3>
                 </div>
                 <div className="card-content">
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                    <div className="report-period-actions">
                         {(['semana', 'mes', 'ano'] as const).map(p => (
                             <button
                                 key={p}
@@ -373,7 +373,7 @@ Relatório gerado automaticamente
                             </button>
                         ))}
                     </div>
-                    <div className="form-row" style={{ maxWidth: '400px' }}>
+                    <div className="form-row report-date-row">
                         <div className="form-group">
                             <label>Data Início</label>
                             <input
@@ -405,7 +405,7 @@ Relatório gerado automaticamente
             ) : (
                 <div id="report-content">
                     {/* KPIs */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                    <div className="report-kpi-grid">
                         <div className="stock-card" style={{ textAlign: 'center', padding: '20px' }}>
                             <TrendingUp size={28} style={{ color: '#6366F1', marginBottom: '8px' }} />
                             <div style={{ fontSize: '28px', fontWeight: 800, color: '#0F172A' }}>{reportData.totalRevisoes}</div>
@@ -434,7 +434,7 @@ Relatório gerado automaticamente
                     </div>
 
                     {/* Gráficos */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                    <div className="report-charts-grid">
                         {/* Gráfico de Barras - Revisões por Setor */}
                         <div className="stock-card">
                             <div className="card-header">
@@ -521,7 +521,8 @@ Relatório gerado automaticamente
                             </h3>
                         </div>
                         <div className="card-content" style={{ padding: 0 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <div className="report-table-wrapper">
+                                <table className="report-table">
                                 <thead>
                                     <tr style={{ backgroundColor: '#F1F5F9' }}>
                                         <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>OP</th>
@@ -557,7 +558,8 @@ Relatório gerado automaticamente
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
