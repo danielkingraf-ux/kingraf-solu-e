@@ -27,7 +27,7 @@ interface LayoutProps {
 import logoFull from '../../assets/logo/logo-full.png';
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 1024);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
 
   // Atualiza o relógio a cada segundo
@@ -37,6 +37,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleNavigate = (pageId: string) => {
+    if (onNavigate) {
+      onNavigate(pageId);
+    }
+
+    if (window.innerWidth <= 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
 
   const getMenuItems = () => {
     // Check if we are in any production-related page
@@ -89,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
                 {groupParams.map((item, idx) => (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate ? onNavigate(item.id) : null}
+                    onClick={() => handleNavigate(item.id)}
                     className={`nav-item ${currentPage === item.id ? 'active' : ''} animate-slide-in-right delay-${(idx + 1) * 100}`}
                   >
                     <span className="nav-icon">{item.icon}</span>
