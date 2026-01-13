@@ -302,8 +302,8 @@
     }
 }
 
-.time-display {
-    font-size: 18px;
+.top-header .time-display {
+    font-size: 40px;
     font-weight: 700;
     color: var(--text-secondary);
     display: flex;
@@ -398,8 +398,8 @@
         font-size: 12px;
     }
 
-    .time-display {
-        font-size: 12px;
+    .top-header .time-display {
+        font-size: 24px;
     }
 
     .content-inner {
@@ -466,8 +466,8 @@
         padding: 8px;
     }
 
-    .time-display {
-        font-size: 11px;
+    .top-header .time-display {
+        font-size: 22px;
     }
 
     .content-inner {
