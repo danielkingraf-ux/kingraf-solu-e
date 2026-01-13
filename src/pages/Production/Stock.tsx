@@ -109,34 +109,49 @@ const Stock: React.FC = () => {
                 </div>
             </div>
 
-            <div className="stock-grid">
-                {items.map(item => (
-                    <div key={item.id} className="stock-card">
-                        <div className="card-header">
-                            <span className="op-tag">OP: {item.op}</span>
-                            <span className={`status-badge ${item.liberada_producao ? 'released' : 'pending'}`}>
-                                {item.liberada_producao ? 'Liberada' : 'Pendente'}
-                            </span>
-                        </div>
-                        <div className="card-content">
-                            <div className="info-row">
-                                <span>Caixa:</span>
-                                <strong>{item.tipo_caixa}</strong>
-                            </div>
-                            <div className="info-row">
-                                <span>Qtd:</span>
-                                <strong>{item.quantidade.toLocaleString()}</strong>
-                            </div>
-                            <div className="info-row">
-                                <span>Entrada:</span>
-                                <span>{new Date(item.data_entrada).toLocaleDateString('pt-BR')}</span>
-                            </div>
-                        </div>
-                        <div className="card-footer">
-                            {item.op_colada && <span className="tag-glued">Colada</span>}
-                        </div>
-                    </div>
-                ))}
+            <div className="stock-table-wrapper">
+                <table className="compact-table">
+                    <thead>
+                        <tr>
+                            <th>OP</th>
+                            <th>Tipo de Caixa</th>
+                            <th>Quantidade</th>
+                            <th>Entrada</th>
+                            <th>Liberacao</th>
+                            <th>Status</th>
+                            <th>Colada</th>
+                            <th>Observacoes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading && (
+                            <tr>
+                                <td colSpan={8} className="text-secondary">Carregando...</td>
+                            </tr>
+                        )}
+                        {!loading && items.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="text-secondary">Nenhum item encontrado.</td>
+                            </tr>
+                        )}
+                        {!loading && items.map(item => (
+                            <tr key={item.id}>
+                                <td className="font-bold text-primary">{item.op}</td>
+                                <td>{item.tipo_caixa || '-'}</td>
+                                <td className="font-bold text-primary">{item.quantidade.toLocaleString()}</td>
+                                <td>{new Date(item.data_entrada).toLocaleDateString('pt-BR')}</td>
+                                <td>{item.data_liberacao ? new Date(item.data_liberacao).toLocaleDateString('pt-BR') : '-'}</td>
+                                <td>
+                                    <span className={`status-badge-compact ${item.liberada_producao ? 'active' : 'inactive'}`}>
+                                        {item.liberada_producao ? 'Liberada' : 'Pendente'}
+                                    </span>
+                                </td>
+                                <td>{item.op_colada ? 'Sim' : 'Nao'}</td>
+                                <td>{item.observacoes || '-'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
             {isModalOpen && (

@@ -61,6 +61,18 @@
 }
 
 /* Stock Grid and Cards */
+.stock-table-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: auto;
+}
+
+.stock-table-wrapper .compact-table {
+    width: 100%;
+}
+
 .stock-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
