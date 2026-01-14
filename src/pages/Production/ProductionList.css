@@ -78,7 +78,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 20px;
+    padding: 10px 24px;
+    min-height: 44px;
     background-color: var(--kingraf-orange);
     border: none;
     border-radius: var(--border-radius-sm);
@@ -210,7 +211,7 @@
     width: 100%;
     border-collapse: collapse;
     color: var(--text-primary);
-    min-width: 900px;
+    min-width: 980px;
 }
 
 .prod-table th {
@@ -231,6 +232,18 @@
     color: var(--text-secondary);
     font-size: 14px;
     font-weight: 500;
+}
+
+.actions-col {
+    text-align: center;
+    width: 110px;
+}
+
+.prod-row-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
 }
 
 .prod-table tr {
@@ -315,7 +328,7 @@
     .filter-btn {
         width: 100%;
         justify-content: center;
-        padding: 12px 18px;
+        padding: 12px 20px;
     }
 
     .filters-panel {

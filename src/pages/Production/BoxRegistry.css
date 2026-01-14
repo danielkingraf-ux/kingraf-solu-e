@@ -87,11 +87,37 @@
     width: 100%;
 }
 
+.form-group textarea {
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid #D1D5DB !important;
+    background-color: #F8FAFC !important;
+    color: #0F172A !important;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    resize: vertical;
+    min-height: 120px;
+}
+
 .form-group input:hover {
     border-color: #94A3B8 !important;
 }
 
+.form-group textarea:hover {
+    border-color: #94A3B8 !important;
+}
+
 .form-group input:focus {
+    outline: none;
+    border-color: var(--kingraf-orange) !important;
+    background-color: #FFFFFF !important;
+    box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
+    transform: translateY(-1px);
+}
+
+.form-group textarea:focus {
     outline: none;
     border-color: var(--kingraf-orange) !important;
     background-color: #FFFFFF !important;

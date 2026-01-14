@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, ClipboardList, Loader2, Image, X } from 'lucide-react';
+import { Search, Filter, ClipboardList, Loader2, Image, X, Pencil, Trash2 } from 'lucide-react';
 import './ProductionList.css';
 import { supabase } from '../../supabaseClient';
 
@@ -11,10 +11,15 @@ interface ProductionRecord {
     produto: string;
     sku: string;
     tipo_caixa: string;
+    qtd_fileiras: number | null;
+    qtd_macos_fileira: number | null;
+    qtd_por_maco: number | null;
+    altura: number | null;
     total_macos: number;
     total_itens: number;
     foto_url: string | null;
     created_at: string;
+    observacao?: string | null;
 }
 
 const ProductionList: React.FC = () => {
@@ -25,6 +30,24 @@ const ProductionList: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [skuFilter, setSkuFilter] = useState('');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const buildInitialEditForm = () => ({
+        op: '',
+        cliente: '',
+        produto: '',
+        sku: '',
+        tipo_caixa: '',
+        qtd_fileiras: 0,
+        qtd_macos_fileira: 0,
+        qtd_por_maco: 0,
+        altura: 0,
+        observacao: ''
+    });
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingRecord, setEditingRecord] = useState<ProductionRecord | null>(null);
+    const [editForm, setEditForm] = useState(buildInitialEditForm());
+    const [savingEdit, setSavingEdit] = useState(false);
+    const totalMacos = (editForm.qtd_fileiras || 0) * (editForm.qtd_macos_fileira || 0);
+    const totalItens = totalMacos * (editForm.qtd_por_maco || 0) * (editForm.altura || 0);
 
     useEffect(() => {
         fetchRecords();
@@ -81,6 +104,94 @@ const ProductionList: React.FC = () => {
         setSearchTerm('');
         setSkuFilter('');
         setShowFilters(false);
+    };
+
+    const openEditModal = (record: ProductionRecord) => {
+        setEditingRecord(record);
+        setEditForm({
+            op: record.op || '',
+            cliente: record.cliente || '',
+            produto: record.produto || '',
+            sku: record.sku || '',
+            tipo_caixa: record.tipo_caixa || '',
+            qtd_fileiras: record.qtd_fileiras ?? 0,
+            qtd_macos_fileira: record.qtd_macos_fileira ?? 0,
+            qtd_por_maco: record.qtd_por_maco ?? 0,
+            altura: record.altura ?? 0,
+            observacao: record.observacao || ''
+        });
+        setIsEditOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditOpen(false);
+        setEditingRecord(null);
+        setEditForm(buildInitialEditForm());
+    };
+
+    const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        const isNumber = ['qtd_fileiras', 'qtd_macos_fileira', 'qtd_por_maco', 'altura'].includes(name);
+        setEditForm(prev => ({
+            ...prev,
+            [name]: isNumber ? Number(value) : value
+        }));
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingRecord) return;
+
+        try {
+            setSavingEdit(true);
+            const payload = {
+                op: editForm.op,
+                cliente: editForm.cliente,
+                produto: editForm.produto,
+                sku: editForm.sku,
+                tipo_caixa: editForm.tipo_caixa,
+                qtd_fileiras: editForm.qtd_fileiras,
+                qtd_macos_fileira: editForm.qtd_macos_fileira,
+                qtd_por_maco: editForm.qtd_por_maco,
+                altura: editForm.altura,
+                total_macos: totalMacos,
+                total_itens: totalItens,
+                observacao: editForm.observacao
+            };
+
+            const { error } = await supabase
+                .from('producao_caixas')
+                .update(payload)
+                .eq('id', editingRecord.id);
+
+            if (error) throw error;
+
+            alert('Registro atualizado com sucesso!');
+            closeEditModal();
+            fetchRecords();
+        } catch (error: any) {
+            alert('Erro ao atualizar: ' + error.message);
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const handleDelete = async (record: ProductionRecord) => {
+        if (!window.confirm(`Deseja excluir o registro da OP ${record.op}?`)) return;
+
+        try {
+            const { error } = await supabase
+                .from('producao_caixas')
+                .delete()
+                .eq('id', record.id);
+
+            if (error) throw error;
+
+            alert('Registro excluido com sucesso!');
+            fetchRecords();
+        } catch (error: any) {
+            alert('Erro ao excluir: ' + error.message);
+        }
     };
 
     return (
@@ -145,12 +256,13 @@ const ProductionList: React.FC = () => {
                                 <th>Itens</th>
                                 <th>Foto</th>
                                 <th>Status</th>
+                                <th className="actions-col">Acoes</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10}>Nenhum registro encontrado.</td>
+                                    <td colSpan={11}>Nenhum registro encontrado.</td>
                                 </tr>
                             ) : (
                                 filteredRecords.map(record => (
@@ -177,6 +289,24 @@ const ProductionList: React.FC = () => {
                                             )}
                                         </td>
                                         <td><span className="status-badge success">Concluído</span></td>
+                                        <td className="actions-col">
+                                            <div className="prod-row-actions">
+                                                <button
+                                                    className="action-icon-btn"
+                                                    title="Editar"
+                                                    onClick={() => openEditModal(record)}
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button
+                                                    className="action-icon-btn danger"
+                                                    title="Excluir"
+                                                    onClick={() => handleDelete(record)}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -184,6 +314,145 @@ const ProductionList: React.FC = () => {
                     </table>
                 )}
             </div>
+
+            {isEditOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h3>Editar Registro</h3>
+                            <button onClick={closeEditModal}><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleUpdate}>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>OP *</label>
+                                    <input
+                                        name="op"
+                                        required
+                                        value={editForm.op}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Cliente *</label>
+                                    <input
+                                        name="cliente"
+                                        required
+                                        value={editForm.cliente}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Produto *</label>
+                                    <input
+                                        name="produto"
+                                        required
+                                        value={editForm.produto}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>SKU</label>
+                                    <input
+                                        name="sku"
+                                        value={editForm.sku}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Tipo de Caixa</label>
+                                    <input
+                                        name="tipo_caixa"
+                                        value={editForm.tipo_caixa}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Fileiras</label>
+                                    <input
+                                        type="number"
+                                        name="qtd_fileiras"
+                                        value={editForm.qtd_fileiras}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Macos/Fileira</label>
+                                    <input
+                                        type="number"
+                                        name="qtd_macos_fileira"
+                                        value={editForm.qtd_macos_fileira}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Qtd/Maco</label>
+                                    <input
+                                        type="number"
+                                        name="qtd_por_maco"
+                                        value={editForm.qtd_por_maco}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Altura</label>
+                                    <input
+                                        type="number"
+                                        name="altura"
+                                        value={editForm.altura}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Total Macos</label>
+                                    <input
+                                        readOnly
+                                        value={totalMacos}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Total Itens</label>
+                                    <input
+                                        readOnly
+                                        value={totalItens}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Observacao</label>
+                                    <textarea
+                                        name="observacao"
+                                        rows={3}
+                                        value={editForm.observacao}
+                                        onChange={handleEditChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn-cancel" onClick={closeEditModal}>Cancelar</button>
+                                <button type="submit" className="btn-orange" disabled={savingEdit}>
+                                    {savingEdit ? 'Salvando...' : 'Salvar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Image Modal */}
             {selectedImage && (

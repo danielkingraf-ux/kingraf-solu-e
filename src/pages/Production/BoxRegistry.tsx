@@ -24,7 +24,8 @@ const BoxRegistry: React.FC = () => {
         rows: 0,
         bundlesPerRow: 0,
         qtyPerBundle: 0,
-        height: 0
+        height: 0,
+        observacao: ''
     });
 
     const [totals, setTotals] = useState({
@@ -66,7 +67,7 @@ const BoxRegistry: React.FC = () => {
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const isNumber = ['rows', 'bundlesPerRow', 'qtyPerBundle', 'height'].includes(name);
         setFormData(prev => ({
@@ -133,7 +134,8 @@ const BoxRegistry: React.FC = () => {
             rows: 0,
             bundlesPerRow: 0,
             qtyPerBundle: 0,
-            height: 0
+            height: 0,
+            observacao: ''
         });
         removePhoto();
     };
@@ -164,7 +166,8 @@ const BoxRegistry: React.FC = () => {
                 altura: formData.height,
                 total_macos: totals.totalBundles,
                 total_itens: totals.totalItems,
-                foto_url: fotoUrl
+                foto_url: fotoUrl,
+                observacao: formData.observacao
             };
 
             const { error } = await supabase
@@ -329,6 +332,17 @@ const BoxRegistry: React.FC = () => {
                             <span className="photo-hint">JPG, PNG até 5MB</span>
                         </label>
                     )}
+
+                    <div className="form-group">
+                        <label>Observacao</label>
+                        <textarea
+                            name="observacao"
+                            rows={3}
+                            placeholder="Observacoes sobre a disposicao"
+                            value={formData.observacao}
+                            onChange={handleChange}
+                        />
+                    </div>
                 </section>
             </div>
 

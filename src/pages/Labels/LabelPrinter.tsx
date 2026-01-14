@@ -335,6 +335,10 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
                         {labelType === 'pallet' && (
                             <>
+                                <div className="form-group animate-fade-in-up delay-400">
+                                    <label>Lote</label>
+                                    <input name="lote" value={labelData.especifico.lote} onChange={handleChange} placeholder="Numero do lote" />
+                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <div className="form-group animate-fade-in-up delay-450">
                                         <label>Qtd. Caixas</label>
