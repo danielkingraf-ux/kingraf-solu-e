@@ -33,6 +33,12 @@ interface TipoDesvio {
     nome: string;
 }
 
+interface TempoItem {
+    id?: string;
+    data_inicio: string;
+    data_fim: string | null;
+}
+
 interface DesvioItem {
     tipo_desvio_id: string;
     quantidade: number;
@@ -72,7 +78,8 @@ const NewRevision: React.FC = () => {
     const [acumuladoAprovada, setAcumuladoAprovada] = useState(0);
     const [observacaoGeral, setObservacaoGeral] = useState('');
     const [desvios, setDesvios] = useState<DesvioItem[]>([]);
-    const [_temposAnteriores, setTemposAnteriores] = useState<any[]>([]);
+    const [temposAnteriores, setTemposAnteriores] = useState<TempoItem[]>([]);
+    const [periodosPendentes, setPeriodosPendentes] = useState<TempoItem[]>([]);
 
     const [loading, setLoading] = useState(false);
     const [showRevisorModal, setShowRevisorModal] = useState(false);
@@ -138,6 +145,7 @@ const NewRevision: React.FC = () => {
                 setAcumuladoAprovada(revisao.quantidade_aprovada || 0);
                 setObservacaoGeral(revisao.observacao_geral || '');
                 setTemposAnteriores(revisao.tempos || []);
+                setPeriodosPendentes([]);
                 setDataInicio(getLocalDateTimeString());
                 setDataFim('');
                 setQuantidadeRevisada(0);
@@ -219,6 +227,68 @@ const NewRevision: React.FC = () => {
         }
     };
 
+    const calcularMinutosPeriodo = (inicio: string, fim?: string | null) => {
+        const inicioMs = new Date(inicio).getTime();
+        if (!Number.isFinite(inicioMs)) return 0;
+        const fimMs = fim ? new Date(fim).getTime() : Date.now();
+        if (!Number.isFinite(fimMs)) return 0;
+        return Math.max(0, Math.floor((fimMs - inicioMs) / (1000 * 60)));
+    };
+
+    const formatarHoras = (minutosTotal: number = 0) => {
+        if (minutosTotal <= 0) return '0h';
+        const horas = Math.floor(minutosTotal / 60);
+        const minutos = minutosTotal % 60;
+        return `${horas}h ${minutos}min`;
+    };
+
+    const formatarDataHora = (dataStr: string) => {
+        const data = new Date(dataStr);
+        if (Number.isNaN(data.getTime())) return '-';
+        return data.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const adicionarPeriodo = () => {
+        if (!dataInicio) {
+            alert('Informe a data/hora de inicio.');
+            return;
+        }
+        if (!dataFim) {
+            alert('Informe a data/hora de termino para adicionar outro periodo.');
+            return;
+        }
+
+        const inicioMs = new Date(dataInicio).getTime();
+        const fimMs = new Date(dataFim).getTime();
+        if (!Number.isFinite(inicioMs) || !Number.isFinite(fimMs)) {
+            alert('Datas invalidas no periodo.');
+            return;
+        }
+        if (fimMs < inicioMs) {
+            alert('A data/hora de termino nao pode ser menor que a de inicio.');
+            return;
+        }
+
+        setPeriodosPendentes(prev => ([
+            ...prev,
+            {
+                data_inicio: dataInicio,
+                data_fim: dataFim
+            }
+        ]));
+        setDataInicio(getLocalDateTimeString());
+        setDataFim('');
+    };
+
+    const removerPeriodoPendente = (index: number) => {
+        setPeriodosPendentes(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSave = async (finalizar: boolean = false) => {
         if (!op || selectedSetores.length === 0 || selectedRevisores.length === 0 || !dataInicio) {
             alert('Por favor, preencha OP, Setores, Revisores e Data de inicio.');
@@ -293,13 +363,17 @@ const NewRevision: React.FC = () => {
             }
 
             // 2. Salvar o período de tempo
+            const periodosParaSalvar: TempoItem[] = [
+                ...periodosPendentes,
+                { data_inicio: dataInicio, data_fim: dataFimValue }
+            ];
             const { error: tempoError } = await supabase
                 .from('qual_revisao_tempos')
-                .insert([{
+                .insert(periodosParaSalvar.map(periodo => ({
                     revisao_id: currentRevisaoId,
-                    data_inicio: dataInicio,
-                    data_fim: dataFimValue
-                }]);
+                    data_inicio: periodo.data_inicio,
+                    data_fim: periodo.data_fim
+                })));
             if (tempoError) throw tempoError;
 
             // 3. Vincular revisores (apenas se for nova revisão)
@@ -437,7 +511,19 @@ const NewRevision: React.FC = () => {
         setObservacaoGeral('');
         setDesvios([]);
         setTemposAnteriores([]);
+        setPeriodosPendentes([]);
     };
+
+    const periodosParaTotal: TempoItem[] = [
+        ...temposAnteriores,
+        ...periodosPendentes,
+        ...(dataInicio ? [{ data_inicio: dataInicio, data_fim: dataFim || null }] : [])
+    ];
+    const totalMinutos = periodosParaTotal.reduce(
+        (acc, periodo) => acc + calcularMinutosPeriodo(periodo.data_inicio, periodo.data_fim),
+        0
+    );
+    const mostrarTempoTotal = Boolean(op || temposAnteriores.length > 0 || periodosPendentes.length > 0);
 
     return (
         <div className="stock-container">
@@ -545,6 +631,19 @@ const NewRevision: React.FC = () => {
                             <Users size={18} style={{ marginRight: '8px' }} />
                             Equipe e Período
                         </h3>
+                        {mostrarTempoTotal && (
+                            <div style={{
+                                padding: '6px 12px',
+                                borderRadius: '999px',
+                                backgroundColor: '#EFF6FF',
+                                border: '1px solid #DBEAFE',
+                                color: '#1D4ED8',
+                                fontSize: '12px',
+                                fontWeight: 700
+                            }}>
+                                Tempo total: {formatarHoras(totalMinutos)}
+                            </div>
+                        )}
                     </div>
                     <div className="card-content">
                         <div className="form-group">
@@ -607,6 +706,157 @@ const NewRevision: React.FC = () => {
                                 />
                             </div>
                         </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={adicionarPeriodo}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 14px',
+                                    backgroundColor: 'var(--kingraf-orange-alpha)',
+                                    color: 'var(--kingraf-orange)',
+                                    border: '1px solid var(--kingraf-orange)',
+                                    borderRadius: '8px',
+                                    fontWeight: 600,
+                                    fontSize: '13px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Plus size={16} /> Adicionar periodo
+                            </button>
+                        </div>
+                        {(temposAnteriores.length > 0 || periodosPendentes.length > 0) && (
+                            <div style={{ marginTop: '16px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '8px' }}>
+                                    Periodos adicionados
+                                </div>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1.2fr 1.2fr 0.7fr 0.7fr 40px',
+                                    gap: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#94A3B8',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    marginBottom: '6px'
+                                }}>
+                                    <span>Inicio</span>
+                                    <span>Termino</span>
+                                    <span>Duracao</span>
+                                    <span>Status</span>
+                                    <span></span>
+                                </div>
+                                {temposAnteriores.map((periodo, index) => (
+                                    <div
+                                        key={`saved-${periodo.id || index}`}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1.2fr 1.2fr 0.7fr 0.7fr 40px',
+                                            gap: '8px',
+                                            alignItems: 'center',
+                                            padding: '10px 12px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #E2E8F0',
+                                            backgroundColor: '#F8FAFC',
+                                            marginBottom: '8px'
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                                            {formatarDataHora(periodo.data_inicio)}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                                            {periodo.data_fim ? formatarDataHora(periodo.data_fim) : 'Em andamento'}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1D4ED8' }}>
+                                            {formatarHoras(calcularMinutosPeriodo(periodo.data_inicio, periodo.data_fim))}
+                                        </div>
+                                        <div>
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '4px 10px',
+                                                borderRadius: '999px',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                backgroundColor: '#ECFDF5',
+                                                color: '#059669',
+                                                border: '1px solid #D1FAE5'
+                                            }}>
+                                                Registrado
+                                            </span>
+                                        </div>
+                                        <div></div>
+                                    </div>
+                                ))}
+                                {periodosPendentes.map((periodo, index) => (
+                                    <div
+                                        key={`pending-${index}`}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1.2fr 1.2fr 0.7fr 0.7fr 40px',
+                                            gap: '8px',
+                                            alignItems: 'center',
+                                            padding: '10px 12px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #FED7AA',
+                                            backgroundColor: '#FFF7ED',
+                                            marginBottom: '8px'
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                                            {formatarDataHora(periodo.data_inicio)}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                                            {periodo.data_fim ? formatarDataHora(periodo.data_fim) : 'Em andamento'}
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#C2410C' }}>
+                                            {formatarHoras(calcularMinutosPeriodo(periodo.data_inicio, periodo.data_fim))}
+                                        </div>
+                                        <div>
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '4px 10px',
+                                                borderRadius: '999px',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                backgroundColor: '#FFEDD5',
+                                                color: '#C2410C',
+                                                border: '1px solid #FDBA74'
+                                            }}>
+                                                Pendente
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => removerPeriodoPendente(index)}
+                                                style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #FEE2E2',
+                                                    backgroundColor: '#FEF2F2',
+                                                    color: '#EF4444',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                title="Remover periodo"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
