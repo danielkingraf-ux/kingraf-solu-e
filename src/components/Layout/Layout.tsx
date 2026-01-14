@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -22,13 +23,17 @@ interface LayoutProps {
   onExit?: () => void;
   onNavigate?: (pageId: string) => void;
   onLogout?: () => void;
+  session?: Session | null;
 }
 
 import logoFull from '../../assets/logo/logo-full.png';
 
-const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout, session }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 1024);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
+  const userMetadata = (session?.user?.user_metadata || {}) as Record<string, any>;
+  const userName = userMetadata.full_name || userMetadata.nome_completo || session?.user?.email || 'Usuario';
+  const userRole = userMetadata.profile || 'Operador';
 
   // Atualiza o relógio a cada segundo
   useEffect(() => {
@@ -126,8 +131,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
               <User size={20} />
             </div>
             <div className="user-details">
-              <span className="user-name">Daniel Oliveira</span>
-              <span className="user-role">Supervisor de Produção</span>
+              <span className="user-name">{userName}</span>
+              <span className="user-role">{userRole}</span>
             </div>
             <button className="logout-btn" onClick={onLogout} title="Sair da conta">
               <LogOut size={18} />

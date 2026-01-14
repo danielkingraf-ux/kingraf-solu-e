@@ -19,6 +19,8 @@ const Users: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
+    const [currentRole, setCurrentRole] = useState('Operador');
+    const isAdmin = currentRole === 'Administrador';
 
     // Form State
     const [formData, setFormData] = useState({
@@ -30,6 +32,59 @@ const Users: React.FC = () => {
 
     useEffect(() => {
         fetchUsers();
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const resolveRole = async (sessionUser?: {
+            id?: string;
+            email?: string;
+            user_metadata?: { profile?: string; perfil?: string };
+        }) => {
+            const metadata = sessionUser?.user_metadata || {};
+            const roleFromMetadata = metadata.profile || metadata.perfil;
+            if (roleFromMetadata) {
+                if (isMounted) setCurrentRole(roleFromMetadata);
+                return;
+            }
+
+            const userId = sessionUser?.id;
+            const email = sessionUser?.email;
+            if (!userId && !email) {
+                if (isMounted) setCurrentRole('Operador');
+                return;
+            }
+
+            const query = supabase
+                .from('prod_usuarios')
+                .select('perfil')
+                .limit(1);
+
+            const { data } = userId
+                ? await query.eq('id', userId).maybeSingle()
+                : await query.eq('email', email).maybeSingle();
+
+            if (isMounted) {
+                setCurrentRole(data?.perfil || 'Operador');
+            }
+        };
+
+        const loadSessionRole = async () => {
+            const { data } = await supabase.auth.getSession();
+            await resolveRole(data.session?.user);
+        };
+
+        loadSessionRole();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            void resolveRole(session?.user);
+        });
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const fetchUsers = async () => {
@@ -66,6 +121,11 @@ const Users: React.FC = () => {
         e.preventDefault();
         setError('');
         setSuccess('');
+
+        if (!isAdmin) {
+            setError('Apenas administradores podem cadastrar usuarios.');
+            return;
+        }
 
         if (formData.password.length < 6) {
             setError('A senha deve ter pelo menos 6 caracteres.');
@@ -148,12 +208,32 @@ const Users: React.FC = () => {
                         <Search size={18} />
                         <input placeholder="Buscar usuário..." />
                     </div>
-                    <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
+                    <button
+                        className="btn-primary"
+                        onClick={() => isAdmin && setIsModalOpen(true)}
+                        disabled={!isAdmin}
+                        title={!isAdmin ? 'Somente administradores podem cadastrar usuarios.' : 'Convidar usuario'}
+                        style={!isAdmin ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                    >
                         <Plus size={18} />
                         Convidar Usuário
                     </button>
                 </div>
             </div>
+
+            {!isAdmin && (
+                <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: '#FFF7ED',
+                    border: '1px solid #FED7AA',
+                    borderRadius: '10px',
+                    color: '#C2410C',
+                    fontWeight: 600,
+                    marginBottom: '20px'
+                }}>
+                    Acesso restrito: somente administradores podem cadastrar usuarios.
+                </div>
+            )}
 
             {items.length === 0 && !loading && (
                 <div style={{
@@ -195,7 +275,7 @@ const Users: React.FC = () => {
                 ))}
             </div>
 
-            {isModalOpen && (
+            {isModalOpen && isAdmin && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
@@ -289,7 +369,6 @@ const Users: React.FC = () => {
                                 >
                                     <option value="Operador">Operador</option>
                                     <option value="Supervisor">Supervisor</option>
-                                    <option value="Administrador">Administrador</option>
                                 </select>
                             </div>
 

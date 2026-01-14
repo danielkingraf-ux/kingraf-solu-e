@@ -64,6 +64,7 @@ const Dashboard: React.FC = () => {
 
             const totalRevisoes = revisoes?.length || 0;
             const emAndamento = revisoes?.filter(r => r.status === 'em_andamento').length || 0;
+            const finalizadas = revisoes?.filter(r => r.status === 'finalizada').length || 0;
             const totalReprovadas = revisoes?.reduce((acc, r) => acc + (r.quantidade_reprovada || 0), 0) || 0;
 
             // Calcular horas totais
@@ -81,7 +82,7 @@ const Dashboard: React.FC = () => {
             const minutos = totalMinutos % 60;
 
             setKpis([
-                { title: 'Total de Revisões', value: String(totalRevisoes), sub: `${emAndamento} em andamento`, icon: <ClipboardList size={24} />, color: '#6366F1' },
+                { title: 'Total de Revisoes', value: String(totalRevisoes), sub: `${finalizadas} finalizadas`, icon: <ClipboardList size={24} />, color: '#6366F1' },
                 { title: 'Horas em Revisão', value: `${horas}h ${minutos}m`, sub: 'Tempo acumulado', icon: <Clock size={24} />, color: '#3B82F6' },
                 { title: 'Revisões Abertas', value: String(emAndamento), sub: 'Aguardando', icon: <CheckCircle2 size={24} />, color: '#F59E0B' },
                 { title: 'Desvios Totais', value: totalReprovadas.toLocaleString(), sub: 'Unidades reprovadas', icon: <AlertTriangle size={24} />, color: '#EF4444' },

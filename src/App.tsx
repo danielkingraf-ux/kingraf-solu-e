@@ -105,6 +105,7 @@ function App() {
   return (
     <Layout
       currentPage={selectedModule}
+      session={session}
       onExit={() => setSelectedModule(null)}
       onNavigate={handleNavigate}
       onLogout={handleLogout}
