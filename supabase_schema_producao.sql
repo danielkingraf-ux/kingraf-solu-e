@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
     qtd_macos_fileira INTEGER,
     qtd_por_maco INTEGER,
     altura INTEGER,
+    observacao TEXT,
     total_macos INTEGER,
     total_itens NUMERIC,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
