@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
     qtd_por_maco INTEGER,
     altura INTEGER,
     observacao TEXT,
+    foto_url TEXT,
     total_macos INTEGER,
     total_itens NUMERIC,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -20,6 +21,11 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
 
 /* Habilitar RLS para producao_caixas */
 ALTER TABLE producao_caixas ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE producao_caixas ADD COLUMN IF NOT EXISTS unidades NUMERIC;
+ALTER TABLE producao_caixas ADD COLUMN IF NOT EXISTS observacao TEXT;
+ALTER TABLE producao_caixas ADD COLUMN IF NOT EXISTS foto_url TEXT;
+ALTER TABLE producao_caixas ALTER COLUMN total_itens TYPE NUMERIC USING total_itens::numeric;
 
 DO $$
 BEGIN
