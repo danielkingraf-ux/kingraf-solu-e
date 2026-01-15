@@ -89,10 +89,9 @@ const BoxRegistry: React.FC = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        const isNumber = ['rows', 'bundlesPerRow', 'qtyPerBundle', 'height'].includes(name);
         setFormData(prev => ({
             ...prev,
-            [name]: isNumber ? (value === '' ? '' : Number(value)) : value
+            [name]: value
         }));
     };
 
