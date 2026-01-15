@@ -22,10 +22,10 @@ const BoxRegistry: React.FC = () => {
         product: '',
         sku: '',
         units: '',
-        rows: 0,
-        bundlesPerRow: 0,
-        qtyPerBundle: 0,
-        height: 0,
+        rows: '',
+        bundlesPerRow: '',
+        qtyPerBundle: '',
+        height: '',
         observacao: ''
     });
 
@@ -40,6 +40,12 @@ const BoxRegistry: React.FC = () => {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const parseOptionalNumber = (value: number | string) => {
+        if (value === '' || value === null || value === undefined) return null;
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) ? numberValue : null;
+    };
+
     const parseDecimalInput = (value: string) => {
         const trimmed = value.trim();
         if (!trimmed) return null;
@@ -49,9 +55,13 @@ const BoxRegistry: React.FC = () => {
     };
 
     useEffect(() => {
-        const totalBundles = formData.rows * formData.bundlesPerRow;
+        const rows = parseOptionalNumber(formData.rows) ?? 0;
+        const bundlesPerRow = parseOptionalNumber(formData.bundlesPerRow) ?? 0;
+        const qtyPerBundle = parseOptionalNumber(formData.qtyPerBundle) ?? 0;
+        const height = parseOptionalNumber(formData.height) ?? 0;
+        const totalBundles = rows * bundlesPerRow;
         const extraUnits = parseDecimalInput(formData.units) ?? 0;
-        const totalItems = totalBundles * formData.qtyPerBundle * formData.height + extraUnits;
+        const totalItems = totalBundles * qtyPerBundle * height + extraUnits;
         setTotals({ totalBundles, totalItems });
     }, [formData]);
 
@@ -82,7 +92,7 @@ const BoxRegistry: React.FC = () => {
         const isNumber = ['rows', 'bundlesPerRow', 'qtyPerBundle', 'height'].includes(name);
         setFormData(prev => ({
             ...prev,
-            [name]: isNumber ? Number(value) : value
+            [name]: isNumber ? (value === '' ? '' : Number(value)) : value
         }));
     };
 
@@ -142,10 +152,10 @@ const BoxRegistry: React.FC = () => {
             product: '',
             sku: '',
             units: '',
-            rows: 0,
-            bundlesPerRow: 0,
-            qtyPerBundle: 0,
-            height: 0,
+            rows: '',
+            bundlesPerRow: '',
+            qtyPerBundle: '',
+            height: '',
             observacao: ''
         });
         removePhoto();
@@ -174,10 +184,10 @@ const BoxRegistry: React.FC = () => {
                 sku: formData.sku,
                 tipo_caixa: formData.boxType,
                 unidades,
-                qtd_fileiras: formData.rows,
-                qtd_macos_fileira: formData.bundlesPerRow,
-                qtd_por_maco: formData.qtyPerBundle,
-                altura: formData.height,
+                qtd_fileiras: parseOptionalNumber(formData.rows),
+                qtd_macos_fileira: parseOptionalNumber(formData.bundlesPerRow),
+                qtd_por_maco: parseOptionalNumber(formData.qtyPerBundle),
+                altura: parseOptionalNumber(formData.height),
                 total_macos: totals.totalBundles,
                 total_itens: totals.totalItems,
                 foto_url: fotoUrl,
