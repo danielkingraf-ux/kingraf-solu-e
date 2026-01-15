@@ -21,6 +21,7 @@ const BoxRegistry: React.FC = () => {
         client: '',
         product: '',
         sku: '',
+        units: '',
         rows: 0,
         bundlesPerRow: 0,
         qtyPerBundle: 0,
@@ -131,6 +132,7 @@ const BoxRegistry: React.FC = () => {
             client: '',
             product: '',
             sku: '',
+            units: '',
             rows: 0,
             bundlesPerRow: 0,
             qtyPerBundle: 0,
@@ -154,12 +156,17 @@ const BoxRegistry: React.FC = () => {
                 fotoUrl = await uploadPhoto();
             }
 
+            const unitsValue = formData.units.trim();
+            const unitsNumber = unitsValue ? Number(unitsValue.replace(',', '.')) : null;
+            const unidades = unitsNumber !== null && Number.isFinite(unitsNumber) ? unitsNumber : null;
+
             const payload = {
                 op: formData.op,
                 cliente: formData.client,
                 produto: formData.product,
                 sku: formData.sku,
                 tipo_caixa: formData.boxType,
+                unidades,
                 qtd_fileiras: formData.rows,
                 qtd_macos_fileira: formData.bundlesPerRow,
                 qtd_por_maco: formData.qtyPerBundle,
@@ -250,6 +257,16 @@ const BoxRegistry: React.FC = () => {
                                 placeholder="Ex: SKU-001, COD-12345"
                                 value={formData.sku}
                                 onChange={handleChange}
+                            />
+                        </div>
+                        <div className="form-group span-2">
+                            <label>Unidades</label>
+                            <input
+                                name="units"
+                                placeholder="Ex: 1,5"
+                                value={formData.units}
+                                onChange={handleChange}
+                                inputMode="decimal"
                             />
                         </div>
                     </div>

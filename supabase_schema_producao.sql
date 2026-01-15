@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
     cliente TEXT NOT NULL,
     produto TEXT NOT NULL,
     sku TEXT,
+    unidades NUMERIC,
     tipo_caixa TEXT,
     qtd_fileiras INTEGER,
     qtd_macos_fileira INTEGER,
@@ -19,12 +20,22 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
 /* Habilitar RLS para producao_caixas */
 ALTER TABLE producao_caixas ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Permitir acesso total para autenticados" 
-ON producao_caixas 
-FOR ALL 
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'producao_caixas'
+          AND policyname = 'Permitir acesso total para autenticados'
+    ) THEN
+        CREATE POLICY "Permitir acesso total para autenticados"
+        ON producao_caixas
+        FOR ALL
+        TO authenticated
+        USING (true)
+        WITH CHECK (true);
+    END IF;
+END $$;
 
 /* Tabela de Estoque */
 CREATE TABLE IF NOT EXISTS prod_estoque (
@@ -64,6 +75,32 @@ ALTER TABLE prod_estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prod_tamanhos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prod_usuarios ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total prod_estoque" ON prod_estoque FOR ALL USING (true);
-CREATE POLICY "Acesso total prod_tamanhos" ON prod_tamanhos FOR ALL USING (true);
-CREATE POLICY "Acesso total prod_usuarios" ON prod_usuarios FOR ALL USING (true);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'prod_estoque'
+          AND policyname = 'Acesso total prod_estoque'
+    ) THEN
+        CREATE POLICY "Acesso total prod_estoque" ON prod_estoque FOR ALL USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'prod_tamanhos'
+          AND policyname = 'Acesso total prod_tamanhos'
+    ) THEN
+        CREATE POLICY "Acesso total prod_tamanhos" ON prod_tamanhos FOR ALL USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'prod_usuarios'
+          AND policyname = 'Acesso total prod_usuarios'
+    ) THEN
+        CREATE POLICY "Acesso total prod_usuarios" ON prod_usuarios FOR ALL USING (true);
+    END IF;
+END $$;
