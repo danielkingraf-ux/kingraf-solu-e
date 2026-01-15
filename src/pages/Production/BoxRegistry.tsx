@@ -40,9 +40,18 @@ const BoxRegistry: React.FC = () => {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const parseDecimalInput = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const normalized = trimmed.replace(',', '.');
+        const numberValue = Number(normalized);
+        return Number.isFinite(numberValue) ? numberValue : null;
+    };
+
     useEffect(() => {
         const totalBundles = formData.rows * formData.bundlesPerRow;
-        const totalItems = totalBundles * formData.qtyPerBundle * formData.height;
+        const extraUnits = parseDecimalInput(formData.units) ?? 0;
+        const totalItems = totalBundles * formData.qtyPerBundle * formData.height + extraUnits;
         setTotals({ totalBundles, totalItems });
     }, [formData]);
 
@@ -156,9 +165,7 @@ const BoxRegistry: React.FC = () => {
                 fotoUrl = await uploadPhoto();
             }
 
-            const unitsValue = formData.units.trim();
-            const unitsNumber = unitsValue ? Number(unitsValue.replace(',', '.')) : null;
-            const unidades = unitsNumber !== null && Number.isFinite(unitsNumber) ? unitsNumber : null;
+            const unidades = parseDecimalInput(formData.units);
 
             const payload = {
                 op: formData.op,
@@ -259,16 +266,6 @@ const BoxRegistry: React.FC = () => {
                                 onChange={handleChange}
                             />
                         </div>
-                        <div className="form-group span-2">
-                            <label>Unidades</label>
-                            <input
-                                name="units"
-                                placeholder="Ex: 1,5"
-                                value={formData.units}
-                                onChange={handleChange}
-                                inputMode="decimal"
-                            />
-                        </div>
                     </div>
                 </section>
 
@@ -312,6 +309,16 @@ const BoxRegistry: React.FC = () => {
                                 name="height"
                                 value={formData.height}
                                 onChange={handleChange}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Unidades extras</label>
+                            <input
+                                name="units"
+                                placeholder="Ex: 25,5"
+                                value={formData.units}
+                                onChange={handleChange}
+                                inputMode="decimal"
                             />
                         </div>
                     </div>

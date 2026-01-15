@@ -10,6 +10,7 @@ interface ProductionRecord {
     cliente: string;
     produto: string;
     sku: string;
+    unidades: number | null;
     tipo_caixa: string;
     qtd_fileiras: number | null;
     qtd_macos_fileira: number | null;
@@ -35,6 +36,7 @@ const ProductionList: React.FC = () => {
         cliente: '',
         produto: '',
         sku: '',
+        unidades: '',
         tipo_caixa: '',
         qtd_fileiras: 0,
         qtd_macos_fileira: 0,
@@ -46,8 +48,16 @@ const ProductionList: React.FC = () => {
     const [editingRecord, setEditingRecord] = useState<ProductionRecord | null>(null);
     const [editForm, setEditForm] = useState(buildInitialEditForm());
     const [savingEdit, setSavingEdit] = useState(false);
+    const parseDecimalInput = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const normalized = trimmed.replace(',', '.');
+        const numberValue = Number(normalized);
+        return Number.isFinite(numberValue) ? numberValue : null;
+    };
     const totalMacos = (editForm.qtd_fileiras || 0) * (editForm.qtd_macos_fileira || 0);
-    const totalItens = totalMacos * (editForm.qtd_por_maco || 0) * (editForm.altura || 0);
+    const extraUnits = parseDecimalInput(editForm.unidades) ?? 0;
+    const totalItens = totalMacos * (editForm.qtd_por_maco || 0) * (editForm.altura || 0) + extraUnits;
 
     useEffect(() => {
         fetchRecords();
@@ -113,6 +123,9 @@ const ProductionList: React.FC = () => {
             cliente: record.cliente || '',
             produto: record.produto || '',
             sku: record.sku || '',
+            unidades: record.unidades !== null && record.unidades !== undefined
+                ? String(record.unidades).replace('.', ',')
+                : '',
             tipo_caixa: record.tipo_caixa || '',
             qtd_fileiras: record.qtd_fileiras ?? 0,
             qtd_macos_fileira: record.qtd_macos_fileira ?? 0,
@@ -149,6 +162,7 @@ const ProductionList: React.FC = () => {
                 cliente: editForm.cliente,
                 produto: editForm.produto,
                 sku: editForm.sku,
+                unidades: parseDecimalInput(editForm.unidades),
                 tipo_caixa: editForm.tipo_caixa,
                 qtd_fileiras: editForm.qtd_fileiras,
                 qtd_macos_fileira: editForm.qtd_macos_fileira,
@@ -426,12 +440,25 @@ const ProductionList: React.FC = () => {
 
                             <div className="form-row">
                                 <div className="form-group">
+                                    <label>Unidades extras</label>
+                                    <input
+                                        name="unidades"
+                                        placeholder="Ex: 25,5"
+                                        value={editForm.unidades}
+                                        onChange={handleEditChange}
+                                        inputMode="decimal"
+                                    />
+                                </div>
+                                <div className="form-group">
                                     <label>Total Itens</label>
                                     <input
                                         readOnly
                                         value={totalItens}
                                     />
                                 </div>
+                            </div>
+
+                            <div className="form-row">
                                 <div className="form-group">
                                     <label>Observacao</label>
                                     <textarea

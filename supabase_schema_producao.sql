@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS producao_caixas (
     qtd_por_maco INTEGER,
     altura INTEGER,
     total_macos INTEGER,
-    total_itens INTEGER,
+    total_itens NUMERIC,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     user_id UUID
 );
