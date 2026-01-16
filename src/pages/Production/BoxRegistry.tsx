@@ -120,23 +120,31 @@ const BoxRegistry: React.FC = () => {
 
         try {
             setUploadingPhoto(true);
-            const fileExt = photoFile.name.split('.').pop();
-            const fileName = `${Date.now()}-${formData.op.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExt}`;
+            const fileExt = photoFile.name.split('.').pop() || 'jpg';
+            const sanitizedOp = formData.op.replace(/[^a-zA-Z0-9]/g, '_') || 'sem_op';
+            const fileName = `${Date.now()}-${sanitizedOp}.${fileExt}`;
             const filePath = `producao/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('fotos')
-                .upload(filePath, photoFile);
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('quality-photos')
+                .upload(filePath, photoFile, {
+                    cacheControl: '3600',
+                    upsert: true,
+                    contentType: photoFile.type || 'image/jpeg'
+                });
 
-            if (uploadError) throw uploadError;
+            if (uploadError || !uploadData) throw uploadError || new Error('Falha no upload');
 
-            const { data } = supabase.storage
-                .from('fotos')
+            const { data: publicData, error: publicError } = supabase.storage
+                .from('quality-photos')
                 .getPublicUrl(filePath);
 
-            return data.publicUrl;
+            if (publicError || !publicData?.publicUrl) throw publicError || new Error('URL publica nao gerada');
+
+            return publicData.publicUrl;
         } catch (error) {
             console.error('Erro ao fazer upload da foto:', error);
+            alert('Erro ao enviar a foto. Tente novamente e verifique o tamanho do arquivo.');
             return null;
         } finally {
             setUploadingPhoto(false);
@@ -172,6 +180,10 @@ const BoxRegistry: React.FC = () => {
             let fotoUrl = null;
             if (photoFile) {
                 fotoUrl = await uploadPhoto();
+                if (!fotoUrl) {
+                    setSaving(false);
+                    return;
+                }
             }
 
             const unidades = parseDecimalInput(formData.units);
