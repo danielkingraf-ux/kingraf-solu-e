@@ -39,6 +39,10 @@ const BoxRegistry: React.FC = () => {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+    const MAX_PHOTO_DIMENSION = 1920;
+    const PHOTO_QUALITY = 0.78;
+    const SKIP_RESIZE_TYPES = ['image/heic', 'image/heif'];
     const productionPhotoBuckets = Array.from(
         new Set(
             [import.meta.env.VITE_PRODUCTION_PHOTO_BUCKET, 'fotos', 'quality-photos'].filter(
@@ -102,15 +106,63 @@ const BoxRegistry: React.FC = () => {
         }));
     };
 
-    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const preparePhotoFile = async (file: File) => {
+        if (file.size <= MAX_PHOTO_SIZE_BYTES || SKIP_RESIZE_TYPES.includes(file.type)) {
+            return file;
+        }
+
+        return new Promise<File>((resolve) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                const maxDimension = Math.max(img.width, img.height);
+                const scale = maxDimension > MAX_PHOTO_DIMENSION ? MAX_PHOTO_DIMENSION / maxDimension : 1;
+                const width = Math.round(img.width * scale);
+                const height = Math.round(img.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(file);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+                        const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
+                        const resized = new File([blob], `${baseName || 'foto'}.jpg`, {
+                            type: 'image/jpeg'
+                        });
+                        resolve(resized);
+                    },
+                    'image/jpeg',
+                    PHOTO_QUALITY
+                );
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+            };
+            img.src = objectUrl;
+        });
+    };
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setPhotoFile(file);
+            const preparedFile = await preparePhotoFile(file);
+            setPhotoFile(preparedFile);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPhotoPreview(reader.result as string);
             };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(preparedFile);
         }
     };
 
