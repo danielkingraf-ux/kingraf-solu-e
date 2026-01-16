@@ -56,6 +56,11 @@ const getLocalDateTimeString = () => {
 };
 
 const NewRevision: React.FC = () => {
+    // Constantes para processamento de fotos
+    const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+    const MAX_PHOTO_DIMENSION = 1920;
+    const PHOTO_QUALITY = 0.78;
+
     // Dados de referência
     const [revisores, setRevisores] = useState<Revisor[]>([]);
     const [setores, setSetores] = useState<Setor[]>([]);
@@ -289,6 +294,161 @@ const NewRevision: React.FC = () => {
         setPeriodosPendentes(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Funções para processamento de fotos (compatibilidade iPhone/iOS)
+    const isHeicFile = (file: File) => /heic|heif/i.test(file.type) || /\.heic$/i.test(file.name);
+
+    const convertHeicToJpeg = async (file: File): Promise<File> => {
+        try {
+            const heic2any = (await import('heic2any')).default;
+            const output = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.85
+            });
+            const blob = Array.isArray(output) ? output[0] : output;
+            const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
+            return new File([blob as BlobPart], `${baseName}.jpg`, { type: 'image/jpeg' });
+        } catch (error) {
+            console.error('Erro ao converter HEIC:', error);
+            throw new Error('Falha na conversão HEIC. Envie JPEG ou PNG.');
+        }
+    };
+
+    const resizeLargeImage = async (file: File): Promise<File> => {
+        return new Promise<File>((resolve, reject) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                const maxDimension = Math.max(img.width, img.height);
+                const scale = maxDimension > MAX_PHOTO_DIMENSION ? MAX_PHOTO_DIMENSION / maxDimension : 1;
+                const width = Math.round(img.width * scale);
+                const height = Math.round(img.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas não disponível para redimensionar.'));
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) {
+                            reject(new Error('Redimensionamento retornou blob vazio.'));
+                            return;
+                        }
+                        const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
+                        const resized = new File([blob], `${baseName}.jpg`, {
+                            type: 'image/jpeg'
+                        });
+                        resolve(resized);
+                    },
+                    'image/jpeg',
+                    PHOTO_QUALITY
+                );
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Falha ao carregar imagem para redimensionar.'));
+            };
+            img.src = objectUrl;
+        });
+    };
+
+    const preparePhotoFile = async (file: File): Promise<File> => {
+        let workingFile = file;
+
+        try {
+            // Converter HEIC se necessário
+            if (isHeicFile(workingFile)) {
+                console.log('Convertendo HEIC para JPEG...');
+                workingFile = await convertHeicToJpeg(workingFile);
+            }
+
+            // Redimensionar se necessário
+            if (workingFile.size > MAX_PHOTO_SIZE_BYTES) {
+                console.log('Redimensionando imagem grande...');
+                workingFile = await resizeLargeImage(workingFile);
+            }
+
+            return workingFile;
+        } catch (error) {
+            const message = (error as Error).message || 'Erro ao preparar a foto.';
+            console.error('Erro ao preparar foto:', error);
+            throw error;
+        }
+    };
+
+    const handlePhotoSelect = async (index: number, file: File) => {
+        if (!file) {
+            console.log('Nenhum arquivo selecionado');
+            return;
+        }
+
+        console.log('Arquivo selecionado para desvio:', { 
+            index, 
+            name: file.name, 
+            type: file.type, 
+            size: file.size 
+        });
+
+        try {
+            // Preparar arquivo (converter HEIC, redimensionar se necessário)
+            const preparedFile = await preparePhotoFile(file);
+            console.log('Arquivo preparado:', { 
+                name: preparedFile.name, 
+                type: preparedFile.type, 
+                size: preparedFile.size 
+            });
+
+            // Garantir que o arquivo foi preparado corretamente
+            if (!preparedFile || !(preparedFile instanceof File)) {
+                throw new Error('Erro ao preparar o arquivo da foto');
+            }
+
+            // Usar Promise para garantir que o FileReader funcione corretamente no iOS
+            const previewPromise = new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    const result = event.target?.result;
+                    if (result && typeof result === 'string') {
+                        console.log('Preview gerado com sucesso');
+                        resolve(result);
+                    } else {
+                        reject(new Error('Erro ao gerar preview da foto'));
+                    }
+                };
+                
+                reader.onerror = () => {
+                    console.error('Erro no FileReader');
+                    reject(new Error('Erro ao ler o arquivo da foto'));
+                };
+                
+                try {
+                    reader.readAsDataURL(preparedFile);
+                } catch (readError) {
+                    console.error('Erro ao iniciar leitura:', readError);
+                    reject(new Error('Erro ao iniciar leitura do arquivo'));
+                }
+            });
+
+            const previewUrl = await previewPromise;
+            
+            // Atualizar desvio com arquivo preparado e preview
+            atualizarDesvio(index, 'foto_file', preparedFile);
+            atualizarDesvio(index, 'foto_preview', previewUrl);
+            
+            console.log('Foto processada com sucesso para desvio', index);
+        } catch (error) {
+            const message = (error as Error).message || 'Erro ao processar a foto.';
+            console.error('Erro ao processar foto do desvio:', error);
+            alert('Erro ao processar foto: ' + message);
+        }
+    };
+
     const handleSave = async (finalizar: boolean = false) => {
         if (!op || selectedSetores.length === 0 || selectedRevisores.length === 0 || !dataInicio) {
             alert('Por favor, preencha OP, Setores, Revisores e Data de inicio.');
@@ -436,15 +596,37 @@ const NewRevision: React.FC = () => {
                     // Upload da foto se existir
                     if (desvio.foto_file) {
                         try {
+                            // Validar que o arquivo ainda existe e é válido
+                            if (!(desvio.foto_file instanceof File)) {
+                                throw new Error('Arquivo de foto inválido.');
+                            }
+
+                            console.log('Iniciando upload da foto do desvio...', {
+                                fileName: desvio.foto_file.name,
+                                fileSize: desvio.foto_file.size,
+                                fileType: desvio.foto_file.type
+                            });
+
                             const fileName = `${currentRevisaoId}/${Date.now()}_${desvio.foto_file.name}`;
                             const { data: uploadData, error: uploadError } = await supabase.storage
                                 .from('quality-photos')
-                                .upload(fileName, desvio.foto_file);
+                                .upload(fileName, desvio.foto_file, {
+                                    cacheControl: '3600',
+                                    upsert: true,
+                                    contentType: 'image/jpeg'
+                                });
 
-                            if (uploadError || !uploadData) {
+                            if (uploadError) {
                                 console.error('Erro no upload da foto do desvio:', uploadError);
-                                throw new Error(`Erro ao fazer upload da foto: ${uploadError?.message || 'Erro desconhecido'}`);
+                                throw new Error(`Erro ao fazer upload da foto: ${uploadError.message || 'Erro desconhecido'}`);
                             }
+
+                            if (!uploadData) {
+                                console.error('Upload retornou sem dados');
+                                throw new Error('Upload retornou sem dados');
+                            }
+
+                            console.log(`Upload bem-sucedido, path: ${uploadData.path}`);
 
                             const { data: publicUrlData } = supabase.storage
                                 .from('quality-photos')
@@ -456,7 +638,16 @@ const NewRevision: React.FC = () => {
                             }
 
                             fotoUrl = publicUrlData.publicUrl;
-                            console.log('Foto do desvio enviada com sucesso:', fotoUrl);
+
+                            // Validar formato da URL
+                            try {
+                                new URL(fotoUrl);
+                            } catch (urlError) {
+                                console.error('URL inválida gerada:', fotoUrl);
+                                throw new Error('URL inválida gerada');
+                            }
+
+                            console.log('✓ Foto do desvio enviada com sucesso:', fotoUrl);
                         } catch (photoError: any) {
                             console.error('Erro ao processar foto do desvio:', photoError);
                             throw new Error(`Erro ao processar foto do desvio: ${photoError.message || 'Erro desconhecido'}`);
@@ -1052,15 +1243,16 @@ const NewRevision: React.FC = () => {
                                             {desvio.foto_preview ? 'Alterar Foto' : 'Adicionar Foto'}
                                             <input
                                                 type="file"
-                                                accept="image/*"
+                                                accept="image/*,image/heic,image/heif"
+                                                capture="environment"
                                                 style={{ display: 'none' }}
                                                 onChange={(e) => {
                                                     const file = e.target.files?.[0];
                                                     if (file) {
-                                                        const preview = URL.createObjectURL(file);
-                                                        atualizarDesvio(index, 'foto_file', file);
-                                                        atualizarDesvio(index, 'foto_preview', preview);
+                                                        handlePhotoSelect(index, file);
                                                     }
+                                                    // Limpar o valor para permitir selecionar o mesmo arquivo novamente
+                                                    e.target.value = '';
                                                 }}
                                             />
                                         </label>
