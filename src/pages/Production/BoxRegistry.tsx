@@ -64,8 +64,14 @@ const BoxRegistry: React.FC = () => {
         setPhotoAttempted(true);
         setPhotoStatusMessage('0/6 Selecionando arquivo...');
         if (fileInputRef.current) {
+            // Limpar o valor anterior para garantir que o evento onChange seja disparado novamente no iOS
             fileInputRef.current.value = '';
-            fileInputRef.current.click();
+            // Pequeno delay para garantir que o input esteja pronto no iOS
+            setTimeout(() => {
+                if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                }
+            }, 100);
         }
     };
 
@@ -221,7 +227,12 @@ const BoxRegistry: React.FC = () => {
 
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file) {
+            console.log('Nenhum arquivo selecionado');
+            return;
+        }
+        
+        console.log('Arquivo selecionado:', { name: file.name, type: file.type, size: file.size });
         setPhotoAttempted(true);
 
         updatePhotoStatus(1, 'Arquivo selecionado');
@@ -232,19 +243,56 @@ const BoxRegistry: React.FC = () => {
 
         try {
             const preparedFile = await preparePhotoFile(file, updatePhotoStatus);
+            console.log('Arquivo preparado:', { name: preparedFile.name, type: preparedFile.type, size: preparedFile.size });
+            
+            // Garantir que o arquivo foi preparado corretamente
+            if (!preparedFile || !(preparedFile instanceof File)) {
+                throw new Error('Erro ao preparar o arquivo da foto');
+            }
+            
             setPhotoFile(preparedFile);
-            const reader = new FileReader();
-            reader.onload = () => {
-                setPhotoPreview(reader.result as string);
-                updatePhotoStatus(5, 'Preview gerado');
-            };
-            reader.onloadend = () => {
-                updatePhotoStatus(6, 'Pronto para upload');
-            };
-            reader.readAsDataURL(preparedFile);
+            
+            // Usar Promise para garantir que o FileReader funcione corretamente no iOS
+            const previewPromise = new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    const result = event.target?.result;
+                    if (result && typeof result === 'string') {
+                        console.log('Preview gerado com sucesso');
+                        resolve(result);
+                    } else {
+                        reject(new Error('Erro ao gerar preview da foto'));
+                    }
+                };
+                
+                reader.onerror = () => {
+                    console.error('Erro no FileReader');
+                    reject(new Error('Erro ao ler o arquivo da foto'));
+                };
+                
+                reader.onloadend = () => {
+                    console.log('FileReader concluído');
+                };
+                
+                try {
+                    reader.readAsDataURL(preparedFile);
+                } catch (readError) {
+                    console.error('Erro ao iniciar leitura:', readError);
+                    reject(new Error('Erro ao iniciar leitura do arquivo'));
+                }
+            });
+
+            const previewUrl = await previewPromise;
+            setPhotoPreview(previewUrl);
+            updatePhotoStatus(5, 'Preview gerado');
+            updatePhotoStatus(6, 'Pronto para upload');
             setPhotoProcessingError(null);
+            
+            console.log('Foto processada com sucesso, pronta para upload');
         } catch (error) {
             const message = (error as Error).message || 'Erro ao processar a foto.';
+            console.error('Erro ao processar foto:', error);
             setPhotoProcessingError(message);
             setPhotoStatusMessage(`0/6 ${message}`);
             setPhotoFile(null);
@@ -271,49 +319,93 @@ const BoxRegistry: React.FC = () => {
             throw new Error('Foto indisponível para upload.');
         }
 
+        // Validar que o arquivo ainda existe e é válido
+        if (!(photoFile instanceof File)) {
+            throw new Error('Arquivo de foto inválido.');
+        }
+
+        console.log('Iniciando upload da foto:', {
+            name: photoFile.name,
+            size: photoFile.size,
+            type: photoFile.type
+        });
+
         setUploadingPhoto(true);
         const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const filePath = `producao/${uniqueId}.jpg`;
 
+        let lastError: any = null;
+
         try {
             for (const bucket of productionPhotoBuckets) {
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from(bucket)
-                    .upload(filePath, photoFile, {
-                        cacheControl: '3600',
-                        upsert: true,
-                        contentType: 'image/jpeg'
-                    });
-
-                if (uploadError || !uploadData) {
-                    console.error(`Erro no upload para o bucket ${bucket}:`, uploadError);
-                    continue;
-                }
-
-                // Usar uploadData.path para garantir que estamos usando o caminho correto retornado pelo upload
-                const actualPath = uploadData.path || filePath;
-                const { data: publicData } = supabase.storage
-                    .from(bucket)
-                    .getPublicUrl(actualPath);
-
-                if (!publicData?.publicUrl) {
-                    console.error(`Erro ao gerar URL publica no bucket ${bucket}: URL não gerada`);
-                    continue;
-                }
-
-                const photoUrl = publicData.publicUrl;
+                console.log(`Tentando upload no bucket: ${bucket}`);
                 
-                // Validar que a URL foi gerada corretamente
-                if (!photoUrl || photoUrl.trim() === '') {
-                    console.error(`URL vazia gerada para o bucket ${bucket}`);
+                try {
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from(bucket)
+                        .upload(filePath, photoFile, {
+                            cacheControl: '3600',
+                            upsert: true,
+                            contentType: 'image/jpeg'
+                        });
+
+                    if (uploadError) {
+                        console.error(`Erro no upload para o bucket ${bucket}:`, uploadError);
+                        lastError = uploadError;
+                        continue;
+                    }
+
+                    if (!uploadData) {
+                        console.error(`Upload retornou sem dados para o bucket ${bucket}`);
+                        lastError = new Error('Upload retornou sem dados');
+                        continue;
+                    }
+
+                    console.log(`Upload bem-sucedido no bucket ${bucket}, path: ${uploadData.path}`);
+
+                    // Usar uploadData.path para garantir que estamos usando o caminho correto retornado pelo upload
+                    const actualPath = uploadData.path || filePath;
+                    const { data: publicData } = supabase.storage
+                        .from(bucket)
+                        .getPublicUrl(actualPath);
+
+                    if (!publicData?.publicUrl) {
+                        console.error(`Erro ao gerar URL publica no bucket ${bucket}: URL não gerada`);
+                        lastError = new Error('URL pública não gerada');
+                        continue;
+                    }
+
+                    const photoUrl = publicData.publicUrl;
+                    
+                    // Validar que a URL foi gerada corretamente
+                    if (!photoUrl || photoUrl.trim() === '') {
+                        console.error(`URL vazia gerada para o bucket ${bucket}`);
+                        lastError = new Error('URL vazia gerada');
+                        continue;
+                    }
+
+                    // Validar formato da URL
+                    try {
+                        new URL(photoUrl);
+                    } catch (urlError) {
+                        console.error(`URL inválida gerada para o bucket ${bucket}:`, photoUrl);
+                        lastError = new Error('URL inválida gerada');
+                        continue;
+                    }
+
+                    console.log(`✓ Foto enviada com sucesso no bucket ${bucket}:`, photoUrl);
+                    updatePhotoStatus(6, `Foto enviada com sucesso (${bucket}/${actualPath})`);
+                    return photoUrl;
+                } catch (bucketError: any) {
+                    console.error(`Erro ao processar bucket ${bucket}:`, bucketError);
+                    lastError = bucketError;
                     continue;
                 }
-
-                updatePhotoStatus(6, `Foto enviada com sucesso (${bucket}/${actualPath})`);
-                return photoUrl;
             }
 
-            throw new Error('Nenhum bucket aceitou o upload da foto.');
+            // Se chegou aqui, todos os buckets falharam
+            const errorMessage = lastError?.message || 'Nenhum bucket aceitou o upload da foto.';
+            throw new Error(errorMessage);
         } catch (error) {
             const message = (error as Error).message || 'Erro ao enviar a foto.';
             console.error('Erro ao fazer upload da foto:', error);
@@ -361,8 +453,14 @@ const BoxRegistry: React.FC = () => {
             return;
         }
 
-        if (!photoStatusMessage.startsWith('6/6')) {
-            alert('Aguarde a foto ficar pronta (6/6) antes de salvar.');
+        // Verificar se a foto está pronta - mais flexível para iOS
+        const isPhotoReady = photoFile && 
+                            (photoStatusMessage.startsWith('6/6') || 
+                             photoStatusMessage.includes('Pronto para upload') ||
+                             photoPreview !== null);
+        
+        if (!isPhotoReady && photoFile) {
+            alert('Aguarde a foto ficar pronta antes de salvar. Status: ' + photoStatusMessage);
             return;
         }
 
@@ -372,19 +470,41 @@ const BoxRegistry: React.FC = () => {
             let fotoUrl: string | null = null;
             if (photoFile) {
                 try {
+                    console.log('Iniciando upload da foto...', { 
+                        fileName: photoFile.name, 
+                        fileSize: photoFile.size, 
+                        fileType: photoFile.type 
+                    });
+                    
                     fotoUrl = await uploadPhoto();
+                    
                     if (!fotoUrl || fotoUrl.trim() === '') {
+                        console.error('URL vazia retornada do upload');
                         alert('Erro: A foto foi enviada mas a URL não foi gerada corretamente. Tente novamente.');
                         setSaving(false);
                         return;
                     }
-                    console.log('Foto URL gerada:', fotoUrl);
+                    
+                    console.log('Foto URL gerada com sucesso:', fotoUrl);
+                    
+                    // Validar que a URL é válida
+                    try {
+                        new URL(fotoUrl);
+                    } catch (urlError) {
+                        console.error('URL inválida gerada:', fotoUrl);
+                        alert('Erro: A URL da foto gerada é inválida. Tente novamente.');
+                        setSaving(false);
+                        return;
+                    }
                 } catch (uploadError: any) {
                     console.error('Erro no upload da foto:', uploadError);
-                    alert('Erro ao fazer upload da foto: ' + (uploadError.message || 'Erro desconhecido'));
+                    const errorMessage = uploadError?.message || 'Erro desconhecido';
+                    alert('Erro ao fazer upload da foto: ' + errorMessage + '\n\nTente novamente ou verifique sua conexão.');
                     setSaving(false);
                     return;
                 }
+            } else {
+                console.warn('Tentativa de salvar sem foto');
             }
 
             const unidades = parseDecimalInput(formData.units);
@@ -406,7 +526,10 @@ const BoxRegistry: React.FC = () => {
                 observacao: formData.observacao
             };
 
-            console.log('Payload a ser salvo:', { ...payload, foto_url: fotoUrl ? 'URL presente' : 'null' });
+            console.log('Payload a ser salvo:', { 
+                ...payload, 
+                foto_url: fotoUrl ? `URL presente (${fotoUrl.substring(0, 50)}...)` : 'null' 
+            });
 
             const { data, error } = await supabase
                 .from('producao_caixas')
@@ -421,14 +544,24 @@ const BoxRegistry: React.FC = () => {
             // Verificar se o registro foi salvo com a foto
             if (data && data.length > 0) {
                 const savedRecord = data[0];
-                console.log('Registro salvo:', { id: savedRecord.id, foto_url: savedRecord.foto_url });
+                console.log('Registro salvo:', { 
+                    id: savedRecord.id, 
+                    foto_url: savedRecord.foto_url ? 'URL presente' : 'null',
+                    op: savedRecord.op
+                });
                 
                 if (fotoUrl && !savedRecord.foto_url) {
-                    console.warn('Atenção: Foto foi enviada mas não foi salva no registro!');
+                    console.error('ERRO CRÍTICO: Foto foi enviada mas não foi salva no registro!');
+                    alert('Atenção: O registro foi salvo, mas a foto pode não ter sido associada corretamente. Verifique o registro.');
+                } else if (fotoUrl && savedRecord.foto_url) {
+                    console.log('✓ Foto salva com sucesso no registro');
                 }
+            } else {
+                console.error('Nenhum registro retornado após inserção');
+                throw new Error('Registro não foi criado corretamente');
             }
 
-            alert('Registro de caixa salvo com sucesso!');
+            alert('Registro de caixa salvo com sucesso!' + (fotoUrl ? '\n✓ Foto incluída' : ''));
             handleClear();
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
@@ -571,7 +704,7 @@ const BoxRegistry: React.FC = () => {
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,image/heic,image/heif"
                         capture="environment"
                         onChange={handlePhotoSelect}
                         style={{ display: 'none' }}
