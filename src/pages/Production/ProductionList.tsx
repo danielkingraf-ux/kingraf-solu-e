@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, ClipboardList, Loader2, Image, X, Pencil, Trash2 } from 'lucide-react';
+import { Search, Filter, ClipboardList, Loader2, X, Pencil, Trash2, Eye } from 'lucide-react';
 import './ProductionList.css';
 import { supabase } from '../../supabaseClient';
 
@@ -30,7 +30,15 @@ const ProductionList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [skuFilter, setSkuFilter] = useState('');
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [viewRecord, setViewRecord] = useState<ProductionRecord | null>(null);
+    const [selectedPhoto, setSelectedPhoto] = useState<{
+        url: string;
+        observacao?: string | null;
+        op: string;
+        cliente: string;
+        produto: string;
+        created_at: string;
+    } | null>(null);
     const buildInitialEditForm = () => ({
         op: '',
         cliente: '',
@@ -268,6 +276,7 @@ const ProductionList: React.FC = () => {
                                 <th>Caixa</th>
                                 <th>Maços</th>
                                 <th>Itens</th>
+                                <th>Observacao</th>
                                 <th>Foto</th>
                                 <th>Status</th>
                                 <th className="actions-col">Acoes</th>
@@ -276,7 +285,7 @@ const ProductionList: React.FC = () => {
                         <tbody>
                             {filteredRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={11}>Nenhum registro encontrado.</td>
+                                    <td colSpan={12}>Nenhum registro encontrado.</td>
                                 </tr>
                             ) : (
                                 filteredRecords.map(record => (
@@ -289,22 +298,44 @@ const ProductionList: React.FC = () => {
                                         <td>{record.tipo_caixa || '-'}</td>
                                         <td>{record.total_macos}</td>
                                         <td>{record.total_itens?.toLocaleString()}</td>
+                                        <td className="obs-cell" title={record.observacao || undefined}>
+                                            {record.observacao?.trim() ? record.observacao : '-'}
+                                        </td>
                                         <td>
                                             {record.foto_url ? (
                                                 <button
-                                                    className="photo-btn"
-                                                    onClick={() => setSelectedImage(record.foto_url)}
+                                                    className="photo-btn with-preview"
+                                                    onClick={() => setSelectedPhoto({
+                                                        url: record.foto_url as string,
+                                                        observacao: record.observacao,
+                                                        op: record.op,
+                                                        cliente: record.cliente,
+                                                        produto: record.produto,
+                                                        created_at: record.created_at
+                                                    })}
                                                     title="Ver foto"
                                                 >
-                                                    <Image size={18} />
+                                                    <img
+                                                        src={record.foto_url}
+                                                        alt={`Foto do registro da OP ${record.op}`}
+                                                        loading="lazy"
+                                                    />
+                                                    <span>Ver</span>
                                                 </button>
                                             ) : (
-                                                <span className="no-photo">-</span>
+                                                <span className="no-photo">Sem foto</span>
                                             )}
                                         </td>
-                                        <td><span className="status-badge success">Concluído</span></td>
+                                        <td><span className="status-badge success">Concluido</span></td>
                                         <td className="actions-col">
                                             <div className="prod-row-actions">
+                                                <button
+                                                    className="action-icon-btn"
+                                                    title="Visualizar"
+                                                    onClick={() => setViewRecord(record)}
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
                                                 <button
                                                     className="action-icon-btn"
                                                     title="Editar"
@@ -328,6 +359,110 @@ const ProductionList: React.FC = () => {
                     </table>
                 )}
             </div>
+
+            {viewRecord && (
+                <div className="modal-overlay">
+                    <div className="modal-content view-modal">
+                        <div className="modal-header">
+                            <h3>Visualizar Registro</h3>
+                            <button onClick={() => setViewRecord(null)}><X size={20} /></button>
+                        </div>
+
+                        <div className="view-grid">
+                            <div className="view-field">
+                                <span className="meta-label">Data/Hora</span>
+                                <span className="meta-value">
+                                    {new Date(viewRecord.created_at).toLocaleString('pt-BR')}
+                                </span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">OP</span>
+                                <span className="meta-value">{viewRecord.op}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Cliente</span>
+                                <span className="meta-value">{viewRecord.cliente}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Produto</span>
+                                <span className="meta-value">{viewRecord.produto}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">SKU</span>
+                                <span className="meta-value">{viewRecord.sku || '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Tipo de Caixa</span>
+                                <span className="meta-value">{viewRecord.tipo_caixa || '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Maços</span>
+                                <span className="meta-value">{viewRecord.total_macos}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Itens</span>
+                                <span className="meta-value">{viewRecord.total_itens?.toLocaleString()}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Unidades extras</span>
+                                <span className="meta-value">{viewRecord.unidades ?? '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Fileiras</span>
+                                <span className="meta-value">{viewRecord.qtd_fileiras ?? '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Maços/Fileira</span>
+                                <span className="meta-value">{viewRecord.qtd_macos_fileira ?? '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Qtd/Maço</span>
+                                <span className="meta-value">{viewRecord.qtd_por_maco ?? '-'}</span>
+                            </div>
+                            <div className="view-field">
+                                <span className="meta-label">Altura</span>
+                                <span className="meta-value">{viewRecord.altura ?? '-'}</span>
+                            </div>
+                        </div>
+
+                        <div className="view-observacao">
+                            <span className="meta-label">Observacao</span>
+                            <p>{viewRecord.observacao?.trim() ? viewRecord.observacao : 'Sem observacao'}</p>
+                        </div>
+
+                        <div className="view-photo-block">
+                            <div className="view-photo-header">
+                                <span className="meta-label">Foto</span>
+                                {viewRecord.foto_url && (
+                                    <button
+                                        className="btn-orange"
+                                        onClick={() => {
+                                            setViewRecord(null);
+                                            setSelectedPhoto({
+                                                url: viewRecord.foto_url as string,
+                                                observacao: viewRecord.observacao,
+                                                op: viewRecord.op,
+                                                cliente: viewRecord.cliente,
+                                                produto: viewRecord.produto,
+                                                created_at: viewRecord.created_at
+                                            });
+                                        }}
+                                    >
+                                        Ampliar
+                                    </button>
+                                )}
+                            </div>
+                            {viewRecord.foto_url ? (
+                                <div className="view-photo-wrapper">
+                                    <img src={viewRecord.foto_url} alt={`Foto da OP ${viewRecord.op}`} loading="lazy" />
+                                </div>
+                            ) : (
+                                <div className="view-photo-placeholder">Sem foto anexada</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isEditOpen && (
                 <div className="modal-overlay">
@@ -482,13 +617,43 @@ const ProductionList: React.FC = () => {
             )}
 
             {/* Image Modal */}
-            {selectedImage && (
-                <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+            {selectedPhoto && (
+                <div className="image-modal-overlay" onClick={() => setSelectedPhoto(null)}>
                     <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
-                        <button className="close-modal" onClick={() => setSelectedImage(null)}>
+                        <button className="close-modal" onClick={() => setSelectedPhoto(null)}>
                             <X size={24} />
                         </button>
-                        <img src={selectedImage} alt="Foto da disposição" />
+                        <img
+                            src={selectedPhoto.url}
+                            alt={`Foto do registro da OP ${selectedPhoto.op}`}
+                            loading="lazy"
+                        />
+                        <div className="photo-meta">
+                            <div>
+                                <span className="meta-label">OP</span>
+                                <span className="meta-value">{selectedPhoto.op}</span>
+                            </div>
+                            <div>
+                                <span className="meta-label">Produto</span>
+                                <span className="meta-value">{selectedPhoto.produto}</span>
+                            </div>
+                            <div>
+                                <span className="meta-label">Cliente</span>
+                                <span className="meta-value">{selectedPhoto.cliente}</span>
+                            </div>
+                            <div>
+                                <span className="meta-label">Data</span>
+                                <span className="meta-value">
+                                    {new Date(selectedPhoto.created_at).toLocaleString('pt-BR')}
+                                </span>
+                            </div>
+                        </div>
+                        {selectedPhoto.observacao?.trim() && (
+                            <div className="photo-observacao">
+                                <span className="meta-label">Observacao</span>
+                                <p>{selectedPhoto.observacao}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
