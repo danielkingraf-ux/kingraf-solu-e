@@ -139,6 +139,9 @@
     cursor: pointer;
     transition: all 0.3s ease;
     background-color: #F8FAFC;
+    border: none;
+    display: flex;
+    font: inherit;
 }
 
 .photo-placeholder:hover {
