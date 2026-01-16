@@ -44,7 +44,6 @@ const BoxRegistry: React.FC = () => {
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
     const PHOTO_QUALITY = 0.78;
-    const SKIP_RESIZE_TYPES = ['image/heic', 'image/heif'];
     const productionPhotoBuckets = Array.from(
         new Set(
             [import.meta.env.VITE_PRODUCTION_PHOTO_BUCKET, 'fotos', 'quality-photos'].filter(
@@ -108,14 +107,52 @@ const BoxRegistry: React.FC = () => {
         }));
     };
 
-    const preparePhotoFile = async (file: File, updateStatus: (msg: string) => void) => {
-        if (file.size <= MAX_PHOTO_SIZE_BYTES || SKIP_RESIZE_TYPES.includes(file.type)) {
-            const sizeMb = (file.size / 1024 / 1024).toFixed(2);
-            updateStatus(`Foto com ${sizeMb} MB, pronta para envio.`);
+    const isHeicFile = (file: File) => /heic|heif/i.test(file.type) || /\.heic$/i.test(file.name);
+
+    const convertHeicToJpeg = async (file: File, updateStatus: (msg: string) => void) => {
+        if (typeof createImageBitmap !== 'function') {
+            updateStatus('Este navegador não suporta HEIC; envie JPEG/PNG.');
             return file;
         }
 
-        updateStatus('Redimensionando foto para envio...');
+        try {
+            updateStatus('Convertendo HEIC para JPEG...');
+            const bitmap = await createImageBitmap(file);
+            const maxDimension = Math.max(bitmap.width, bitmap.height);
+            const scale = maxDimension > MAX_PHOTO_DIMENSION ? MAX_PHOTO_DIMENSION / maxDimension : 1;
+            const width = Math.round(bitmap.width * scale);
+            const height = Math.round(bitmap.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                updateStatus('Não foi possível preparar a foto.');
+                return file;
+            }
+            ctx.drawImage(bitmap, 0, 0, width, height);
+            const blob = await new Promise<Blob>((resolve, reject) => {
+                canvas.toBlob(
+                    (result) => {
+                        if (result) resolve(result);
+                        else reject(new Error('Falha ao gerar blob da imagem.'));
+                    },
+                    'image/jpeg',
+                    PHOTO_QUALITY
+                );
+            });
+            bitmap.close?.();
+            const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
+            updateStatus(`Foto convertida para JPEG (${width}x${height}).`);
+            return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+        } catch (error) {
+            console.error('Erro ao converter HEIC:', error);
+            updateStatus('Não foi possível converter o HEIC neste navegador. Envie JPEG/PNG.');
+            return file;
+        }
+    };
+
+    const resizeLargeImage = async (file: File, updateStatus: (msg: string) => void) => {
         return new Promise<File>((resolve) => {
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
@@ -130,6 +167,7 @@ const BoxRegistry: React.FC = () => {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
+                    updateStatus('Não foi possível preparar a foto.');
                     resolve(file);
                     return;
                 }
@@ -137,12 +175,12 @@ const BoxRegistry: React.FC = () => {
                 canvas.toBlob(
                     (blob) => {
                         if (!blob) {
-                            updateStatus('Não foi possível redimensionar a foto; mantendo original.');
+                            updateStatus('Não foi possível redimensionar a foto; mantendo o original.');
                             resolve(file);
                             return;
                         }
                         const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
-                        const resized = new File([blob], `${baseName || 'foto'}.jpg`, {
+                        const resized = new File([blob], `${baseName}.jpg`, {
                             type: 'image/jpeg'
                         });
                         const sizeMb = (blob.size / 1024 / 1024).toFixed(2);
@@ -160,6 +198,23 @@ const BoxRegistry: React.FC = () => {
             };
             img.src = objectUrl;
         });
+    };
+
+    const preparePhotoFile = async (file: File, updateStatus: (msg: string) => void) => {
+        let workingFile = file;
+
+        if (isHeicFile(workingFile)) {
+            workingFile = await convertHeicToJpeg(workingFile, updateStatus);
+        }
+
+        if (workingFile.size <= MAX_PHOTO_SIZE_BYTES) {
+            const sizeMb = (workingFile.size / 1024 / 1024).toFixed(2);
+            updateStatus(`Foto com ${sizeMb} MB, pronta para envio.`);
+            return workingFile;
+        }
+
+        updateStatus('Redimensionando foto para envio...');
+        return resizeLargeImage(workingFile, updateStatus);
     };
 
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
