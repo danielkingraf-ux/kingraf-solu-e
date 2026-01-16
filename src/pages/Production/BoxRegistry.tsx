@@ -38,6 +38,8 @@ const BoxRegistry: React.FC = () => {
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [photoStatusMessage, setPhotoStatusMessage] = useState('');
+    const [photoPreparing, setPhotoPreparing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
@@ -106,11 +108,14 @@ const BoxRegistry: React.FC = () => {
         }));
     };
 
-    const preparePhotoFile = async (file: File) => {
+    const preparePhotoFile = async (file: File, updateStatus: (msg: string) => void) => {
         if (file.size <= MAX_PHOTO_SIZE_BYTES || SKIP_RESIZE_TYPES.includes(file.type)) {
+            const sizeMb = (file.size / 1024 / 1024).toFixed(2);
+            updateStatus(`Foto com ${sizeMb} MB, pronta para envio.`);
             return file;
         }
 
+        updateStatus('Redimensionando foto para envio...');
         return new Promise<File>((resolve) => {
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
@@ -132,6 +137,7 @@ const BoxRegistry: React.FC = () => {
                 canvas.toBlob(
                     (blob) => {
                         if (!blob) {
+                            updateStatus('Não foi possível redimensionar a foto; mantendo original.');
                             resolve(file);
                             return;
                         }
@@ -139,6 +145,8 @@ const BoxRegistry: React.FC = () => {
                         const resized = new File([blob], `${baseName || 'foto'}.jpg`, {
                             type: 'image/jpeg'
                         });
+                        const sizeMb = (blob.size / 1024 / 1024).toFixed(2);
+                        updateStatus(`Foto redimensionada para ${width}x${height}, ~${sizeMb} MB.`);
                         resolve(resized);
                     },
                     'image/jpeg',
@@ -147,6 +155,7 @@ const BoxRegistry: React.FC = () => {
             };
             img.onerror = () => {
                 URL.revokeObjectURL(objectUrl);
+                updateStatus('Erro ao carregar a foto para redimensionamento.');
                 resolve(file);
             };
             img.src = objectUrl;
@@ -156,19 +165,28 @@ const BoxRegistry: React.FC = () => {
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const preparedFile = await preparePhotoFile(file);
-            setPhotoFile(preparedFile);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPhotoPreview(reader.result as string);
-            };
-            reader.readAsDataURL(preparedFile);
+            setPhotoStatusMessage('');
+            setPhotoPreparing(true);
+            let preparedFile: File | null = null;
+            try {
+                preparedFile = await preparePhotoFile(file, setPhotoStatusMessage);
+                setPhotoFile(preparedFile);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setPhotoPreview(reader.result as string);
+                };
+                reader.readAsDataURL(preparedFile);
+            } finally {
+                setPhotoPreparing(false);
+            }
         }
     };
 
     const removePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
+        setPhotoStatusMessage('');
+        setPhotoPreparing(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -428,6 +446,12 @@ const BoxRegistry: React.FC = () => {
                         style={{ display: 'none' }}
                         id="photo-input"
                     />
+
+                    {photoStatusMessage && (
+                        <div className={`photo-status-message ${photoPreparing ? 'loading' : ''}`}>
+                            {photoPreparing ? 'Processando imagem...' : photoStatusMessage}
+                        </div>
+                    )}
 
                     {photoPreview ? (
                         <div className="photo-preview-container">

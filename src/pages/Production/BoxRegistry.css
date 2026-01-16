@@ -147,6 +147,17 @@
     background-color: var(--kingraf-orange-alpha);
 }
 
+.photo-status-message {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #475569;
+    font-weight: 600;
+}
+
+.photo-status-message.loading {
+    color: var(--kingraf-orange);
+}
+
 .photo-hint {
     font-size: 13px;
     font-weight: 500;
