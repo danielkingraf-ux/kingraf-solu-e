@@ -11,6 +11,8 @@ import {
     Camera
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+import { useToast } from '../../components/Toast/ToastProvider';
+import { useModal } from '../../components/Modal/useModal';
 import '../Production/Stock.css';
 
 interface Revisor {
@@ -56,6 +58,9 @@ const getLocalDateTimeString = () => {
 };
 
 const NewRevision: React.FC = () => {
+    const toast = useToast();
+    const modal = useModal();
+    
     // Constantes para processamento de fotos
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
@@ -260,22 +265,22 @@ const NewRevision: React.FC = () => {
 
     const adicionarPeriodo = () => {
         if (!dataInicio) {
-            alert('Informe a data/hora de inicio.');
+            toast.showWarning('Informe a data/hora de início.');
             return;
         }
         if (!dataFim) {
-            alert('Informe a data/hora de termino para adicionar outro periodo.');
+            toast.showWarning('Informe a data/hora de término para adicionar outro período.');
             return;
         }
 
         const inicioMs = new Date(dataInicio).getTime();
         const fimMs = new Date(dataFim).getTime();
         if (!Number.isFinite(inicioMs) || !Number.isFinite(fimMs)) {
-            alert('Datas invalidas no periodo.');
+            toast.showError('Datas inválidas no período.');
             return;
         }
         if (fimMs < inicioMs) {
-            alert('A data/hora de termino nao pode ser menor que a de inicio.');
+            toast.showWarning('A data/hora de término não pode ser menor que a de início.');
             return;
         }
 
@@ -445,34 +450,34 @@ const NewRevision: React.FC = () => {
         } catch (error) {
             const message = (error as Error).message || 'Erro ao processar a foto.';
             console.error('Erro ao processar foto do desvio:', error);
-            alert('Erro ao processar foto: ' + message);
+            toast.showError('Erro ao processar foto: ' + message);
         }
     };
 
     const handleSave = async (finalizar: boolean = false) => {
         if (!op || selectedSetores.length === 0 || selectedRevisores.length === 0 || !dataInicio) {
-            alert('Por favor, preencha OP, Setores, Revisores e Data de inicio.');
+            toast.showWarning('Por favor, preencha OP, Setores, Revisores e Data de início.');
             return;
         }
 
         if (selectedOperadores.length === 0) {
-            alert('Por favor, selecione operador(es) antes de salvar.');
+            toast.showWarning('Por favor, selecione operador(es) antes de salvar.');
             return;
         }
 
         const opValue = op.trim();
         if (revisaId && activeOp && opValue !== activeOp) {
-            alert('A OP foi alterada. Recarregue a OP antes de salvar.');
+            toast.showWarning('A OP foi alterada. Recarregue a OP antes de salvar.');
             return;
         }
 
         if (quantidadeRevisada < 0 || quantidadeAprovada < 0) {
-            alert('As quantidades nao podem ser negativas.');
+            toast.showWarning('As quantidades não podem ser negativas.');
             return;
         }
 
         if (quantidadeAprovada > quantidadeRevisada) {
-            alert('A quantidade aprovada nao pode ser maior que a revisada.');
+            toast.showWarning('A quantidade aprovada não pode ser maior que a revisada.');
             return;
         }
 
@@ -480,7 +485,7 @@ const NewRevision: React.FC = () => {
         const inicioMs = new Date(dataInicio).getTime();
         const fimMs = new Date(dataFimValue).getTime();
         if (Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs < inicioMs) {
-            alert('A data/hora de termino nao pode ser menor que a de inicio.');
+            toast.showWarning('A data/hora de término não pode ser menor que a de início.');
             return;
         }
 
@@ -681,10 +686,10 @@ const NewRevision: React.FC = () => {
             }
 
             if (finalizar) {
-                alert('Revisao finalizada com sucesso!');
+                toast.showSuccess('Revisão finalizada com sucesso!');
                 resetForm();
             } else {
-                alert('Progresso salvo!');
+                toast.showSuccess('Progresso salvo!');
                 // Atualiza o acumulado local para permitir continuar na mesma tela
                 setAcumuladoRevisada(prev => prev + quantidadeRevisada);
                 setAcumuladoAprovada(prev => prev + quantidadeAprovada);
@@ -705,7 +710,7 @@ const NewRevision: React.FC = () => {
             }
 
         } catch (error: any) {
-            alert('Erro ao salvar: ' + error.message);
+            toast.showError('Erro ao salvar: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -1533,6 +1538,7 @@ const NewRevision: React.FC = () => {
                     </div>
                 </div>
             )}
+            <modal.ModalComponent />
         </div>
     );
 };

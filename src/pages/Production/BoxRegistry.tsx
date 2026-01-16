@@ -10,8 +10,12 @@ import {
 } from 'lucide-react';
 import './BoxRegistry.css';
 import { supabase } from '../../supabaseClient';
+import { useToast } from '../../components/Toast/ToastProvider';
+import { useModal } from '../../components/Modal/useModal';
 
 const BoxRegistry: React.FC = () => {
+    const toast = useToast();
+    const modal = useModal();
     const [availableSizes, setAvailableSizes] = useState<{ id: string, numero_caixa: string }[]>([]);
     const [loadingSizes, setLoadingSizes] = useState(false);
 
@@ -436,12 +440,12 @@ const BoxRegistry: React.FC = () => {
 
     const handleSave = async () => {
         if (!formData.op || !formData.client || !formData.product) {
-            alert('Por favor, preencha os campos obrigatorios (OP, Cliente, Produto).');
+            toast.showWarning('Por favor, preencha os campos obrigatórios (OP, Cliente, Produto).');
             return;
         }
 
         if (photoProcessingError) {
-            alert(photoProcessingError);
+            toast.showError(photoProcessingError);
             return;
         }
 
@@ -449,7 +453,7 @@ const BoxRegistry: React.FC = () => {
             const message = photoAttempted
                 ? 'Você tentou anexar a foto, mas ela não carregou.'
                 : 'Anexe uma foto antes de salvar.';
-            alert(message);
+            toast.showWarning(message);
             return;
         }
 
@@ -460,7 +464,7 @@ const BoxRegistry: React.FC = () => {
                              photoPreview !== null);
         
         if (!isPhotoReady && photoFile) {
-            alert('Aguarde a foto ficar pronta antes de salvar. Status: ' + photoStatusMessage);
+            toast.showWarning('Aguarde a foto ficar pronta antes de salvar. Status: ' + photoStatusMessage);
             return;
         }
 
@@ -480,7 +484,7 @@ const BoxRegistry: React.FC = () => {
                     
                     if (!fotoUrl || fotoUrl.trim() === '') {
                         console.error('URL vazia retornada do upload');
-                        alert('Erro: A foto foi enviada mas a URL não foi gerada corretamente. Tente novamente.');
+                        toast.showError('A foto foi enviada mas a URL não foi gerada corretamente. Tente novamente.');
                         setSaving(false);
                         return;
                     }
@@ -492,14 +496,14 @@ const BoxRegistry: React.FC = () => {
                         new URL(fotoUrl);
                     } catch (urlError) {
                         console.error('URL inválida gerada:', fotoUrl);
-                        alert('Erro: A URL da foto gerada é inválida. Tente novamente.');
+                        toast.showError('A URL da foto gerada é inválida. Tente novamente.');
                         setSaving(false);
                         return;
                     }
                 } catch (uploadError: any) {
                     console.error('Erro no upload da foto:', uploadError);
                     const errorMessage = uploadError?.message || 'Erro desconhecido';
-                    alert('Erro ao fazer upload da foto: ' + errorMessage + '\n\nTente novamente ou verifique sua conexão.');
+                    modal.showError('Erro ao fazer upload da foto: ' + errorMessage + '\n\nTente novamente ou verifique sua conexão.', 'Erro no Upload');
                     setSaving(false);
                     return;
                 }
@@ -552,7 +556,7 @@ const BoxRegistry: React.FC = () => {
                 
                 if (fotoUrl && !savedRecord.foto_url) {
                     console.error('ERRO CRÍTICO: Foto foi enviada mas não foi salva no registro!');
-                    alert('Atenção: O registro foi salvo, mas a foto pode não ter sido associada corretamente. Verifique o registro.');
+                    toast.showWarning('O registro foi salvo, mas a foto pode não ter sido associada corretamente. Verifique o registro.');
                 } else if (fotoUrl && savedRecord.foto_url) {
                     console.log('✓ Foto salva com sucesso no registro');
                 }
@@ -561,11 +565,11 @@ const BoxRegistry: React.FC = () => {
                 throw new Error('Registro não foi criado corretamente');
             }
 
-            alert('Registro de caixa salvo com sucesso!' + (fotoUrl ? '\n✓ Foto incluída' : ''));
+            toast.showSuccess('Registro de caixa salvo com sucesso!' + (fotoUrl ? ' ✓ Foto incluída' : ''));
             handleClear();
         } catch (error: any) {
             console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar registro: ' + (error.message || 'Erro desconhecido'));
+            toast.showError('Erro ao salvar registro: ' + (error.message || 'Erro desconhecido'));
         } finally {
             setSaving(false);
         }
@@ -776,6 +780,7 @@ const BoxRegistry: React.FC = () => {
                     </button>
                 </div>
             </aside>
+            <modal.ModalComponent />
         </div>
     );
 };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 import Layout from './components/Layout/Layout';
+import { ToastProvider } from './components/Toast/ToastProvider';
 import Login from './pages/Auth/Login';
 import Dashboard from './pages/Quality/Dashboard';
 import Selection from './pages/Selection/Selection';
@@ -103,15 +104,17 @@ function App() {
   };
 
   return (
-    <Layout
-      currentPage={selectedModule}
-      session={session}
-      onExit={() => setSelectedModule(null)}
-      onNavigate={handleNavigate}
-      onLogout={handleLogout}
-    >
-      {content()}
-    </Layout>
+    <ToastProvider>
+      <Layout
+        currentPage={selectedModule}
+        session={session}
+        onExit={() => setSelectedModule(null)}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+      >
+        {content()}
+      </Layout>
+    </ToastProvider>
   );
 }
 
