@@ -38,9 +38,11 @@ const BoxRegistry: React.FC = () => {
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
-    const [photoStatusMessage, setPhotoStatusMessage] = useState('0/6 Aguardando seleção de foto');
+    const INITIAL_PHOTO_STATUS = '0/6 Aguardando seleção de foto';
+    const [photoStatusMessage, setPhotoStatusMessage] = useState(INITIAL_PHOTO_STATUS);
     const [photoPreparing, setPhotoPreparing] = useState(false);
     const [photoProcessingError, setPhotoProcessingError] = useState<string | null>(null);
+    const [photoAttempted, setPhotoAttempted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
@@ -59,6 +61,7 @@ const BoxRegistry: React.FC = () => {
 
     const handleOpenFileDialog = () => {
         setPhotoProcessingError(null);
+        setPhotoAttempted(true);
         setPhotoStatusMessage('0/6 Selecionando arquivo...');
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -128,13 +131,14 @@ const BoxRegistry: React.FC = () => {
         const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
         try {
             const heic2any = (await import('heic2any')).default;
-            const blob = await heic2any({
+            const output = await heic2any({
                 blob: file,
                 toType: 'image/jpeg',
                 quality: 0.85
             });
+            const blob = Array.isArray(output) ? output[0] : output;
             updateStatus(3, 'Conversão HEIC concluída');
-            return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+            return new File([blob as BlobPart], `${baseName}.jpg`, { type: 'image/jpeg' });
         } catch (error) {
             console.error('Erro ao converter HEIC:', error);
             throw new Error('Falha na conversão HEIC. Envie JPEG ou PNG.');
@@ -218,6 +222,7 @@ const BoxRegistry: React.FC = () => {
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        setPhotoAttempted(true);
 
         updatePhotoStatus(1, 'Arquivo selecionado');
         setPhotoProcessingError(null);
@@ -252,9 +257,10 @@ const BoxRegistry: React.FC = () => {
     const removePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
-        setPhotoStatusMessage('0/6 Aguardando seleção de foto');
+        setPhotoStatusMessage(INITIAL_PHOTO_STATUS);
         setPhotoProcessingError(null);
         setPhotoPreparing(false);
+        setPhotoAttempted(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -293,7 +299,7 @@ const BoxRegistry: React.FC = () => {
                     continue;
                 }
 
-                updatePhotoStatus(6, 'Foto enviada com sucesso');
+                updatePhotoStatus(6, `Foto enviada com sucesso (${bucket}/${filePath})`);
                 return publicData.publicUrl;
             }
 
@@ -334,6 +340,19 @@ const BoxRegistry: React.FC = () => {
 
         if (photoProcessingError) {
             alert(photoProcessingError);
+            return;
+        }
+
+        if (!photoFile) {
+            const message = photoAttempted
+                ? 'Você tentou anexar a foto, mas ela não carregou.'
+                : 'Anexe uma foto antes de salvar.';
+            alert(message);
+            return;
+        }
+
+        if (!photoStatusMessage.startsWith('6/6')) {
+            alert('Aguarde a foto ficar pronta (6/6) antes de salvar.');
             return;
         }
 
@@ -526,7 +545,7 @@ const BoxRegistry: React.FC = () => {
                     <div
                         className={`photo-status-message ${photoPreparing ? 'loading' : ''} ${photoProcessingError ? 'error' : ''}`}
                     >
-                        {photoStatusMessage || '0/6 Aguardando seleção de foto'}
+                        {photoStatusMessage || INITIAL_PHOTO_STATUS}
                     </div>
 
                     {photoPreview ? (
