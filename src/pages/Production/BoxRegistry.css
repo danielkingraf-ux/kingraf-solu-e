@@ -158,6 +158,10 @@
     color: var(--kingraf-orange);
 }
 
+.photo-status-message.error {
+    color: var(--danger);
+}
+
 .photo-hint {
     font-size: 13px;
     font-weight: 500;

@@ -9,6 +9,7 @@ import {
     X
 } from 'lucide-react';
 import './BoxRegistry.css';
+import heic2any from 'heic2any';
 import { supabase } from '../../supabaseClient';
 
 const BoxRegistry: React.FC = () => {
@@ -40,6 +41,7 @@ const BoxRegistry: React.FC = () => {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [photoStatusMessage, setPhotoStatusMessage] = useState('');
     const [photoPreparing, setPhotoPreparing] = useState(false);
+    const [photoProcessingError, setPhotoProcessingError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
@@ -110,46 +112,15 @@ const BoxRegistry: React.FC = () => {
     const isHeicFile = (file: File) => /heic|heif/i.test(file.type) || /\.heic$/i.test(file.name);
 
     const convertHeicToJpeg = async (file: File, updateStatus: (msg: string) => void) => {
-        if (typeof createImageBitmap !== 'function') {
-            updateStatus('Este navegador não suporta HEIC; envie JPEG/PNG.');
-            return file;
-        }
-
-        try {
-            updateStatus('Convertendo HEIC para JPEG...');
-            const bitmap = await createImageBitmap(file);
-            const maxDimension = Math.max(bitmap.width, bitmap.height);
-            const scale = maxDimension > MAX_PHOTO_DIMENSION ? MAX_PHOTO_DIMENSION / maxDimension : 1;
-            const width = Math.round(bitmap.width * scale);
-            const height = Math.round(bitmap.height * scale);
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                updateStatus('Não foi possível preparar a foto.');
-                return file;
-            }
-            ctx.drawImage(bitmap, 0, 0, width, height);
-            const blob = await new Promise<Blob>((resolve, reject) => {
-                canvas.toBlob(
-                    (result) => {
-                        if (result) resolve(result);
-                        else reject(new Error('Falha ao gerar blob da imagem.'));
-                    },
-                    'image/jpeg',
-                    PHOTO_QUALITY
-                );
-            });
-            bitmap.close?.();
-            const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
-            updateStatus(`Foto convertida para JPEG (${width}x${height}).`);
-            return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
-        } catch (error) {
-            console.error('Erro ao converter HEIC:', error);
-            updateStatus('Não foi possível converter o HEIC neste navegador. Envie JPEG/PNG.');
-            return file;
-        }
+        updateStatus('Convertendo HEIC para JPEG...');
+        const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'foto';
+        const blob = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.85
+        });
+        updateStatus('HEIC convertido para JPEG.');
+        return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
     };
 
     const resizeLargeImage = async (file: File, updateStatus: (msg: string) => void) => {
@@ -203,37 +174,54 @@ const BoxRegistry: React.FC = () => {
     const preparePhotoFile = async (file: File, updateStatus: (msg: string) => void) => {
         let workingFile = file;
 
-        if (isHeicFile(workingFile)) {
-            workingFile = await convertHeicToJpeg(workingFile, updateStatus);
-        }
+        try {
+            updateStatus('Arquivo recebido. Processando...');
 
-        if (workingFile.size <= MAX_PHOTO_SIZE_BYTES) {
-            const sizeMb = (workingFile.size / 1024 / 1024).toFixed(2);
-            updateStatus(`Foto com ${sizeMb} MB, pronta para envio.`);
+            if (isHeicFile(workingFile)) {
+                workingFile = await convertHeicToJpeg(workingFile, updateStatus);
+            }
+
+            if (workingFile.size > MAX_PHOTO_SIZE_BYTES) {
+                updateStatus('Redimensionando imagem para envio...');
+                workingFile = await resizeLargeImage(workingFile, updateStatus);
+            } else {
+                const sizeMb = (workingFile.size / 1024 / 1024).toFixed(2);
+                updateStatus(`Foto com ${sizeMb} MB pronta para envio.`);
+            }
+
             return workingFile;
+        } catch (error) {
+            console.error('Erro ao preparar foto:', error);
+            updateStatus('Não foi possível processar a imagem. Envie JPEG ou PNG.');
+            return null;
         }
-
-        updateStatus('Redimensionando foto para envio...');
-        return resizeLargeImage(workingFile, updateStatus);
     };
 
     const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setPhotoStatusMessage('');
-            setPhotoPreparing(true);
-            let preparedFile: File | null = null;
-            try {
-                preparedFile = await preparePhotoFile(file, setPhotoStatusMessage);
-                setPhotoFile(preparedFile);
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setPhotoPreview(reader.result as string);
-                };
-                reader.readAsDataURL(preparedFile);
-            } finally {
-                setPhotoPreparing(false);
+        if (!file) return;
+
+        setPhotoStatusMessage('Arquivo recebido. Processando...');
+        setPhotoProcessingError(null);
+        setPhotoPreparing(true);
+        try {
+            const preparedFile = await preparePhotoFile(file, setPhotoStatusMessage);
+            if (!preparedFile) {
+                const errorMessage = 'Não foi possível processar a imagem. Envie JPEG ou PNG.';
+                setPhotoProcessingError(errorMessage);
+                setPhotoPreview(null);
+                setPhotoFile(null);
+                return;
             }
+            setPhotoFile(preparedFile);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPhotoPreview(reader.result as string);
+            };
+            reader.readAsDataURL(preparedFile);
+            setPhotoProcessingError(null);
+        } finally {
+            setPhotoPreparing(false);
         }
     };
 
@@ -241,6 +229,7 @@ const BoxRegistry: React.FC = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
         setPhotoStatusMessage('');
+        setPhotoProcessingError(null);
         setPhotoPreparing(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -313,6 +302,11 @@ const BoxRegistry: React.FC = () => {
     const handleSave = async () => {
         if (!formData.op || !formData.client || !formData.product) {
             alert('Por favor, preencha os campos obrigatorios (OP, Cliente, Produto).');
+            return;
+        }
+
+        if (photoProcessingError) {
+            alert(photoProcessingError);
             return;
         }
 
@@ -503,7 +497,9 @@ const BoxRegistry: React.FC = () => {
                     />
 
                     {photoStatusMessage && (
-                        <div className={`photo-status-message ${photoPreparing ? 'loading' : ''}`}>
+                        <div
+                            className={`photo-status-message ${photoPreparing ? 'loading' : ''} ${photoProcessingError ? 'error' : ''}`}
+                        >
                             {photoPreparing ? 'Processando imagem...' : photoStatusMessage}
                         </div>
                     )}
