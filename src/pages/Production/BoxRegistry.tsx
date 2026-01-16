@@ -39,6 +39,13 @@ const BoxRegistry: React.FC = () => {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const productionPhotoBuckets = Array.from(
+        new Set(
+            [import.meta.env.VITE_PRODUCTION_PHOTO_BUCKET, 'fotos', 'quality-photos'].filter(
+                (bucket): bucket is string => Boolean(bucket)
+            )
+        )
+    );
 
     const parseOptionalNumber = (value: number | string) => {
         if (value === '' || value === null || value === undefined) return null;
@@ -125,23 +132,33 @@ const BoxRegistry: React.FC = () => {
             const fileName = `${Date.now()}-${sanitizedOp}.${fileExt}`;
             const filePath = `producao/${fileName}`;
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('quality-photos')
-                .upload(filePath, photoFile, {
-                    cacheControl: '3600',
-                    upsert: true,
-                    contentType: photoFile.type || 'image/jpeg'
-                });
+            for (const bucket of productionPhotoBuckets) {
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from(bucket)
+                    .upload(filePath, photoFile, {
+                        cacheControl: '3600',
+                        upsert: true,
+                        contentType: photoFile.type || 'image/jpeg'
+                    });
 
-            if (uploadError || !uploadData) throw uploadError || new Error('Falha no upload');
+                if (uploadError || !uploadData) {
+                    console.error(`Erro no upload para o bucket ${bucket}:`, uploadError);
+                    continue;
+                }
 
-            const { data: publicData, error: publicError } = supabase.storage
-                .from('quality-photos')
-                .getPublicUrl(filePath);
+                const { data: publicData, error: publicError } = supabase.storage
+                    .from(bucket)
+                    .getPublicUrl(filePath);
 
-            if (publicError || !publicData?.publicUrl) throw publicError || new Error('URL publica nao gerada');
+                if (publicError || !publicData?.publicUrl) {
+                    console.error(`Erro ao gerar URL publica no bucket ${bucket}:`, publicError);
+                    continue;
+                }
 
-            return publicData.publicUrl;
+                return publicData.publicUrl;
+            }
+
+            throw new Error('Nenhum bucket aceitou o upload da foto');
         } catch (error) {
             console.error('Erro ao fazer upload da foto:', error);
             alert('Erro ao enviar a foto. Tente novamente e verifique o tamanho do arquivo.');
