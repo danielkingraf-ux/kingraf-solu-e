@@ -431,24 +431,39 @@ const NewRevision: React.FC = () => {
                 const desviosValidos = desvios.filter(d => d.tipo_desvio_id && d.quantidade > 0);
 
                 for (const desvio of desviosValidos) {
-                    let fotoUrl = null;
+                    let fotoUrl: string | null = null;
 
                     // Upload da foto se existir
                     if (desvio.foto_file) {
-                        const fileName = `${currentRevisaoId}/${Date.now()}_${desvio.foto_file.name}`;
-                        const { data: uploadData, error: uploadError } = await supabase.storage
-                            .from('quality-photos')
-                            .upload(fileName, desvio.foto_file);
+                        try {
+                            const fileName = `${currentRevisaoId}/${Date.now()}_${desvio.foto_file.name}`;
+                            const { data: uploadData, error: uploadError } = await supabase.storage
+                                .from('quality-photos')
+                                .upload(fileName, desvio.foto_file);
 
-                        if (!uploadError && uploadData) {
+                            if (uploadError || !uploadData) {
+                                console.error('Erro no upload da foto do desvio:', uploadError);
+                                throw new Error(`Erro ao fazer upload da foto: ${uploadError?.message || 'Erro desconhecido'}`);
+                            }
+
                             const { data: publicUrlData } = supabase.storage
                                 .from('quality-photos')
                                 .getPublicUrl(uploadData.path);
+
+                            if (!publicUrlData?.publicUrl || publicUrlData.publicUrl.trim() === '') {
+                                console.error('Erro: URL pública não foi gerada para a foto');
+                                throw new Error('Erro ao gerar URL pública da foto');
+                            }
+
                             fotoUrl = publicUrlData.publicUrl;
+                            console.log('Foto do desvio enviada com sucesso:', fotoUrl);
+                        } catch (photoError: any) {
+                            console.error('Erro ao processar foto do desvio:', photoError);
+                            throw new Error(`Erro ao processar foto do desvio: ${photoError.message || 'Erro desconhecido'}`);
                         }
                     }
 
-                    const { error: desvioError } = await supabase
+                    const { data: insertedData, error: desvioError } = await supabase
                         .from('qual_revisao_desvios')
                         .insert([{
                             revisao_id: currentRevisaoId,
@@ -456,8 +471,21 @@ const NewRevision: React.FC = () => {
                             quantidade: desvio.quantidade,
                             observacao: desvio.observacao,
                             foto_url: fotoUrl
-                        }]);
-                    if (desvioError) throw desvioError;
+                        }])
+                        .select();
+
+                    if (desvioError) {
+                        console.error('Erro ao inserir desvio:', desvioError);
+                        throw desvioError;
+                    }
+
+                    // Verificar se a foto foi salva corretamente
+                    if (insertedData && insertedData.length > 0) {
+                        const savedDesvio = insertedData[0];
+                        if (fotoUrl && !savedDesvio.foto_url) {
+                            console.warn('Atenção: Foto do desvio foi enviada mas não foi salva no registro!');
+                        }
+                    }
                 }
             }
 

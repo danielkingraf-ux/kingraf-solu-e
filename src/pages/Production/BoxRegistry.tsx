@@ -290,17 +290,27 @@ const BoxRegistry: React.FC = () => {
                     continue;
                 }
 
-                const { data: publicData, error: publicError } = supabase.storage
+                // Usar uploadData.path para garantir que estamos usando o caminho correto retornado pelo upload
+                const actualPath = uploadData.path || filePath;
+                const { data: publicData } = supabase.storage
                     .from(bucket)
-                    .getPublicUrl(filePath);
+                    .getPublicUrl(actualPath);
 
-                if (publicError || !publicData?.publicUrl) {
-                    console.error(`Erro ao gerar URL publica no bucket ${bucket}:`, publicError);
+                if (!publicData?.publicUrl) {
+                    console.error(`Erro ao gerar URL publica no bucket ${bucket}: URL não gerada`);
                     continue;
                 }
 
-                updatePhotoStatus(6, `Foto enviada com sucesso (${bucket}/${filePath})`);
-                return publicData.publicUrl;
+                const photoUrl = publicData.publicUrl;
+                
+                // Validar que a URL foi gerada corretamente
+                if (!photoUrl || photoUrl.trim() === '') {
+                    console.error(`URL vazia gerada para o bucket ${bucket}`);
+                    continue;
+                }
+
+                updatePhotoStatus(6, `Foto enviada com sucesso (${bucket}/${actualPath})`);
+                return photoUrl;
             }
 
             throw new Error('Nenhum bucket aceitou o upload da foto.');
@@ -359,10 +369,19 @@ const BoxRegistry: React.FC = () => {
         setSaving(true);
         try {
             // Upload photo first if exists
-            let fotoUrl = null;
+            let fotoUrl: string | null = null;
             if (photoFile) {
-                fotoUrl = await uploadPhoto();
-                if (!fotoUrl) {
+                try {
+                    fotoUrl = await uploadPhoto();
+                    if (!fotoUrl || fotoUrl.trim() === '') {
+                        alert('Erro: A foto foi enviada mas a URL não foi gerada corretamente. Tente novamente.');
+                        setSaving(false);
+                        return;
+                    }
+                    console.log('Foto URL gerada:', fotoUrl);
+                } catch (uploadError: any) {
+                    console.error('Erro no upload da foto:', uploadError);
+                    alert('Erro ao fazer upload da foto: ' + (uploadError.message || 'Erro desconhecido'));
                     setSaving(false);
                     return;
                 }
@@ -387,11 +406,27 @@ const BoxRegistry: React.FC = () => {
                 observacao: formData.observacao
             };
 
-            const { error } = await supabase
-                .from('producao_caixas')
-                .insert([payload]);
+            console.log('Payload a ser salvo:', { ...payload, foto_url: fotoUrl ? 'URL presente' : 'null' });
 
-            if (error) throw error;
+            const { data, error } = await supabase
+                .from('producao_caixas')
+                .insert([payload])
+                .select();
+
+            if (error) {
+                console.error('Erro ao inserir no banco:', error);
+                throw error;
+            }
+
+            // Verificar se o registro foi salvo com a foto
+            if (data && data.length > 0) {
+                const savedRecord = data[0];
+                console.log('Registro salvo:', { id: savedRecord.id, foto_url: savedRecord.foto_url });
+                
+                if (fotoUrl && !savedRecord.foto_url) {
+                    console.warn('Atenção: Foto foi enviada mas não foi salva no registro!');
+                }
+            }
 
             alert('Registro de caixa salvo com sucesso!');
             handleClear();
