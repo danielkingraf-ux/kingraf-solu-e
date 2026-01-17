@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, ClipboardList, Loader2, X, Pencil, Trash2, Eye } from 'lucide-react';
 import './ProductionList.css';
 import { supabase } from '../../supabaseClient';
@@ -25,7 +25,6 @@ interface ProductionRecord {
 
 const ProductionList: React.FC = () => {
     const [records, setRecords] = useState<ProductionRecord[]>([]);
-    const [filteredRecords, setFilteredRecords] = useState<ProductionRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -71,10 +70,6 @@ const ProductionList: React.FC = () => {
         fetchRecords();
     }, []);
 
-    useEffect(() => {
-        filterRecords();
-    }, [searchTerm, skuFilter, records]);
-
     const fetchRecords = async () => {
         try {
             setLoading(true);
@@ -87,7 +82,6 @@ const ProductionList: React.FC = () => {
 
             if (data) {
                 setRecords(data as ProductionRecord[]);
-                setFilteredRecords(data as ProductionRecord[]);
             }
         } catch (error) {
             console.error('Erro ao buscar registros:', error);
@@ -96,7 +90,8 @@ const ProductionList: React.FC = () => {
         }
     };
 
-    const filterRecords = () => {
+    // Aplicar filtros usando useMemo
+    const filteredRecords = useMemo(() => {
         let filtered = records;
 
         // Filter by search term (OP, Cliente, Produto)
@@ -115,8 +110,8 @@ const ProductionList: React.FC = () => {
             filtered = filtered.filter(r => r.sku?.toLowerCase().includes(sku));
         }
 
-        setFilteredRecords(filtered);
-    };
+        return filtered;
+    }, [records, searchTerm, skuFilter]);
 
     const clearFilters = () => {
         setSearchTerm('');

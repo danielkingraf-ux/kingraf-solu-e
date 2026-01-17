@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Users,
     Building2,
@@ -132,9 +132,14 @@ const Registrations: React.FC = () => {
         }
     };
 
-    const filteredItems = items.filter(item =>
-        item.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Aplicar filtros usando useMemo
+    const filteredItems = useMemo(() => {
+        const term = searchTerm.toLowerCase();
+        if (!term) return items;
+        return items.filter(item =>
+            item.nome.toLowerCase().includes(term)
+        );
+    }, [items, searchTerm]);
 
     return (
         <div className="stock-container">

@@ -1,6 +1,49 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import type { Session } from '@supabase/supabase-js';
+
+// Error boundary simples
+const ErrorDisplay = ({ error }: { error: Error }) => (
+  <div style={{
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#0F172A',
+    color: '#FFF',
+    fontFamily: 'Sora, sans-serif',
+    padding: '20px',
+    flexDirection: 'column',
+    gap: '20px'
+  }}>
+    <h1 style={{ fontSize: '2rem', color: '#EF4444' }}>❌ Erro na Aplicação</h1>
+    <pre style={{ 
+      background: '#1E293B', 
+      padding: '20px', 
+      borderRadius: '10px',
+      maxWidth: '800px',
+      overflow: 'auto'
+    }}>
+      {error.message}
+      {'\n\n'}
+      {error.stack}
+    </pre>
+    <button 
+      onClick={() => window.location.reload()} 
+      style={{
+        background: '#FF5C00',
+        color: 'white',
+        padding: '12px 24px',
+        border: 'none',
+        borderRadius: '10px',
+        cursor: 'pointer',
+        fontSize: '16px'
+      }}
+    >
+      Recarregar Página
+    </button>
+  </div>
+);
 import Layout from './components/Layout/Layout';
 import { ToastProvider } from './components/Toast/ToastProvider';
 import Login from './pages/Auth/Login';

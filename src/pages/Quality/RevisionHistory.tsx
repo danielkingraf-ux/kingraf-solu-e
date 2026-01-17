@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     ClipboardList,
     Search,
@@ -222,23 +222,27 @@ const RevisionHistory: React.FC<RevisionHistoryProps> = ({ onNavigate }) => {
         return `${head} +${items.length - limit}`;
     };
 
-    const filteredRevisoes = revisoes.filter(r => {
+    // Aplicar filtros usando useMemo
+    const filteredRevisoes = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        if (!term) return true;
-        const operadores = (r.operadores || [])
-            .map(o => o.operador?.nome)
-            .filter(Boolean) as string[];
-        const setores = (r.setores || [])
-            .map(s => s.setor?.nome)
-            .filter(Boolean) as string[];
-        return (
-            r.op.toLowerCase().includes(term) ||
-            (r.setor_origem?.nome || '').toLowerCase().includes(term) ||
-            (r.operador?.nome || '').toLowerCase().includes(term) ||
-            operadores.some(nome => nome.toLowerCase().includes(term)) ||
-            setores.some(nome => nome.toLowerCase().includes(term))
-        );
-    });
+        if (!term) return revisoes;
+        
+        return revisoes.filter(r => {
+            const operadores = (r.operadores || [])
+                .map(o => o.operador?.nome)
+                .filter(Boolean) as string[];
+            const setores = (r.setores || [])
+                .map(s => s.setor?.nome)
+                .filter(Boolean) as string[];
+            return (
+                r.op.toLowerCase().includes(term) ||
+                (r.setor_origem?.nome || '').toLowerCase().includes(term) ||
+                (r.operador?.nome || '').toLowerCase().includes(term) ||
+                operadores.some(nome => nome.toLowerCase().includes(term)) ||
+                setores.some(nome => nome.toLowerCase().includes(term))
+            );
+        });
+    }, [revisoes, searchTerm]);
 
     const formatarDataShort = (dataStr: string) => {
         return new Date(dataStr).toLocaleString('pt-BR', {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, X, Package, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import './Stock.css';
@@ -20,6 +20,7 @@ const Stock: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<StockItem | null>(null);
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Form State
     const buildInitialFormData = () => ({
@@ -149,6 +150,17 @@ const Stock: React.FC = () => {
         }
     };
 
+    // Aplicar filtros usando useMemo
+    const filteredItems = useMemo(() => {
+        if (!searchTerm) return items;
+        
+        const term = searchTerm.toLowerCase();
+        return items.filter(item =>
+            item.op?.toLowerCase().includes(term) ||
+            item.tipo_caixa?.toLowerCase().includes(term)
+        );
+    }, [items, searchTerm]);
+
     return (
         <div className="stock-container">
             <div className="page-header">
@@ -156,7 +168,11 @@ const Stock: React.FC = () => {
                 <div className="header-actions">
                     <div className="search-box">
                         <Search size={18} />
-                        <input placeholder="Buscar OP, Tipo de Caixa..." />
+                        <input 
+                            placeholder="Buscar OP, Tipo de Caixa..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
                     <button className="btn-primary" onClick={openAddModal}>
                         <Plus size={18} />
@@ -186,12 +202,12 @@ const Stock: React.FC = () => {
                                 <td colSpan={9} className="text-secondary">Carregando...</td>
                             </tr>
                         )}
-                        {!loading && items.length === 0 && (
+                        {!loading && filteredItems.length === 0 && (
                             <tr>
                                 <td colSpan={9} className="text-secondary">Nenhum item encontrado.</td>
                             </tr>
                         )}
-                        {!loading && items.map(item => (
+                        {!loading && filteredItems.map(item => (
                             <tr key={item.id}>
                                 <td className="font-bold text-primary">{item.op}</td>
                                 <td>{item.tipo_caixa || '-'}</td>
@@ -233,10 +249,10 @@ const Stock: React.FC = () => {
                 {loading && (
                     <div className="stock-list-empty text-secondary">Carregando...</div>
                 )}
-                {!loading && items.length === 0 && (
+                {!loading && filteredItems.length === 0 && (
                     <div className="stock-list-empty text-secondary">Nenhum item encontrado.</div>
                 )}
-                {!loading && items.map(item => (
+                {!loading && filteredItems.map(item => (
                     <div key={item.id} className="stock-list-item">
                         <div className="stock-list-header">
                             <div className="stock-list-title">
