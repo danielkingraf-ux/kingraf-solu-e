@@ -37,6 +37,7 @@ interface ReportData {
     totalReprovada: number;
     totalMinutos: number;
     revisoesPorSetor: { nome: string; quantidade: number }[];
+    revisoesPorOperador: { nome: string; quantidade: number; reprovadas: number }[];
     desviosPorTipo: { nome: string; quantidade: number }[];
     revisoes: any[];
 }
@@ -91,6 +92,8 @@ const QualityReports: React.FC = () => {
                     *,
                     setor_origem:qual_setores(nome),
                     operador:qual_operadores(nome),
+                    operadores_rel:qual_revisao_operadores(operador:qual_operadores(nome)),
+                    revisores_rel:qual_revisao_revisores(revisor:qual_revisores(nome)),
                     tempos:qual_revisao_tempos(data_inicio, data_fim),
                     desvios:qual_revisao_desvios(quantidade, tipo_desvio:qual_tipos_desvios(nome))
                 `)
@@ -111,11 +114,15 @@ const QualityReports: React.FC = () => {
             let totalMinutos = 0;
             const setorCount: Record<string, number> = {};
             const desvioCount: Record<string, number> = {};
+            const operadorStats: Record<string, { quantidade: number; reprovadas: number }> = {};
 
             revisoes.forEach(r => {
                 totalRevisada += r.quantidade_revisada || 0;
                 totalAprovada += r.quantidade_aprovada || 0;
                 totalReprovada += r.quantidade_reprovada || 0;
+
+                // Revisores (Contagem de pessoas envolvidas)
+                r.num_revisores = r.revisores_rel?.length || 0;
 
                 // Tempo
                 r.tempos?.forEach((t: any) => {
@@ -129,6 +136,15 @@ const QualityReports: React.FC = () => {
                 // Setor
                 const setor = r.setor_origem?.nome || 'Sem setor';
                 setorCount[setor] = (setorCount[setor] || 0) + 1;
+
+                // Ranking de Operadores Causadores
+                const opsRel = r.operadores_rel || [];
+                opsRel.forEach((rel: any) => {
+                    const nomeRel = rel.operador?.nome || 'Desconhecido';
+                    if (!operadorStats[nomeRel]) operadorStats[nomeRel] = { quantidade: 0, reprovadas: 0 };
+                    operadorStats[nomeRel].quantidade += 1;
+                    operadorStats[nomeRel].reprovadas += (r.quantidade_reprovada || 0);
+                });
 
                 // Desvios
                 r.desvios?.forEach((d: any) => {
@@ -144,6 +160,9 @@ const QualityReports: React.FC = () => {
                 totalReprovada,
                 totalMinutos,
                 revisoesPorSetor: Object.entries(setorCount).map(([nome, quantidade]) => ({ nome, quantidade })),
+                revisoesPorOperador: Object.entries(operadorStats)
+                    .map(([nome, stats]) => ({ nome, ...stats }))
+                    .sort((a, b) => b.reprovadas - a.reprovadas),
                 desviosPorTipo: Object.entries(desvioCount).map(([nome, quantidade]) => ({ nome, quantidade })).sort((a, b) => b.quantidade - a.quantidade),
                 revisoes
             });
@@ -184,14 +203,14 @@ const QualityReports: React.FC = () => {
                     body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1E293B; }
                     h1 { color: #F97316; border-bottom: 3px solid #F97316; padding-bottom: 10px; }
                     h2 { color: #0F172A; margin-top: 30px; }
-                    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0; }
-                    .kpi-card { background: #F8FAFC; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #E2E8F0; }
-                    .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; }
-                    .kpi-label { font-size: 12px; color: #64748B; font-weight: 600; margin-top: 5px; }
+                    .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin: 20px 0; }
+                    .kpi-card { background: #F8FAFC; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #E2E8F0; }
+                    .kpi-value { font-size: 24px; font-weight: 800; color: #0F172A; }
+                    .kpi-label { font-size: 10px; color: #64748B; font-weight: 600; margin-top: 5px; }
                     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #E2E8F0; }
-                    th { background: #F1F5F9; font-weight: 700; font-size: 12px; color: #475569; }
-                    .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+                    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #E2E8F0; font-size: 12px; }
+                    th { background: #F1F5F9; font-weight: 700; color: #475569; }
+                    .badge { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 600; }
                     .badge-green { background: #DCFCE7; color: #16A34A; }
                     .badge-orange { background: #FEF3C7; color: #D97706; }
                     .footer { margin-top: 40px; text-align: center; color: #94A3B8; font-size: 12px; }
@@ -213,6 +232,10 @@ const QualityReports: React.FC = () => {
                         <div class="kpi-label">PEÇAS REVISADAS</div>
                     </div>
                     <div class="kpi-card">
+                        <div class="kpi-value" style="color: #8B5CF6">${reportData?.revisoes.reduce((acc, r) => acc + (r.num_revisores || 0), 0)}</div>
+                        <div class="kpi-label">PESSOAS</div>
+                    </div>
+                    <div class="kpi-card">
                         <div class="kpi-value" style="color: #10B981">${reportData?.totalAprovada?.toLocaleString() || 0}</div>
                         <div class="kpi-label">APROVADAS</div>
                     </div>
@@ -231,6 +254,12 @@ const QualityReports: React.FC = () => {
                     ${reportData?.revisoesPorSetor.map(s => `<tr><td>${s.nome}</td><td>${s.quantidade}</td></tr>`).join('') || ''}
                 </table>
 
+                <h2>🏆 Ranking de Operadores (Causadores de Desvios)</h2>
+                <table>
+                    <tr><th>Operador</th><th>Quantidade de Reprovadas</th></tr>
+                    ${reportData?.revisoesPorOperador.slice(0, 5).map(o => `<tr><td>${o.nome}</td><td><strong>${o.reprovadas.toLocaleString()}</strong></td></tr>`).join('') || ''}
+                </table>
+
                 <h2>⚠️ Principais Desvios</h2>
                 <table>
                     <tr><th>Tipo de Desvio</th><th>Quantidade</th></tr>
@@ -239,12 +268,13 @@ const QualityReports: React.FC = () => {
 
                 <h2>📝 Lista de Revisões</h2>
                 <table>
-                    <tr><th>OP</th><th>Setor</th><th>Operador</th><th>Revisada</th><th>Aprovada</th><th>Reprovada</th><th>Status</th></tr>
+                    <tr><th>OP</th><th>Setor</th><th>Operador</th><th>Pessoas</th><th>Revisada</th><th>Aprovada</th><th>Reprovada</th><th>Status</th></tr>
                     ${reportData?.revisoes.map(r => `
                         <tr>
                             <td><strong>${r.op}</strong></td>
                             <td>${r.setor_origem?.nome || '-'}</td>
                             <td>${r.operador?.nome || '-'}</td>
+                            <td>${r.num_revisores || 1}</td>
                             <td>${r.quantidade_revisada.toLocaleString()}</td>
                             <td>${r.quantidade_aprovada.toLocaleString()}</td>
                             <td>${r.quantidade_reprovada.toLocaleString()}</td>
@@ -283,11 +313,16 @@ RESUMO EXECUTIVO
 • Peças Revisadas: ${reportData.totalRevisada.toLocaleString()}
 • Peças Aprovadas: ${reportData.totalAprovada.toLocaleString()} (${taxaAprovacao}%)
 • Peças Reprovadas: ${reportData.totalReprovada.toLocaleString()}
+• Pessoas Envolvidas: ${reportData.revisoes.reduce((acc, r) => acc + (r.num_revisores || 0), 0)}
 • Tempo Total: ${formatarHoras(reportData.totalMinutos)}
 
 REVISÕES POR SETOR
 ------------------
 ${reportData.revisoesPorSetor.map(s => `• ${s.nome}: ${s.quantidade} revisões`).join('\n')}
+
+RANKING DE OPERADORES (REPROVADAS)
+----------------------------------
+${reportData.revisoesPorOperador.slice(0, 5).map(o => `• ${o.nome}: ${o.reprovadas.toLocaleString()} peças`).join('\n')}
 
 PRINCIPAIS DESVIOS
 ------------------
@@ -417,6 +452,11 @@ Relatório gerado automaticamente
                             <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>TEMPO TOTAL</div>
                         </div>
                         <div className="stock-card" style={{ textAlign: 'center', padding: '20px' }}>
+                            <Users size={28} style={{ color: '#8B5CF6', marginBottom: '8px' }} />
+                            <div style={{ fontSize: '28px', fontWeight: 800, color: '#0F172A' }}>{reportData.revisoes.reduce((acc, r) => acc + (r.num_revisores || 0), 0)}</div>
+                            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>PESSOAS ENVOLVIDAS</div>
+                        </div>
+                        <div className="stock-card" style={{ textAlign: 'center', padding: '20px' }}>
                             <CheckCircle2 size={28} style={{ color: '#10B981', marginBottom: '8px' }} />
                             <div style={{ fontSize: '28px', fontWeight: 800, color: '#10B981' }}>{reportData.totalAprovada.toLocaleString()}</div>
                             <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>APROVADAS</div>
@@ -426,20 +466,15 @@ Relatório gerado automaticamente
                             <div style={{ fontSize: '28px', fontWeight: 800, color: '#EF4444' }}>{reportData.totalReprovada.toLocaleString()}</div>
                             <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>REPROVADAS</div>
                         </div>
-                        <div className="stock-card" style={{ textAlign: 'center', padding: '20px' }}>
-                            <TrendingUp size={28} style={{ color: '#F59E0B', marginBottom: '8px' }} />
-                            <div style={{ fontSize: '28px', fontWeight: 800, color: '#F59E0B' }}>{taxaAprovacao}%</div>
-                            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>APROVAÇÃO</div>
-                        </div>
                     </div>
 
                     {/* Gráficos */}
-                    <div className="report-charts-grid">
+                    <div className="report-charts-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                         {/* Gráfico de Barras - Revisões por Setor */}
                         <div className="stock-card">
                             <div className="card-header">
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
-                                    <Users size={18} style={{ marginRight: '8px' }} />
+                                    <FileText size={18} style={{ marginRight: '8px' }} />
                                     Revisões por Setor
                                 </h3>
                             </div>
@@ -453,15 +488,33 @@ Relatório gerado automaticamente
                                         <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                                         <XAxis type="number" tick={{ fontSize: 12 }} />
                                         <YAxis dataKey="nome" type="category" tick={{ fontSize: 12 }} width={100} />
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: '#FFFFFF',
-                                                border: '1px solid #E2E8F0',
-                                                borderRadius: '8px',
-                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                                            }}
-                                        />
+                                        <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }} />
                                         <Bar dataKey="quantidade" fill="#F97316" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Ranking de Operadores (Causadores de Desvios) */}
+                        <div className="stock-card">
+                            <div className="card-header">
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+                                    <TrendingUp size={18} style={{ marginRight: '8px' }} />
+                                    Ranking de Operadores (Qtd Reprovada)
+                                </h3>
+                            </div>
+                            <div className="card-content" style={{ height: '280px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={reportData.revisoesPorOperador.slice(0, 5)}
+                                        layout="vertical"
+                                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                                        <XAxis type="number" tick={{ fontSize: 12 }} />
+                                        <YAxis dataKey="nome" type="category" tick={{ fontSize: 12 }} width={100} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }} />
+                                        <Bar dataKey="reprovadas" fill="#EF4444" radius={[0, 4, 4, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -472,7 +525,7 @@ Relatório gerado automaticamente
                             <div className="card-header">
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
                                     <AlertTriangle size={18} style={{ marginRight: '8px' }} />
-                                    Principais Desvios
+                                    Principais Desvios (Qtd)
                                 </h3>
                             </div>
                             <div className="card-content" style={{ height: '280px' }}>
@@ -486,26 +539,13 @@ Relatório gerado automaticamente
                                             outerRadius={90}
                                             dataKey="quantidade"
                                             nameKey="nome"
-                                            paddingAngle={2}
                                         >
                                             {reportData.desviosPorTipo.slice(0, 6).map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: '#FFFFFF',
-                                                border: '1px solid #E2E8F0',
-                                                borderRadius: '8px'
-                                            }}
-                                            formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
-                                        />
-                                        <Legend
-                                            layout="vertical"
-                                            align="right"
-                                            verticalAlign="middle"
-                                            wrapperStyle={{ fontSize: '12px' }}
-                                        />
+                                        <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderRadius: '8px' }} />
+                                        <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -523,41 +563,48 @@ Relatório gerado automaticamente
                         <div className="card-content" style={{ padding: 0 }}>
                             <div className="report-table-wrapper">
                                 <table className="report-table">
-                                <thead>
-                                    <tr style={{ backgroundColor: '#F1F5F9' }}>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>OP</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>SETOR</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>OPERADOR</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>REVISADA</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>APROVADA</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>REPROVADA</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>STATUS</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {reportData.revisoes.map((r, i) => (
-                                        <tr key={i} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                                            <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0F172A' }}>{r.op}</td>
-                                            <td style={{ padding: '14px 16px', color: '#475569' }}>{r.setor_origem?.nome || '-'}</td>
-                                            <td style={{ padding: '14px 16px', color: '#475569' }}>{r.operador?.nome || '-'}</td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600 }}>{r.quantidade_revisada.toLocaleString()}</td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: '#10B981' }}>{r.quantidade_aprovada.toLocaleString()}</td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: '#EF4444' }}>{r.quantidade_reprovada.toLocaleString()}</td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                                <span style={{
-                                                    padding: '4px 12px',
-                                                    borderRadius: '20px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 600,
-                                                    backgroundColor: r.status === 'finalizada' ? '#DCFCE7' : '#FEF3C7',
-                                                    color: r.status === 'finalizada' ? '#16A34A' : '#D97706'
-                                                }}>
-                                                    {r.status === 'finalizada' ? 'Finalizada' : 'Em Andamento'}
-                                                </span>
-                                            </td>
+                                    <thead>
+                                        <tr style={{ backgroundColor: '#F1F5F9' }}>
+                                            <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>OP</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>SETOR</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#475569' }}>OPERADOR</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>PESSOAS</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>REVISADA</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>APROVADA</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>REPROVADA</th>
+                                            <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#475569' }}>STATUS</th>
                                         </tr>
-                                    ))}
-                                </tbody>
+                                    </thead>
+                                    <tbody>
+                                        {reportData.revisoes.map((r, i) => (
+                                            <tr key={i} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                                                <td style={{ padding: '14px 16px', fontWeight: 700, color: '#0F172A' }}>{r.op}</td>
+                                                <td style={{ padding: '14px 16px', color: '#475569' }}>{r.setor_origem?.nome || '-'}</td>
+                                                <td style={{ padding: '14px 16px', color: '#475569' }}>{r.operador?.nome || '-'}</td>
+                                                <td style={{ padding: '14px 16px', textAlign: 'center', color: '#475569' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                        <Users size={14} />
+                                                        {r.num_revisores || 1}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600 }}>{r.quantidade_revisada.toLocaleString()}</td>
+                                                <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: '#10B981' }}>{r.quantidade_aprovada.toLocaleString()}</td>
+                                                <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: '#EF4444' }}>{r.quantidade_reprovada.toLocaleString()}</td>
+                                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                    <span style={{
+                                                        padding: '4px 12px',
+                                                        borderRadius: '20px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        backgroundColor: r.status === 'finalizada' ? '#DCFCE7' : '#FEF3C7',
+                                                        color: r.status === 'finalizada' ? '#16A34A' : '#D97706'
+                                                    }}>
+                                                        {r.status === 'finalizada' ? 'Finalizada' : 'Em Andamento'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
