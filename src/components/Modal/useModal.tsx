@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import Modal, { ModalType } from './Modal';
+import Modal from './Modal';
+import type { ModalType } from './Modal';
 
 interface UseModalReturn {
     isOpen: boolean;

@@ -60,7 +60,7 @@ const getLocalDateTimeString = () => {
 const NewRevision: React.FC = () => {
     const toast = useToast();
     const modal = useModal();
-    
+
     // Constantes para processamento de fotos
     const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
     const MAX_PHOTO_DIMENSION = 1920;
@@ -380,7 +380,7 @@ const NewRevision: React.FC = () => {
 
             return workingFile;
         } catch (error) {
-            const message = (error as Error).message || 'Erro ao preparar a foto.';
+            console.error((error as Error).message || 'Erro ao preparar a foto.');
             console.error('Erro ao preparar foto:', error);
             throw error;
         }
@@ -392,20 +392,20 @@ const NewRevision: React.FC = () => {
             return;
         }
 
-        console.log('Arquivo selecionado para desvio:', { 
-            index, 
-            name: file.name, 
-            type: file.type, 
-            size: file.size 
+        console.log('Arquivo selecionado para desvio:', {
+            index,
+            name: file.name,
+            type: file.type,
+            size: file.size
         });
 
         try {
             // Preparar arquivo (converter HEIC, redimensionar se necessário)
             const preparedFile = await preparePhotoFile(file);
-            console.log('Arquivo preparado:', { 
-                name: preparedFile.name, 
-                type: preparedFile.type, 
-                size: preparedFile.size 
+            console.log('Arquivo preparado:', {
+                name: preparedFile.name,
+                type: preparedFile.type,
+                size: preparedFile.size
             });
 
             // Garantir que o arquivo foi preparado corretamente
@@ -416,7 +416,7 @@ const NewRevision: React.FC = () => {
             // Usar Promise para garantir que o FileReader funcione corretamente no iOS
             const previewPromise = new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
-                
+
                 reader.onload = (event) => {
                     const result = event.target?.result;
                     if (result && typeof result === 'string') {
@@ -426,12 +426,12 @@ const NewRevision: React.FC = () => {
                         reject(new Error('Erro ao gerar preview da foto'));
                     }
                 };
-                
+
                 reader.onerror = () => {
                     console.error('Erro no FileReader');
                     reject(new Error('Erro ao ler o arquivo da foto'));
                 };
-                
+
                 try {
                     reader.readAsDataURL(preparedFile);
                 } catch (readError) {
@@ -441,11 +441,11 @@ const NewRevision: React.FC = () => {
             });
 
             const previewUrl = await previewPromise;
-            
+
             // Atualizar desvio com arquivo preparado e preview
             atualizarDesvio(index, 'foto_file', preparedFile);
             atualizarDesvio(index, 'foto_preview', previewUrl);
-            
+
             console.log('Foto processada com sucesso para desvio', index);
         } catch (error) {
             const message = (error as Error).message || 'Erro ao processar a foto.';

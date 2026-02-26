@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import Toast, { ToastType } from './Toast';
+import Toast from './Toast';
+import type { ToastType } from './Toast';
 import './ToastProvider.css';
 
 interface ToastItem {
