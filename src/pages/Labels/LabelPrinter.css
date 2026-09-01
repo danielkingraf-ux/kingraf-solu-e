@@ -611,12 +611,39 @@
         margin: 0;
     }
 
-    .label-sidebar,
-    .preview-header,
-    .label-preview-area::before {
-        display: none !important;
+    /* Isolamento de impressao: so a etiqueta vai para o papel.
+       Esconde tudo por visibilidade (nao por display) para nao recalcular o
+       layout, e traz o #printable-label para a origem da folha. Sem isso, o
+       fundo da area de preview era pintado numa segunda pagina. */
+    body * {
+        visibility: hidden;
     }
 
+    #printable-label,
+    #printable-labels,
+    #printable-labels *,
+    #printable-label * {
+        visibility: visible;
+    }
+
+    /* Fundos intencionais da etiqueta continuam saindo; o resto da tela esta
+       invisivel, entao isso nao volta a pintar folha nenhuma. */
+    #printable-label,
+    #printable-label *,
+    #printable-labels,
+    #printable-labels * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    #printable-label {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    html,
+    body,
     .label-printer-container,
     .label-preview-area {
         background: none !important;
@@ -624,6 +651,13 @@
         display: block;
         padding: 0;
         margin: 0;
+        overflow: visible;
+    }
+
+    .label-sidebar,
+    .preview-header,
+    .label-preview-area::before {
+        display: none !important;
     }
 
     .label-mockup {
@@ -634,6 +668,6 @@
         padding: 15mm;
         margin: 0;
         transform: none !important;
-        page-break-after: always;
+        /* sem page-break-after: ele criava uma folha extra depois da etiqueta */
     }
 }

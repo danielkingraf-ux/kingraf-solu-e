@@ -544,14 +544,18 @@
 
 /* Print Styles */
 @media print {
-    * {
+    .box-label-container * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
     @page {
         size: A4 portrait;
-        margin: 5mm;
+        margin: 0;
+        /* Era 5mm. Como @page e global e o CSS desta tela carrega por ultimo,
+           esse valor vencia o do LabelPrinter e cortava a folha da etiqueta de
+           paletizacao (210x295mm) em duas. A margem de seguranca da etiqueta de
+           caixa passou para o padding de .a4-page-preview abaixo. */
     }
 
     body {
@@ -580,7 +584,8 @@
         width: 100%;
         min-height: auto;
         box-shadow: none;
-        padding: 0;
+        padding: 5mm;
+        /* Compensa a margem que saiu do @page */
         border-radius: 0;
     }
 
