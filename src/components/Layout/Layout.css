@@ -159,7 +159,7 @@
     align-items: center;
     gap: 10px;
     padding: 12px 18px;
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     border-radius: 18px;
     transition: all 0.2s ease;
     width: 100%;

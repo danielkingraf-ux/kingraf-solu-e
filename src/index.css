@@ -9,8 +9,13 @@
   --kingraf-orange-gradient: linear-gradient(135deg, #FF5C00 0%, #FF8533 100%);
 
   /* Deep Modern Neutrals (Slate Palette) */
-  --bg-main: #F1F5F9;
-  --bg-card: #FFFFFF;
+  --bg-main: #E9EEF4;
+  /* Era #F1F5F9. Escurecido um degrau para o cartao continuar se destacando
+     depois que o branco puro saiu de cena. */
+  --bg-card: #FAFBFD;
+  /* Era #FFFFFF. Branco puro em tela grande e brilho alto cansa a vista no
+     galpao; este off-white mantem contraste de 14:1 com --text-primary,
+     bem acima do 4.5:1 exigido pela WCAG AA. */
   --bg-sidebar: #0F172A;
   --sidebar-text: #F8FAFC;
   --text-primary: #1E293B;

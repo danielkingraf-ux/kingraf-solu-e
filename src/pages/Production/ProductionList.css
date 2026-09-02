@@ -36,7 +36,7 @@
 .search-box {
     display: flex;
     align-items: center;
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     border: 1px solid #D1D5DB;
     border-radius: var(--border-radius-sm);
     padding: 0 16px;
@@ -102,7 +102,7 @@
 }
 
 .refresh-btn {
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     color: var(--text-secondary);
     border: 1px solid var(--border-color);
 }
@@ -114,7 +114,7 @@
 
 /* Filters Panel */
 .filters-panel {
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: 24px;
@@ -173,7 +173,7 @@
 .filter-group input:focus {
     outline: none;
     border-color: var(--kingraf-orange);
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     box-shadow: 0 0 0 3px var(--kingraf-orange-alpha);
 }
 
@@ -198,7 +198,7 @@
 }
 
 .table-container {
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
     overflow: auto;
@@ -310,7 +310,7 @@
     border-radius: 10px;
     border: 1px solid #FED7AA;
     box-shadow: 0 6px 12px rgba(255, 92, 0, 0.15);
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
 }
 
 .photo-btn.with-preview span {
@@ -373,7 +373,7 @@
     max-height: 60vh;
     object-fit: contain;
     border-radius: 12px;
-    background: #FFFFFF;
+    background: var(--bg-card);
 }
 
 .close-modal {
@@ -488,7 +488,7 @@
 }
 
 .view-photo-wrapper {
-    background: #FFFFFF;
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 14px;
     padding: 12px;

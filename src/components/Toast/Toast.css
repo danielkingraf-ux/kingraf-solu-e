@@ -3,7 +3,7 @@
     align-items: center;
     gap: 12px;
     padding: 16px 20px;
-    background: #FFFFFF;
+    background: var(--bg-card);
     border-radius: 12px;
     border-left: 4px solid;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);

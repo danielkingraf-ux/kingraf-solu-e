@@ -112,7 +112,7 @@
 .form-group input:focus {
     outline: none;
     border-color: var(--kingraf-orange) !important;
-    background-color: #FFFFFF !important;
+    background-color: var(--bg-card) !important;
     box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
     transform: translateY(-1px);
 }
@@ -120,7 +120,7 @@
 .form-group textarea:focus {
     outline: none;
     border-color: var(--kingraf-orange) !important;
-    background-color: #FFFFFF !important;
+    background-color: var(--bg-card) !important;
     box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
     transform: translateY(-1px);
 }
@@ -197,7 +197,7 @@
     background-color: #FEF2F2;
     color: #EF4444;
     border: 1px solid #FEE2E2;
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
 }
 
@@ -228,7 +228,7 @@
 .registry-select:focus {
     outline: none;
     border-color: var(--kingraf-orange) !important;
-    background-color: #FFFFFF !important;
+    background-color: var(--bg-card) !important;
     box-shadow: 0 0 0 4px var(--kingraf-orange-alpha);
 }
 
@@ -394,7 +394,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s ease;
-    background-color: #FFFFFF;
+    background-color: var(--bg-card);
     color: #64748B;
     border: 1px solid #D1D5DB;
 }
