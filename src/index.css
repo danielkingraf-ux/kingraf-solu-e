@@ -44,6 +44,8 @@
 
   /* Layout & Spacing */
   --sidebar-width: 280px;
+  --sidebar-width-rail: 80px;
+  /* Largura do menu recolhido no desktop: cabe o icone com alvo de 44px. */
   --header-height: 72px;
   --border-radius: 20px;
   --border-radius-sm: 10px;

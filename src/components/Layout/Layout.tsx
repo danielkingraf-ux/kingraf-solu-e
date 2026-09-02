@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard,
@@ -13,7 +13,9 @@ import {
   PlusCircle,
   Box,
   Users,
-  FileText
+  FileText,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import './Layout.css';
 
@@ -28,14 +30,27 @@ interface LayoutProps {
 
 import logoFull from '../../assets/logo/logo-full.png';
 
+// Abaixo disso o menu vira gaveta sobreposta; acima, trilho de icones.
+const MOBILE_QUERY = '(max-width: 1024px)';
+const STORAGE_KEY = 'kingraf.sidebar.aberta';
+
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout, session }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 1024);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (window.matchMedia(MOBILE_QUERY).matches) return false;
+    try {
+      const salvo = localStorage.getItem(STORAGE_KEY);
+      return salvo === null ? true : salvo === '1';
+    } catch {
+      return true;
+    }
+  });
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
   const userMetadata = (session?.user?.user_metadata || {}) as Record<string, any>;
   const userName = userMetadata.full_name || userMetadata.nome_completo || session?.user?.email || 'Usuario';
   const userRole = userMetadata.profile || 'Operador';
 
-  // Atualiza o relógio a cada segundo
+  // Atualiza o relogio a cada segundo
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString('pt-BR'));
@@ -43,12 +58,65 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
     return () => clearInterval(timer);
   }, []);
 
+  // Acompanha a troca de faixa. Ao virar celular a gaveta fecha; ao voltar para
+  // desktop, o menu retoma a preferencia que o usuario tinha salvado.
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const aoMudar = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches);
+      if (e.matches) {
+        setIsSidebarOpen(false);
+      } else {
+        try {
+          setIsSidebarOpen(localStorage.getItem(STORAGE_KEY) !== '0');
+        } catch {
+          setIsSidebarOpen(true);
+        }
+      }
+    };
+    mq.addEventListener('change', aoMudar);
+    return () => mq.removeEventListener('change', aoMudar);
+  }, []);
+
+  // Esc fecha a gaveta, e o fundo nao rola enquanto ela esta aberta.
+  useEffect(() => {
+    if (!isMobile || !isSidebarOpen) return;
+
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSidebarOpen(false);
+    };
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', aoTeclar);
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener('keydown', aoTeclar);
+    };
+  }, [isMobile, isSidebarOpen]);
+
+  const alternarSidebar = useCallback(() => {
+    setIsSidebarOpen(anterior => {
+      const proximo = !anterior;
+      // A preferencia so faz sentido no desktop: no celular a gaveta sempre
+      // comeca fechada, senao ela cobriria a tela a cada entrada.
+      if (!window.matchMedia(MOBILE_QUERY).matches) {
+        try {
+          localStorage.setItem(STORAGE_KEY, proximo ? '1' : '0');
+        } catch {
+          // modo privativo ou storage bloqueado: segue sem persistir
+        }
+      }
+      return proximo;
+    });
+  }, []);
+
   const handleNavigate = (pageId: string) => {
     if (onNavigate) {
       onNavigate(pageId);
     }
 
-    if (window.innerWidth <= 1024) {
+    if (window.matchMedia(MOBILE_QUERY).matches) {
       setIsSidebarOpen(false);
     }
   };
@@ -79,16 +147,30 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
   };
 
   const menuItems = getMenuItems();
+  // No desktop recolhido o menu vira trilho de icones; no celular ele some.
+  const emTrilho = !isMobile && !isSidebarOpen;
 
   return (
-    <div className={`app-container ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+    <div className={`app-container ${!isSidebarOpen ? 'sidebar-closed' : ''} ${emTrilho ? 'sidebar-rail' : ''}`}>
+      {isMobile && isSidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <aside className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="logo">
             <img src={logoFull} alt="Kingraf Logo" className="sidebar-logo-img" />
             <div className="logo-subtitle">LEAN START</div>
           </div>
-          <button className="mobile-close" onClick={() => setIsSidebarOpen(false)}>
+          <button
+            className="mobile-close"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-label="Fechar menu"
+          >
             <X size={24} />
           </button>
         </div>
@@ -105,6 +187,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
                   <button
                     key={item.id}
                     onClick={() => handleNavigate(item.id)}
+                    title={item.label}
+                    aria-label={item.label}
                     className={`nav-item ${currentPage === item.id ? 'active' : ''} animate-slide-in-right delay-${(idx + 1) * 100}`}
                   >
                     <span className="nav-icon">{item.icon}</span>
@@ -117,7 +201,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
           {onExit && (
             <div className="nav-group">
               <h3 className="group-title">Navegação</h3>
-              <button className="nav-item exit-button animate-slide-in-right delay-500" onClick={onExit}>
+              <button
+                className="nav-item exit-button animate-slide-in-right delay-500"
+                onClick={onExit}
+                title="Trocar Módulo"
+                aria-label="Trocar Módulo"
+              >
                 <span className="nav-icon"><LogOut size={20} /></span>
                 <span className="nav-label">Trocar Módulo</span>
               </button>
@@ -127,14 +216,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">
+            <div className="user-avatar" title={`${userName} - ${userRole}`}>
               <User size={20} />
             </div>
             <div className="user-details">
               <span className="user-name">{userName}</span>
               <span className="user-role">{userRole}</span>
             </div>
-            <button className="logout-btn" onClick={onLogout} title="Sair da conta">
+            <button className="logout-btn" onClick={onLogout} title="Sair da conta" aria-label="Sair da conta">
               <LogOut size={18} />
             </button>
           </div>
@@ -144,8 +233,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
       <main className="main-content">
         <header className="top-header">
           <div className="header-left">
-            <button className="toggle-sidebar" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-              <Menu size={24} />
+            <button
+              className="toggle-sidebar"
+              onClick={alternarSidebar}
+              aria-label={isSidebarOpen ? 'Recolher menu' : 'Expandir menu'}
+              aria-expanded={isSidebarOpen}
+              title={isSidebarOpen ? 'Recolher menu' : 'Expandir menu'}
+            >
+              {isMobile
+                ? <Menu size={24} />
+                : (isSidebarOpen ? <PanelLeftClose size={24} /> : <PanelLeftOpen size={24} />)}
             </button>
             <h1 className="page-title">{menuItems.find(i => i.id === currentPage)?.label || 'Dashboard'}</h1>
           </div>

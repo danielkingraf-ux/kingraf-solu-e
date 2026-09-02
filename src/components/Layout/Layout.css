@@ -9,9 +9,13 @@
 }
 
 .app-container.sidebar-closed {
-    grid-template-columns: 0 1fr;
+    /* Desktop: vira trilho de icones em vez de sumir. */
+    grid-template-columns: var(--sidebar-width-rail) 1fr;
 }
 
+.sidebar.closed {
+    width: var(--sidebar-width-rail);
+}
 /* Sidebar Styles - Modern Card Style */
 .sidebar {
     grid-area: sidebar;
@@ -29,12 +33,6 @@
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar.closed {
-    width: 0;
-    border-right: none;
-    opacity: 0;
-    pointer-events: none;
-}
 
 .sidebar-header {
     padding: 32px 24px;
@@ -488,5 +486,140 @@
 
     .toggle-sidebar {
         padding: 8px;
+    }
+}
+
+/* ============================================================
+   Menu recolhivel
+   Desktop (>1024px): recolhido vira trilho de 80px so com icones.
+   Ate 1024px: gaveta sobreposta com fundo escurecido.
+   ============================================================ */
+
+/* ---------- Trilho de icones (desktop recolhido) ---------- */
+
+.sidebar-rail .nav-label,
+.sidebar-rail .group-title,
+.sidebar-rail .logo-subtitle,
+.sidebar-rail .user-details,
+.sidebar-rail .logout-btn {
+    display: none;
+}
+
+.sidebar-rail .sidebar-header {
+    padding: 24px 0;
+    justify-content: center;
+}
+
+.sidebar-rail .sidebar-logo-img {
+    max-width: 40px;
+}
+
+.sidebar-rail .sidebar-nav {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.sidebar-rail .nav-group {
+    margin-bottom: 8px;
+}
+
+/* Sem rotulo, o item vira um quadrado com o icone centralizado. O alvo
+   continua com 44px de altura, o mesmo minimo do resto do app. */
+.sidebar-rail .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+    min-height: var(--touch-target);
+    gap: 0;
+}
+
+.sidebar-rail .nav-icon {
+    margin-right: 0;
+}
+
+.sidebar-rail .nav-item:hover {
+    transform: none;
+}
+
+.sidebar-rail .sidebar-footer {
+    padding: 16px 0;
+}
+
+.sidebar-rail .user-info {
+    justify-content: center;
+    gap: 0;
+}
+
+/* ---------- Gaveta (ate 1024px) ---------- */
+
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 99;
+    animation: fadeInBackdrop 0.25s ease forwards;
+}
+
+@keyframes fadeInBackdrop {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 1024px) {
+
+    /* Na gaveta o menu sai inteiro de cena, entao o trilho nao se aplica. */
+    .sidebar.closed {
+        width: min(80vw, 320px);
+        /* Mesma largura da gaveta aberta: senao a largura anima junto com o
+           deslizamento e a abertura sai com tranco. */
+        pointer-events: none;
+    }
+
+    .app-container.sidebar-closed {
+        grid-template-columns: none;
+    }
+
+    /* A gaveta cobre a tela toda em telas estreitas, mas nunca passa de 320px
+       para o dedo ainda alcancar o conteudo atras dela. */
+    .sidebar {
+        width: min(80vw, 320px);
+        box-shadow: 8px 0 32px -8px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* O botao de recolher precisa do mesmo alvo de toque do resto do app. */
+.toggle-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-secondary);
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.toggle-sidebar:hover {
+    background-color: var(--bg-main);
+    color: var(--kingraf-orange);
+}
+
+/* Quem prefere menos movimento nao leva a animacao de 400ms do menu. */
+@media (prefers-reduced-motion: reduce) {
+
+    .app-container,
+    .sidebar,
+    .main-content {
+        transition: none;
+    }
+
+    .sidebar-backdrop {
+        animation: none;
     }
 }
