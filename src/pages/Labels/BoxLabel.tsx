@@ -123,16 +123,25 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setOpBusy(true);
         setOpErro(null);
         try {
-            // A sobra tem lote proprio e nunca tem laudo: e material separado,
-            // nao uma entrega.
             const dados = await buscarDadosOP(op, modelo, sobra);
             const lote = dados
                 ? dados.lote
                 : await obterLoteDaOP(op, modelo, sobra, labelData.cliente, labelData.produto);
-            const listaLaudos = sobra ? [] : (dados?.laudos ?? []);
 
-            // A ultima entrega e a que costuma estar sendo impressa.
-            const atual = listaLaudos[listaLaudos.length - 1] ?? null;
+            // Na sobra so o LOTE muda. O laudo e sempre o da 1a entrega da
+            // producao normal daquele mesmo par — ele nao acompanha as
+            // entregas seguintes. Por isso a busca extra com sobra = false.
+            let listaLaudos = dados?.laudos ?? [];
+            if (sobra) {
+                const normal = await buscarDadosOP(op, modelo, false);
+                const primeira = (normal?.laudos ?? [])[0] ?? null;
+                listaLaudos = primeira ? [primeira] : [];
+            }
+
+            // Sobra: a 1a entrega. Producao: a ultima, que e a que se imprime.
+            const atual = sobra
+                ? (listaLaudos[0] ?? null)
+                : (listaLaudos[listaLaudos.length - 1] ?? null);
 
             setLaudos(listaLaudos);
             setLaudoId(atual?.id ?? null);
@@ -168,7 +177,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             return;
         }
         if (labelData.sobra) {
-            alert('Sobra nao gera laudo.\n\nEla tem lote proprio para identificacao, mas nao e uma entrega.');
+            alert('A sobra usa o laudo da 1a entrega, nao gera laudo proprio.\n\nPara abrir uma entrega nova, desmarque "Sobra".');
             return;
         }
         const entrega = laudos.length + 1;
@@ -270,8 +279,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             alert('Este par OP + modelo ainda nao tem lote. Preencha a OP e o KING e saia do campo.');
             return false;
         }
-        // Sobra tem lote mas nao tem laudo: nao cobrar o que ela nunca vai ter.
-        if (!labelData.sobra && !labelData.laudo) {
+        if (labelData.sobra && !labelData.laudo) {
+            alert('Este modelo ainda nao tem a 1a entrega, e a sobra imprime o laudo dela.\n\nDesmarque "Sobra", gere a 1a entrega, e volte.');
+            return false;
+        }
+        if (!labelData.laudo) {
             alert('Este modelo ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
             return false;
         }
@@ -670,8 +682,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                     Sobra
                                 </label>
                                 <small className="campo-ajuda">
-                                    Material de sobra deste mesmo par OP + modelo. Recebe um lote
-                                    separado do lote da produção normal, e não gera laudo.
+                                    Material de sobra deste mesmo par OP + modelo. Só o lote muda:
+                                    ela recebe um lote separado, mas imprime o laudo da 1ª entrega.
                                 </small>
                             </div>
 
@@ -711,7 +723,9 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                     </button>
                                 </div>
                                 <small className="campo-ajuda">
-                                    Reimpressão: escolha a entrega existente. O botão só para remessa nova.
+                                    {labelData.sobra
+                                        ? 'Sobra: o laudo é sempre o da 1ª entrega, e não muda.'
+                                        : 'Reimpressão: escolha a entrega existente. O botão só para remessa nova.'}
                                 </small>
                             </div>
 
@@ -1054,7 +1068,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                                 <td>
                                                     {linha.laudos.length === 0 ? (
                                                         <span className="conf-sem-laudo">
-                                                            {linha.sobra ? 'Sobra não gera laudo' : 'Sem entrega'}
+                                                            {linha.sobra ? '1ª entrega ainda não gerada' : 'Sem entrega'}
                                                         </span>
                                                     ) : (
                                                         <div className="conf-laudos">
