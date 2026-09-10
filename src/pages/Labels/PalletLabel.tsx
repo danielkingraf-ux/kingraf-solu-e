@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, X, Copy, Save, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+import { buscarDadosOP, obterLoteDaOP } from './lotesLaudos';
 import './PalletLabel.css';
 
 interface PalletLabelProps {
@@ -24,6 +25,9 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
     const [palletInfo, setPalletInfo] = useState({ current: 1, total: 1 });
     const [isTimeManual, setIsTimeManual] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
+    // O lote e o mesmo da OP em qualquer etiqueta: vem do banco, ver lotesLaudos.ts
+    const [opBusy, setOpBusy] = useState(false);
+    const [opErro, setOpErro] = useState<string | null>(null);
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
@@ -61,6 +65,39 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
             setIsTimeManual(true);
         }
         setLabelData(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Puxa o lote da OP (alocando na primeira vez). E o mesmo numero que a
+    // etiqueta de caixa daquela OP carrega.
+    const handleOPBlur = async () => {
+        const op = labelData.op.trim().toUpperCase();
+        if (!op) return;
+
+        setOpBusy(true);
+        setOpErro(null);
+        try {
+            const dados = await buscarDadosOP(op);
+            const lote = dados
+                ? dados.lote
+                : await obterLoteDaOP(op, labelData.cliente, labelData.produto);
+
+            setLabelData(prev => ({
+                ...prev,
+                op,
+                lote: String(lote),
+                cliente: prev.cliente || dados?.cliente || '',
+                produto: prev.produto || dados?.produto || ''
+            }));
+        } catch (error) {
+            console.error('Erro ao carregar lote da OP:', error);
+            setOpErro(
+                error instanceof Error && error.message
+                    ? error.message
+                    : 'Nao foi possivel carregar o lote desta OP.'
+            );
+        } finally {
+            setOpBusy(false);
+        }
     };
 
     const handlePrint = async () => {
@@ -163,13 +200,21 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                         <div className="form-row">
                             <div className="form-group">
                                 <label>OP</label>
-                                <input name="op" value={labelData.op} onChange={handleChange} placeholder="Nº OP" />
+                                <input name="op" value={labelData.op} onChange={handleChange} onBlur={handleOPBlur} placeholder="Nº OP" />
                             </div>
                             <div className="form-group">
-                                <label>Lote</label>
-                                <input name="lote" value={labelData.lote} onChange={handleChange} placeholder="Lote" />
+                                <label>Lote {opBusy && <span className="spin-inline">…</span>}</label>
+                                <input
+                                    name="lote"
+                                    value={labelData.lote}
+                                    readOnly
+                                    className="campo-gerado"
+                                    placeholder="Gerado pela OP"
+                                    title="O lote e gerado pelo sistema e fica preso a esta OP"
+                                />
                             </div>
                         </div>
+                        {opErro && <p className="campo-erro">{opErro}</p>}
                     </div>
 
                     <div className="form-section">

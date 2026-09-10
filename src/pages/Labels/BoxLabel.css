@@ -647,3 +647,71 @@
         transform-origin: top center;
     }
 }
+/* ---- Lote e laudo gerados pelo sistema ---- */
+.campo-gerado {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: not-allowed;
+}
+
+.laudo-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.laudo-row .registry-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-novo-laudo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-radius: 8px;
+    background: rgba(249, 115, 22, 0.12);
+    color: #F97316;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-novo-laudo:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.campo-ajuda {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.68rem;
+    opacity: 0.6;
+    line-height: 1.4;
+}
+
+.campo-erro {
+    margin: 8px 0 0;
+    font-size: 0.72rem;
+    color: #F87171;
+}
+
+.spin-inline {
+    display: inline-block;
+    vertical-align: -2px;
+    animation: spin-inline 1s linear infinite;
+}
+
+@keyframes spin-inline {
+    to { transform: rotate(360deg); }
+}
+
+@media print {
+    .laudo-row,
+    .campo-ajuda,
+    .campo-erro { display: none; }
+}
