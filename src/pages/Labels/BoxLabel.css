@@ -324,9 +324,38 @@
 }
 
 .archive-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     margin-top: 8px;
     font-size: 0.75rem;
     color: var(--text-muted);
+}
+
+.archive-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 32px: alvo de toque minimo pra quem opera de luva no chao de fabrica. */
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 8px;
+    background: rgba(248, 113, 113, 0.1);
+    color: #F87171;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.archive-delete-btn:hover:not(:disabled) {
+    background: rgba(248, 113, 113, 0.22);
+    border-color: rgba(248, 113, 113, 0.6);
+}
+
+.archive-delete-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* Sidebar Footer */
@@ -468,10 +497,24 @@
     flex: 1;
 }
 
+/* CLI, Nº interno, QTD e LOTE dividem a mesma linha. min-width: 0 evita que o
+   texto longo de um campo empurre os outros pra fora da etiqueta. */
+.label-field-row.four-cols .label-field {
+    flex: 1;
+    min-width: 0;
+}
+
 .label-field {
     display: flex;
     flex-direction: column;
     gap: 0.5mm;
+}
+
+/* Area deixada em branco de proposito (onde ficavam LOTE e VALIDADE).
+   Ocupa a coluna para nao deslocar os campos vizinhos, mas nao imprime nada. */
+.label-field.vazio {
+    border: none;
+    background: none;
 }
 
 .label-field.full {
@@ -497,6 +540,13 @@
 
 .field-value.compact {
     font-size: 8pt;
+}
+
+/* Quantidade 50% maior: e o numero que o conferente le de longe na caixa. */
+.field-value.compact.qtd-destaque {
+    font-size: 12pt;
+    font-weight: 900;
+    line-height: 1.1;
 }
 
 /* Highlighted field (for Validade) */
@@ -526,13 +576,15 @@
     margin-top: auto;
 }
 
+/* Rodape reduzido a metade: o sequencial é conferencia interna, nao
+   precisa competir com os dados do produto. */
 .sequence-display {
-    font-size: 10pt;
+    font-size: 5pt;
     font-weight: 900;
 }
 
 .sequence-number {
-    font-size: 14pt;
+    font-size: 7pt;
     text-decoration: underline;
 }
 
@@ -686,6 +738,32 @@
     cursor: not-allowed;
 }
 
+/* Sigla fixa colada ao campo: o operador digita so o numero. */
+.prefixo-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.prefixo-fixo {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    background: rgba(249, 115, 22, 0.12);
+    color: #F97316;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.prefixo-row input {
+    flex: 1;
+    min-width: 0;
+    border-radius: 0 8px 8px 0;
+}
+
 .campo-ajuda {
     display: block;
     margin-top: 6px;
@@ -712,6 +790,7 @@
 
 @media print {
     .laudo-row,
+    .prefixo-row,
     .campo-ajuda,
     .campo-erro { display: none; }
 }

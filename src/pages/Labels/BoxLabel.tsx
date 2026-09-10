@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2 } from 'lucide-react';
+import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, type Laudo } from './lotesLaudos';
+import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, type Laudo } from './lotesLaudos';
 import './BoxLabel.css';
 
 interface BoxLabelProps {
@@ -19,6 +19,10 @@ interface LabelData {
     dataAcabamento: string;
     validade: string;
     laudo: string;
+    /** Ano de emissao do laudo. Impresso junto: laudo/ano-0. */
+    laudoAno: string;
+    /** Digitado pelo operador. Sai na etiqueta com a sigla KING na frente. */
+    numeroInterno: string;
     emissor: string;
     operador: string;
     hora: string;
@@ -36,6 +40,9 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const [archivedLabels, setArchivedLabels] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
+    // Assinatura do que foi arquivado por ultimo. Enquanto ela nao mudar,
+    // imprimir de novo nao arquiva de novo.
+    const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
     // Lote e laudo vem do banco, nunca digitados: ver lotesLaudos.ts
     const [laudos, setLaudos] = useState<Laudo[]>([]);
     const [laudoId, setLaudoId] = useState<string | null>(null);
@@ -51,14 +58,18 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         dataAcabamento: new Date().toLocaleDateString('pt-BR'),
         validade: '',
         laudo: '',
+        laudoAno: '',
+        numeroInterno: '',
         emissor: '',
         operador: '',
         hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     });
 
-    // Update time automatically if not manual
+    // Relogio automatico ate a etiqueta ser arquivada. Depois disso ele para:
+    // se continuasse andando, a etiqueta impressa mostraria uma hora diferente
+    // da que ficou no arquivo — e cada impressao viraria uma alteracao.
     useEffect(() => {
-        if (isTimeManual) return;
+        if (isTimeManual || savedId) return;
 
         const timer = setInterval(() => {
             const now = new Date();
@@ -70,7 +81,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         }, 30000); // Check every 30 seconds
 
         return () => clearInterval(timer);
-    }, [isTimeManual]);
+    }, [isTimeManual, savedId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -107,6 +118,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                 opOf: op,
                 lote: String(lote),
                 laudo: atual ? String(atual.laudo) : '',
+                laudoAno: atual ? anoDoLaudo(atual.created_at) : '',
                 cliente: prev.cliente || dados?.cliente || '',
                 produto: prev.produto || dados?.produto || ''
             }));
@@ -140,7 +152,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             setLabelData(prev => ({
                 ...prev,
                 lote: String(novo.lote),
-                laudo: String(novo.laudo)
+                laudo: String(novo.laudo),
+                laudoAno: anoDoLaudo(novo.created_at)
             }));
         } catch (error) {
             console.error('Erro ao gerar laudo:', error);
@@ -155,7 +168,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         const id = e.target.value;
         const escolhido = laudos.find(l => l.id === id) || null;
         setLaudoId(escolhido?.id ?? null);
-        setLabelData(prev => ({ ...prev, laudo: escolhido ? String(escolhido.laudo) : '' }));
+        setLabelData(prev => ({
+            ...prev,
+            laudo: escolhido ? String(escolhido.laudo) : '',
+            laudoAno: escolhido ? anoDoLaudo(escolhido.created_at) : ''
+        }));
     };
 
     const handleValidityChange =(e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -175,13 +192,41 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     };
 
     const handlePrint = async () => {
-        const saved = await handleSave();
+        // Arquiva so se algo mudou; reimpressao identica nao gera registro novo.
+        const saved = await handleSave({ aoImprimir: true });
         if (!saved) return;
         window.print();
     };
 
+    // O que de fato vai para o banco. Serve tambem de assinatura da etiqueta:
+    // se este objeto nao mudou, nao ha o que arquivar de novo.
+    const montarPayload = (
+        dados: LabelData,
+        faixa: typeof range,
+        idLaudo: string | null
+    ) => ({
+        op: dados.opOf,
+        cliente: dados.cliente || null,
+        produto: dados.produto || null,
+        cli: dados.cli || null,
+        quantidade: dados.quantidade || null,
+        lote: dados.lote || null,
+        data_acabamento: dados.dataAcabamento || null,
+        validade: dados.validade || null,
+        // Grava o laudo cru; o ano e o sufixo -0 sao formato de impressao.
+        laudo: dados.laudo || null,
+        numero_interno: dados.numeroInterno.trim() || null,
+        emissor: dados.emissor || null,
+        operador: dados.operador || null,
+        hora: dados.hora || null,
+        range_start: faixa.start,
+        range_end: faixa.end,
+        range_total: faixa.total,
+        laudo_id: idLaudo
+    });
+
     // Save labels to database
-    const handleSave = async (): Promise<boolean> => {
+    const handleSave = async ({ aoImprimir = false } = {}): Promise<boolean> => {
         if (loading) return false;
         if (!labelData.opOf) {
             alert('Por favor, preencha o numero da OP/OF antes de salvar.');
@@ -195,26 +240,19 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             alert('Esta OP ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
             return false;
         }
+        const insertData = montarPayload(labelData, range, laudoId);
+        const assinatura = JSON.stringify(insertData);
+
+        // Ja arquivada e nada mudou: nao toca no banco.
+        if (savedId && assinatura === savedSnapshot) {
+            if (!aoImprimir) {
+                alert('Nada mudou desde o ultimo arquivamento.');
+            }
+            return true;
+        }
+
         try {
             setLoading(true);
-            const insertData = {
-                op: labelData.opOf,
-                cliente: labelData.cliente || null,
-                produto: labelData.produto || null,
-                cli: labelData.cli || null,
-                quantidade: labelData.quantidade || null,
-                lote: labelData.lote || null,
-                data_acabamento: labelData.dataAcabamento || null,
-                validade: labelData.validade || null,
-                laudo: labelData.laudo || null,
-                emissor: labelData.emissor || null,
-                operador: labelData.operador || null,
-                hora: labelData.hora || null,
-                range_start: range.start,
-                range_end: range.end,
-                range_total: range.total,
-                laudo_id: laudoId
-            };
             console.log('Salvando dados:', insertData);
             let error;
             let insertedId: string | undefined;
@@ -234,6 +272,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             if (!savedId && insertedId) {
                 setSavedId(insertedId);
             }
+            setSavedSnapshot(assinatura);
             alert(savedId ? 'Etiqueta atualizada com sucesso!' : 'Etiquetas arquivadas com sucesso!');
             return true;
         } catch (error: any) {
@@ -263,9 +302,34 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         }
     };
 
+    // Apaga uma etiqueta do arquivo. Nao mexe em lote nem laudo: os numeros
+    // ja foram emitidos e continuam presos a OP, so o registro da impressao sai.
+    const handleExcluir = async (item: any, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm(`Apagar esta etiqueta arquivada da OP ${item.op}?\n\nO lote e o laudo da OP nao sao afetados.`)) {
+            return;
+        }
+        try {
+            setLoading(true);
+            const { error } = await supabase.from('prod_etiquetas_caixa').delete().eq('id', item.id);
+            if (error) throw error;
+            setArchivedLabels(prev => prev.filter(l => l.id !== item.id));
+            // Se a etiqueta aberta no formulario era essa, ela nao existe mais.
+            if (savedId === item.id) {
+                setSavedId(null);
+                setSavedSnapshot(null);
+            }
+        } catch (error: any) {
+            console.error('Erro ao excluir:', error);
+            alert(`Nao foi possivel excluir: ${error?.message || 'erro desconhecido'}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Load from archive into form
     const loadFromArchive = (item: any, forEdit = false) => {
-        setLabelData({
+        const dados: LabelData = {
             cliente: item.cliente || '',
             produto: item.produto || '',
             cli: item.cli || '',
@@ -275,24 +339,42 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             dataAcabamento: item.data_acabamento || '',
             validade: item.validade || '',
             laudo: item.laudo || '',
+            // Sem o laudo em maos ainda: o ano da etiqueta serve de aproximacao
+            // e e corrigido logo abaixo, quando as entregas da OP chegarem.
+            laudoAno: anoDoLaudo(item.created_at),
+            numeroInterno: item.numero_interno || '',
             emissor: item.emissor || '',
             operador: item.operador || '',
             hora: item.hora || ''
-        });
-        setRange({
+        };
+        const faixa = {
             start: item.range_start || 1,
             end: item.range_end || 8,
             total: item.range_total || 8
-        });
+        };
+        const idLaudo = item.laudo_id || null;
+
+        setLabelData(dados);
+        setRange(faixa);
         setSavedId(forEdit ? item.id : null);
-        setLaudoId(item.laudo_id || null);
+        // Abrindo para editar, a etiqueta ja esta arquivada como esta: reimprimir
+        // sem mexer em nada nao deve gravar de novo.
+        setSavedSnapshot(forEdit ? JSON.stringify(montarPayload(dados, faixa, idLaudo)) : null);
+        setLaudoId(idLaudo);
         setIsTimeManual(true);
         setActiveTab('nova');
 
         // Recarrega as entregas da OP para o seletor de laudo, sem alocar nada.
         if (item.op) {
             buscarDadosOP(item.op)
-                .then(dados => setLaudos(dados?.laudos ?? []))
+                .then(dados => {
+                    const lista = dados?.laudos ?? [];
+                    setLaudos(lista);
+                    const usado = lista.find(l => l.id === item.laudo_id);
+                    if (usado) {
+                        setLabelData(prev => ({ ...prev, laudoAno: anoDoLaudo(usado.created_at) }));
+                    }
+                })
                 .catch(err => console.error('Erro ao carregar laudos da OP:', err));
         }
     };
@@ -415,6 +497,22 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         title="O lote e gerado pelo sistema e fica preso a esta OP"
                                     />
                                 </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Nº Interno</label>
+                                <div className="prefixo-row">
+                                    <span className="prefixo-fixo">KING</span>
+                                    <input
+                                        name="numeroInterno"
+                                        value={labelData.numeroInterno}
+                                        onChange={handleChange}
+                                        placeholder="Digite o número"
+                                    />
+                                </div>
+                                <small className="campo-ajuda">
+                                    Controle interno digitado à mão. Sai na etiqueta como KING {labelData.numeroInterno.trim() || '____'}.
+                                </small>
                             </div>
 
                             {opErro && <p className="campo-erro">{opErro}</p>}
@@ -595,6 +693,15 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         </div>
                                         <div className="archive-item-footer">
                                             <span>Seq: {item.range_start} - {item.range_end}</span>
+                                            <button
+                                                type="button"
+                                                className="archive-delete-btn"
+                                                onClick={(e) => handleExcluir(item, e)}
+                                                disabled={loading}
+                                                title="Apagar esta etiqueta do arquivo"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     </div>
                                 ))
@@ -605,7 +712,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
 
                 <div className="sidebar-footer">
                     {activeTab === 'nova' && (
-                        <button className="save-btn" onClick={handleSave} disabled={loading}>
+                        <button className="save-btn" onClick={() => handleSave()} disabled={loading}>
                             <Save size={20} />
                             {loading ? 'Salvando...' : (savedId ? 'Atualizar' : 'Arquivar')}
                         </button>
@@ -647,19 +754,22 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         </div>
                                     </div>
 
-                                    <div className="label-field-row three-cols">
+                                    <div className="label-field-row four-cols">
                                         <div className="label-field">
                                             <span className="field-label">CLI</span>
                                             <span className="field-value compact">{labelData.cli || '---'}</span>
                                         </div>
                                         <div className="label-field">
-                                            <span className="field-label">QTD</span>
-                                            <span className="field-value compact">{labelData.quantidade || '0'}</span>
+                                            <span className="field-label">KING</span>
+                                            <span className="field-value compact">{labelData.numeroInterno.trim() || '---'}</span>
                                         </div>
                                         <div className="label-field">
-                                            <span className="field-label">LOTE</span>
-                                            <span className="field-value compact">{labelData.lote || '---'}</span>
+                                            <span className="field-label">QTD</span>
+                                            <span className="field-value compact qtd-destaque">{labelData.quantidade || '0'}</span>
                                         </div>
+                                        {/* Espaco livre: o lote continua sendo gerado e arquivado,
+                                            so nao e impresso. A area fica em branco de proposito. */}
+                                        <div className="label-field vazio" />
                                     </div>
 
                                     <div className="label-field-row three-cols">
@@ -669,15 +779,15 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         </div>
                                         <div className="label-field">
                                             <span className="field-label">LAUDO</span>
-                                            <span className="field-value compact">{labelData.laudo || '---'}</span>
+                                            <span className="field-value compact">
+                                                {formatarLaudo(labelData.laudo, labelData.laudoAno) || '---'}
+                                            </span>
                                         </div>
-                                        <div className="label-field highlight">
-                                            <span className="field-label">VALIDADE</span>
-                                            <span className="field-value compact">{labelData.validade || '---'}</span>
-                                        </div>
+                                        {/* Idem validade: fica em branco para uso manual. */}
+                                        <div className="label-field vazio" />
                                     </div>
 
-                                    <div className="label-field-row two-cols">
+                                    <div className="label-field-row three-cols">
                                         <div className="label-field">
                                             <span className="field-label">EMISSOR</span>
                                             <span className="field-value compact">{labelData.emissor || '---'}</span>
@@ -685,6 +795,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         <div className="label-field">
                                             <span className="field-label">OPERADOR</span>
                                             <span className="field-value compact">{labelData.operador || '---'}</span>
+                                        </div>
+                                        {/* Lote saiu da linha do CLI: aquela area agora fica livre. */}
+                                        <div className="label-field">
+                                            <span className="field-label">LOTE</span>
+                                            <span className="field-value compact">{labelData.lote || '---'}</span>
                                         </div>
                                     </div>
                                 </div>
