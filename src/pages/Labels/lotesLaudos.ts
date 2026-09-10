@@ -41,8 +41,17 @@ export interface DadosOP {
     laudos: Laudo[];
 }
 
-/** Normaliza do mesmo jeito que o banco, pra tela e banco nunca divergirem. */
-export const normalizarOP = (op: string) => op.trim().toUpperCase();
+/**
+ * Normaliza do mesmo jeito que o banco, pra tela e banco nunca divergirem.
+ *
+ * Tira o ano digitado no fim da OP ("20144 / 2026" -> "20144"). A etiqueta
+ * imprime o ano sozinha, mas quem esta acostumado a escrever assim criava uma
+ * OP nova no banco — mesma producao, chave diferente, lote e laudo
+ * duplicados. So o padrao "/ ano de 4 digitos" no final e removido; qualquer
+ * outra barra no meio da OP e preservada.
+ */
+export const normalizarOP = (op: string) =>
+    op.trim().toUpperCase().replace(/\s*\/\s*(?:19|20)\d{2}\s*$/, '').trim();
 export const normalizarModelo = (modelo: string) => modelo.trim().toUpperCase();
 
 /**
