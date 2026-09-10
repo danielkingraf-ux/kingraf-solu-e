@@ -734,82 +734,65 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                     <div className="labels-grid" id="printable-labels">
                         {labelsArray.map((num) => (
                             <div key={num} className="box-label-item">
-                                <div className="label-brand">
-                                    <span className="brand-name">KINGRAF</span>
-                                    <span className="brand-subtitle">Indústria Gráfica</span>
+                                {/* Layout espelhado da etiqueta em uso (rotulo a esquerda,
+                                    valor recuado). A metade direita, do OP/OF para baixo, e
+                                    zona proibida: ali o papel ja vem com a arte impressa
+                                    ("VAL. 1 ANO APOS DATA DE FABRICACAO" e a nota da ISO). */}
+                                <div className="etq-marca">
+                                    <span className="etq-marca-nome">KINGRAF</span>
+                                    <span className="etq-marca-sub">Indústria Gráfica</span>
                                 </div>
 
-                                <div className="label-main-content">
-                                    <div className="label-field-row">
-                                        <div className="label-field full">
-                                            <span className="field-label">CLIENTE</span>
-                                            <span className="field-value">{labelData.cliente || '---'}</span>
-                                        </div>
+                                <div className="etq-corpo">
+                                    <div className="etq-linha">
+                                        <span className="etq-rot">CLIENTE</span>
+                                        <span className="etq-val">{labelData.cliente || '---'}</span>
                                     </div>
 
-                                    <div className="label-field-row">
-                                        <div className="label-field full">
-                                            <span className="field-label">PRODUTO</span>
-                                            <span className="field-value">{labelData.produto || '---'}</span>
-                                        </div>
+                                    <div className="etq-linha">
+                                        <span className="etq-rot">PRODUTO</span>
+                                        <span className="etq-val">{labelData.produto || '---'}</span>
                                     </div>
 
-                                    <div className="label-field-row four-cols">
-                                        <div className="label-field">
-                                            <span className="field-label">CLI</span>
-                                            <span className="field-value compact">{labelData.cli || '---'}</span>
-                                        </div>
-                                        <div className="label-field">
-                                            <span className="field-label">KING</span>
-                                            <span className="field-value compact">{labelData.numeroInterno.trim() || '---'}</span>
-                                        </div>
-                                        <div className="label-field">
-                                            <span className="field-label">QTD</span>
-                                            <span className="field-value compact qtd-destaque">{labelData.quantidade || '0'}</span>
-                                        </div>
-                                        {/* Espaco livre: o lote continua sendo gerado e arquivado,
-                                            so nao e impresso. A area fica em branco de proposito. */}
-                                        <div className="label-field vazio" />
+                                    <div className="etq-linha dupla">
+                                        <span className="etq-rot">CLI</span>
+                                        <span className="etq-val">{labelData.cli || '---'}</span>
+                                        <span className="etq-rot">KING</span>
+                                        <span className="etq-val">{labelData.numeroInterno.trim() || '---'}</span>
                                     </div>
 
-                                    <div className="label-field-row three-cols">
-                                        <div className="label-field">
-                                            <span className="field-label">OP/OF</span>
-                                            <span className="field-value compact">{labelData.opOf || '---'}</span>
-                                        </div>
-                                        <div className="label-field">
-                                            <span className="field-label">LAUDO</span>
-                                            <span className="field-value compact">
-                                                {formatarLaudo(labelData.laudo, labelData.laudoAno) || '---'}
-                                            </span>
-                                        </div>
-                                        {/* Idem validade: fica em branco para uso manual. */}
-                                        <div className="label-field vazio" />
+                                    <div className="etq-linha dupla">
+                                        <span className="etq-rot">QTDADE</span>
+                                        <span className="etq-val forte">{labelData.quantidade || '---'}</span>
+                                        <span className="etq-rot">LOTE</span>
+                                        <span className="etq-val">{labelData.lote || '---'}</span>
                                     </div>
 
-                                    <div className="label-field-row three-cols">
-                                        <div className="label-field">
-                                            <span className="field-label">EMISSOR</span>
-                                            <span className="field-value compact">{labelData.emissor || '---'}</span>
-                                        </div>
-                                        <div className="label-field">
-                                            <span className="field-label">OPERADOR</span>
-                                            <span className="field-value compact">{labelData.operador || '---'}</span>
-                                        </div>
-                                        {/* Lote saiu da linha do CLI: aquela area agora fica livre. */}
-                                        <div className="label-field">
-                                            <span className="field-label">LOTE</span>
-                                            <span className="field-value compact">{labelData.lote || '---'}</span>
-                                        </div>
+                                    {/* Daqui para baixo, so a metade esquerda. */}
+                                    <div className="etq-linha curta">
+                                        <span className="etq-rot">OP/OF</span>
+                                        <span className="etq-val">{labelData.opOf || '---'}</span>
                                     </div>
-                                </div>
 
-                                <div className="label-footer-info">
-                                    <div className="sequence-display">
-                                        ETIQUETA: <span className="sequence-number">{num}</span>
+                                    <div className="etq-linha curta">
+                                        <span className="etq-rot">DATA ACAB.</span>
+                                        <span className="etq-val">{labelData.dataAcabamento || '---'}</span>
                                     </div>
-                                    <div className="time-display">
-                                        DATA/HORA: {labelData.dataAcabamento} {labelData.hora}
+
+                                    <div className="etq-linha curta laudo">
+                                        <span className="etq-rot">LAUDO</span>
+                                        <span className="etq-val">
+                                            {formatarLaudo(labelData.laudo, labelData.laudoAno) || '---'}
+                                            {labelData.emissor && <em className="etq-emissor">{labelData.emissor}</em>}
+                                        </span>
+                                    </div>
+
+                                    <div className="etq-rodape">
+                                        <div className="etq-operador">{labelData.operador || '---'}</div>
+                                        <div className="etq-carimbo">
+                                            {labelData.dataAcabamento} {labelData.hora}
+                                            <span className="etq-sequencia">ETIQUETA {num}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
