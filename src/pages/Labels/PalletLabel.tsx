@@ -76,10 +76,15 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
         setOpBusy(true);
         setOpErro(null);
         try {
-            const dados = await buscarDadosOP(op);
+            // O palete trabalha por OP, sem modelo: passa modelo vazio de
+            // proposito. Quem separa lote por modelo (o codigo KING) e a
+            // etiqueta de CAIXA — ver lotesLaudos.ts. O '' precisa ser
+            // explicito porque todos os parametros sao string: omitir faria o
+            // cliente entrar no lugar do modelo sem o compilador reclamar.
+            const dados = await buscarDadosOP(op, '');
             const lote = dados
                 ? dados.lote
-                : await obterLoteDaOP(op, labelData.cliente, labelData.produto);
+                : await obterLoteDaOP(op, '', labelData.cliente, labelData.produto);
 
             setLabelData(prev => ({
                 ...prev,

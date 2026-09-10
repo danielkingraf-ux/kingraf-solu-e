@@ -473,9 +473,10 @@
     display: flex;
     align-items: baseline;
     gap: 2mm;
-    /* Compacto de proposito: cada milimetro aqui empurra a linha do LOTE
-       para dentro da area ja impressa no papel. */
-    margin-bottom: 0.8mm;
+    /* Respiro que separa a marca do primeiro campo, senao "KINGRAF" e
+       "CLIENTE" se leem como um bloco so. Nao pode crescer muito: cada
+       milimetro aqui empurra a linha do LOTE para dentro da area impressa. */
+    margin-bottom: 2mm;
     line-height: 1;
     font-family: 'Arial', 'Helvetica', sans-serif;
 }
@@ -499,7 +500,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.8mm;
+    gap: 0.5mm;
     font-family: 'Arial', 'Helvetica', sans-serif;
 }
 
@@ -550,16 +551,10 @@
     font-weight: 900;
 }
 
-/* Emissor sai colado no laudo, como na etiqueta em uso. O nowrap impede que
-   "laudo + emissor" quebre em duas linhas dentro da faixa estreita. */
+/* O laudo e o unico valor que nao pode quebrar: numero/ano-0 em duas linhas
+   fica ilegivel na conferencia. */
 .etq-linha.laudo .etq-val {
     white-space: nowrap;
-}
-
-.etq-emissor {
-    margin-left: 4mm;
-    font-style: normal;
-    font-weight: 400;
 }
 
 /* Segue logo abaixo do laudo, sem empurrar para o rodape: a parte de baixo
@@ -567,12 +562,6 @@
 .etq-rodape {
     margin-top: 2.4mm;
     max-width: var(--etq-util);
-}
-
-.etq-operador {
-    font-size: 8pt;
-    font-weight: 700;
-    text-transform: uppercase;
 }
 
 .etq-carimbo {
