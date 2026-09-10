@@ -826,3 +826,281 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* ---------------------------------------------------------------------------
+   Conferencia de lotes. Cartao por lote, com os laudos que sairam dele.
+--------------------------------------------------------------------------- */
+.conf-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.conf-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.conf-lote {
+    color: var(--kingraf-orange);
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+}
+
+.conf-topo .archive-date {
+    margin-left: auto;
+}
+
+.conf-tag-sobra {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(250, 204, 21, 0.15);
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    color: #FACC15;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.conf-chaves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.conf-chaves b {
+    margin-right: 4px;
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.conf-laudos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.conf-laudo {
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.conf-sem-laudo {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Conferencia de lotes — popup
+
+   Fica fora da barra lateral de proposito: relatorio em 400px nao se le.
+--------------------------------------------------------------------------- */
+.conf-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3vh 3vw;
+    background: rgba(2, 6, 23, 0.75);
+    backdrop-filter: blur(4px);
+}
+
+.conf-janela {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1400px;
+    height: 100%;
+    background: var(--bg-sidebar);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.conf-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.conf-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.conf-titulo h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+
+.conf-contagem {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.conf-acoes {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.conf-busca {
+    width: 320px;
+}
+
+.conf-baixar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-radius: 12px;
+    background: rgba(249, 115, 22, 0.12);
+    color: var(--kingraf-orange);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.conf-baixar:hover:not(:disabled) {
+    background: rgba(249, 115, 22, 0.22);
+}
+
+.conf-baixar:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* O corpo rola sozinho; a tabela rola na horizontal se faltar largura. */
+.conf-corpo {
+    flex: 1;
+    overflow: auto;
+    padding: 0 1.25rem;
+}
+
+.conf-vazio {
+    padding: 3rem 0;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.conf-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.conf-tabela th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.75rem 0.6rem;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--kingraf-orange);
+    white-space: nowrap;
+}
+
+.conf-tabela td {
+    padding: 0.7rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    vertical-align: top;
+}
+
+.conf-tabela tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.conf-td-lote {
+    font-weight: 800;
+    color: var(--kingraf-orange);
+    white-space: nowrap;
+}
+
+.conf-tag-sobra {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(250, 204, 21, 0.15);
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    color: #FACC15;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.conf-tag-normal {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.conf-laudos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.conf-laudo {
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.conf-sem-laudo {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.conf-rodape {
+    padding: 0.8rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* A janela nunca sai no papel. */
+@media print {
+    .conf-overlay { display: none !important; }
+}
