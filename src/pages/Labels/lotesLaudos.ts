@@ -120,3 +120,21 @@ export const gerarNovoLaudo = async (
         lote: linha.lote
     };
 };
+
+/** Ano em que o laudo foi aberto. Reimpressao de laudo antigo mantem o ano dele. */
+export const anoDoLaudo = (createdAt?: string | null): string =>
+    String((createdAt ? new Date(createdAt) : new Date()).getFullYear());
+
+/**
+ * Formato exigido na etiqueta: numero/ano-0.
+ * O sufixo -0 e fixo, herdado do sistema anterior.
+ */
+export const formatarLaudo = (
+    laudo: string | number | null | undefined,
+    ano?: string | number | null
+): string => {
+    const numero = String(laudo ?? '').trim();
+    if (!numero) return '';
+    const anoFinal = String(ano ?? '').trim() || anoDoLaudo();
+    return `${numero}/${anoFinal}-0`;
+};
