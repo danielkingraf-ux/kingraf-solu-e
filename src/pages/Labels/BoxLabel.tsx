@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, type Laudo } from './lotesLaudos';
+import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, normalizarOP, normalizarModelo, type Laudo } from './lotesLaudos';
 import './BoxLabel.css';
 
 interface BoxLabelProps {
@@ -93,19 +93,29 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setLabelData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Ao sair do campo OP: puxa o lote da OP (alocando na primeira vez) e
-    // lista as entregas ja abertas, para reimpressao nao consumir laudo novo.
-    const handleOPBlur = async () => {
-        const op = labelData.opOf.trim().toUpperCase();
-        if (!op) return;
+    // Lote e laudo pertencem ao par OP + MODELO (o codigo KING): a mesma OP
+    // pode carregar modelos diferentes, e cada um tem lote e laudos proprios.
+    // Por isso a carga so acontece com os dois campos preenchidos, e roda ao
+    // sair de qualquer um deles.
+    const carregarParOpModelo = async () => {
+        const op = normalizarOP(labelData.opOf);
+        const modelo = normalizarModelo(labelData.numeroInterno);
+
+        if (!op || !modelo) {
+            // Sem o par completo nao da para saber a qual lote isto pertence.
+            setLaudos([]);
+            setLaudoId(null);
+            setLabelData(prev => ({ ...prev, lote: '', laudo: '', laudoAno: '' }));
+            return;
+        }
 
         setOpBusy(true);
         setOpErro(null);
         try {
-            const dados = await buscarDadosOP(op);
+            const dados = await buscarDadosOP(op, modelo);
             const lote = dados
                 ? dados.lote
-                : await obterLoteDaOP(op, labelData.cliente, labelData.produto);
+                : await obterLoteDaOP(op, modelo, labelData.cliente, labelData.produto);
             const listaLaudos = dados?.laudos ?? [];
 
             // A ultima entrega e a que costuma estar sendo impressa.
@@ -116,6 +126,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             setLabelData(prev => ({
                 ...prev,
                 opOf: op,
+                numeroInterno: modelo,
                 lote: String(lote),
                 laudo: atual ? String(atual.laudo) : '',
                 laudoAno: atual ? anoDoLaudo(atual.created_at) : '',
@@ -123,8 +134,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                 produto: prev.produto || dados?.produto || ''
             }));
         } catch (error) {
-            console.error('Erro ao carregar lote/laudo da OP:', error);
-            setOpErro(mensagemErro(error, 'Nao foi possivel carregar o lote desta OP.'));
+            console.error('Erro ao carregar lote/laudo do par OP+modelo:', error);
+            setOpErro(mensagemErro(error, 'Nao foi possivel carregar o lote desta OP/modelo.'));
         } finally {
             setOpBusy(false);
         }
@@ -133,20 +144,25 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     // Abre uma nova entrega da OP. Consome um numero de laudo — usar apenas
     // quando for de fato uma remessa nova, nao para reimprimir.
     const handleNovoLaudo = async () => {
-        const op = labelData.opOf.trim().toUpperCase();
+        const op = normalizarOP(labelData.opOf);
+        const modelo = normalizarModelo(labelData.numeroInterno);
         if (!op) {
             alert('Preencha a OP/OF antes de gerar o laudo.');
             return;
         }
+        if (!modelo) {
+            alert('Preencha o KING (codigo do modelo) antes de gerar o laudo.\n\nCada modelo da OP tem o seu proprio laudo.');
+            return;
+        }
         const entrega = laudos.length + 1;
-        if (!confirm(`Gerar o laudo da ${entrega}a entrega da OP ${op}?\n\nIsso consome um numero novo e nao pode ser desfeito.`)) {
+        if (!confirm(`Gerar o laudo da ${entrega}a entrega do modelo ${modelo} na OP ${op}?\n\nIsso consome um numero novo e nao pode ser desfeito.`)) {
             return;
         }
 
         setOpBusy(true);
         setOpErro(null);
         try {
-            const novo = await gerarNovoLaudo(op, labelData.quantidade, labelData.cliente, labelData.produto);
+            const novo = await gerarNovoLaudo(op, modelo, labelData.quantidade, labelData.cliente, labelData.produto);
             setLaudos(prev => [...prev, novo]);
             setLaudoId(novo.id);
             setLabelData(prev => ({
@@ -364,9 +380,10 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setIsTimeManual(true);
         setActiveTab('nova');
 
-        // Recarrega as entregas da OP para o seletor de laudo, sem alocar nada.
+        // Recarrega as entregas do par OP+modelo para o seletor de laudo,
+        // sem alocar nada.
         if (item.op) {
-            buscarDadosOP(item.op)
+            buscarDadosOP(item.op, item.numero_interno || '')
                 .then(dados => {
                     const lista = dados?.laudos ?? [];
                     setLaudos(lista);
@@ -480,7 +497,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         name="opOf"
                                         value={labelData.opOf}
                                         onChange={handleChange}
-                                        onBlur={handleOPBlur}
+                                        onBlur={carregarParOpModelo}
                                         placeholder="Nº OP/OF"
                                     />
                                 </div>
@@ -493,8 +510,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         value={labelData.lote}
                                         readOnly
                                         className="campo-gerado"
-                                        placeholder="Gerado pela OP"
-                                        title="O lote e gerado pelo sistema e fica preso a esta OP"
+                                        placeholder="Gerado por OP + modelo"
+                                        title="O lote e gerado pelo sistema e fica preso ao par OP + modelo"
                                     />
                                 </div>
                             </div>
@@ -507,11 +524,13 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         name="numeroInterno"
                                         value={labelData.numeroInterno}
                                         onChange={handleChange}
-                                        placeholder="Digite o número"
+                                        onBlur={carregarParOpModelo}
+                                        placeholder="Código do modelo"
                                     />
                                 </div>
                                 <small className="campo-ajuda">
-                                    Controle interno digitado à mão. Sai na etiqueta como KING {labelData.numeroInterno.trim() || '____'}.
+                                    Código do modelo. O lote e o laudo pertencem ao par OP + modelo:
+                                    modelos diferentes na mesma OP têm números diferentes.
                                 </small>
                             </div>
 
@@ -783,12 +802,20 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         <span className="etq-rot">LAUDO</span>
                                         <span className="etq-val">
                                             {formatarLaudo(labelData.laudo, labelData.laudoAno) || '---'}
-                                            {labelData.emissor && <em className="etq-emissor">{labelData.emissor}</em>}
                                         </span>
                                     </div>
 
+                                    <div className="etq-linha curta">
+                                        <span className="etq-rot">EMISSOR</span>
+                                        <span className="etq-val">{labelData.emissor || '---'}</span>
+                                    </div>
+
+                                    <div className="etq-linha curta">
+                                        <span className="etq-rot">OPERADOR</span>
+                                        <span className="etq-val">{labelData.operador || '---'}</span>
+                                    </div>
+
                                     <div className="etq-rodape">
-                                        <div className="etq-operador">{labelData.operador || '---'}</div>
                                         <div className="etq-carimbo">
                                             {labelData.dataAcabamento} {labelData.hora}
                                             <span className="etq-sequencia">ETIQUETA {num}</span>
