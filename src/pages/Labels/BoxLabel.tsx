@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2, Eraser } from 'lucide-react';
+import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2, Eraser, ListChecks, Download } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, normalizarOP, normalizarModelo, type Laudo } from './lotesLaudos';
+import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, normalizarOP, normalizarModelo, type Laudo, type LinhaConferencia, buscarConferencia } from './lotesLaudos';
 import './BoxLabel.css';
 
 interface BoxLabelProps {
@@ -38,6 +38,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const [validityMonths, setValidityMonths] = useState<string>('');
     const [isTimeManual, setIsTimeManual] = useState(false);
     const [activeTab, setActiveTab] = useState<'nova' | 'arquivo'>('nova');
+    // A conferencia abre em popup: relatorio nao cabe na barra de 400px.
+    const [conferenciaAberta, setConferenciaAberta] = useState(false);
+    const [conferencia, setConferencia] = useState<LinhaConferencia[]>([]);
+    const [buscaConferencia, setBuscaConferencia] = useState('');
+    const [carregandoConf, setCarregandoConf] = useState(false);
     const [searchOP, setSearchOP] = useState('');
     const [archivedLabels, setArchivedLabels] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -449,12 +454,73 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         }
     };
 
+    // Conferencia: lista os lotes emitidos com os laudos de cada um. So leitura.
+    // Usa loading proprio para nao disputar o spinner com o Arquivar.
+    const handleBuscarConferencia = async () => {
+        try {
+            setCarregandoConf(true);
+            setConferencia(await buscarConferencia(buscaConferencia));
+        } catch (error) {
+            console.error('Erro ao carregar conferencia:', error);
+            alert(mensagemErro(error, 'Nao foi possivel carregar a conferencia.'));
+        } finally {
+            setCarregandoConf(false);
+        }
+    };
+
+    const abrirConferencia = () => {
+        setConferenciaAberta(true);
+        handleBuscarConferencia();
+    };
+
+    /**
+     * Baixa a conferencia como CSV.
+     * Separador ';' e BOM no inicio porque o Excel em portugues abre o arquivo
+     * assim sem pedir importacao e sem quebrar os acentos.
+     */
+    const baixarConferencia = () => {
+        if (conferencia.length === 0) return;
+
+        const cabecalho = ['LOTE', 'TIPO', 'OP', 'MODELO (KING)', 'CLIENTE', 'PRODUTO', 'LAUDOS', 'DATA'];
+        const linhas = conferencia.map(l => [
+            String(l.lote),
+            l.sobra ? 'SOBRA' : 'NORMAL',
+            l.op,
+            l.modelo,
+            l.cliente ?? '',
+            l.produto ?? '',
+            l.laudos.map(x => formatarLaudo(x.laudo, anoDoLaudo(x.created_at))).join(' | '),
+            new Date(l.created_at).toLocaleDateString('pt-BR')
+        ]);
+
+        const csv = '﻿' + [cabecalho, ...linhas]
+            .map(linha => linha.map(campo => `"${campo.replace(/"/g, '""')}"`).join(';'))
+            .join('\r\n');
+
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `conferencia-lotes-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     // Load archived when switching to archive tab
     useEffect(() => {
         if (activeTab === 'arquivo') {
             handleSearch();
         }
     }, [activeTab]);
+
+    // Esc fecha o popup, como em qualquer janela.
+    useEffect(() => {
+        if (!conferenciaAberta) return;
+        const aoTeclar = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setConferenciaAberta(false);
+        };
+        window.addEventListener('keydown', aoTeclar);
+        return () => window.removeEventListener('keydown', aoTeclar);
+    }, [conferenciaAberta]);
 
     useEffect(() => {
         if (initialItem) {
@@ -494,6 +560,9 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                         onClick={() => setActiveTab('arquivo')}
                     >
                         <Archive size={14} /> Arquivo
+                    </button>
+                    <button className="tab-btn" onClick={abrirConferencia}>
+                        <ListChecks size={14} /> Lotes
                     </button>
                 </div>
 
@@ -905,6 +974,113 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                     </div>
                 </div>
             </main>
+
+            {conferenciaAberta && (
+                // Clique no fundo fecha; no conteudo, nao — dai o stopPropagation.
+                <div className="conf-overlay" onClick={() => setConferenciaAberta(false)}>
+                    <div className="conf-janela" onClick={(e) => e.stopPropagation()}>
+                        <header className="conf-cabecalho">
+                            <div className="conf-titulo">
+                                <ListChecks size={18} color="var(--kingraf-orange)" />
+                                <h2>Conferência de Lotes</h2>
+                                <span className="conf-contagem">
+                                    {conferencia.length} {conferencia.length === 1 ? 'lote' : 'lotes'}
+                                </span>
+                            </div>
+
+                            <div className="conf-acoes">
+                                <div className="search-row conf-busca">
+                                    <input
+                                        type="text"
+                                        value={buscaConferencia}
+                                        onChange={(e) => setBuscaConferencia(e.target.value)}
+                                        placeholder="OP, modelo, lote ou laudo..."
+                                        onKeyDown={(e) => e.key === 'Enter' && handleBuscarConferencia()}
+                                    />
+                                    <button className="search-btn" onClick={handleBuscarConferencia}>
+                                        <Search size={18} />
+                                    </button>
+                                </div>
+                                <button
+                                    className="conf-baixar"
+                                    onClick={baixarConferencia}
+                                    disabled={conferencia.length === 0}
+                                    title="Baixar como CSV, abre direto no Excel"
+                                >
+                                    <Download size={16} /> Baixar CSV
+                                </button>
+                                <button
+                                    className="back-btn-icon"
+                                    onClick={() => setConferenciaAberta(false)}
+                                    title="Fechar (Esc)"
+                                >
+                                    <X size={20} color="#FFFFFF" />
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="conf-corpo">
+                            {carregandoConf ? (
+                                <p className="conf-vazio">Carregando...</p>
+                            ) : conferencia.length === 0 ? (
+                                <p className="conf-vazio">Nenhum lote encontrado.</p>
+                            ) : (
+                                <table className="conf-tabela">
+                                    <thead>
+                                        <tr>
+                                            <th>Lote</th>
+                                            <th>Tipo</th>
+                                            <th>OP</th>
+                                            <th>Modelo (KING)</th>
+                                            <th>Cliente</th>
+                                            <th>Produto</th>
+                                            <th>Laudos</th>
+                                            <th>Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {conferencia.map((linha) => (
+                                            <tr key={`${linha.op}|${linha.modelo}|${linha.sobra}`}>
+                                                <td className="conf-td-lote">{linha.lote}</td>
+                                                <td>
+                                                    {linha.sobra
+                                                        ? <span className="conf-tag-sobra">SOBRA</span>
+                                                        : <span className="conf-tag-normal">Normal</span>}
+                                                </td>
+                                                <td>{linha.op}</td>
+                                                <td>{linha.modelo || '—'}</td>
+                                                <td>{linha.cliente || '—'}</td>
+                                                <td>{linha.produto || '—'}</td>
+                                                <td>
+                                                    {linha.laudos.length === 0 ? (
+                                                        <span className="conf-sem-laudo">
+                                                            {linha.sobra ? 'Sobra não gera laudo' : 'Sem entrega'}
+                                                        </span>
+                                                    ) : (
+                                                        <div className="conf-laudos">
+                                                            {linha.laudos.map(l => (
+                                                                <span key={l.laudo} className="conf-laudo">
+                                                                    {l.sequencia}ª · {formatarLaudo(l.laudo, anoDoLaudo(l.created_at))}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td>{new Date(linha.created_at).toLocaleDateString('pt-BR')}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        <footer className="conf-rodape">
+                            Somente leitura — nada nesta janela gera ou altera número.
+                            Mostrando os 50 lotes mais recentes; use a busca para ir além.
+                        </footer>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

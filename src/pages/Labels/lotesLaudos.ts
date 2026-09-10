@@ -164,3 +164,81 @@ export const formatarLaudo = (
     const anoFinal = String(ano ?? '').trim() || anoDoLaudo();
     return `${numero}/${anoFinal}-0`;
 };
+
+/** Uma linha da conferencia: um lote com os laudos que sairam dele. */
+export interface LinhaConferencia {
+    op: string;
+    modelo: string;
+    sobra: boolean;
+    lote: number;
+    cliente: string | null;
+    produto: string | null;
+    created_at: string;
+    laudos: { laudo: number; sequencia: number; created_at: string }[];
+}
+
+/**
+ * Lista os lotes emitidos, do mais novo para o mais antigo, com os laudos de
+ * cada um. Só leitura — nao aloca nada.
+ *
+ * O termo aceita OP, modelo, numero de lote ou numero de laudo. Buscar por
+ * laudo exige um passo a mais: o laudo mora em outra tabela, entao primeiro
+ * descobrimos a que par OP+modelo ele pertence e so depois filtramos os lotes.
+ */
+export const buscarConferencia = async (
+    termo = '',
+    limite = 50
+): Promise<LinhaConferencia[]> => {
+    const t = termo.trim();
+    let query = supabase
+        .from('prod_op_lote')
+        .select('op, modelo, sobra, lote, cliente, produto, created_at')
+        .order('lote', { ascending: false })
+        .limit(limite);
+
+    if (t) {
+        const ehNumero = /^\d+$/.test(t);
+        const filtros = [`op.ilike.%${t}%`, `modelo.ilike.%${t}%`];
+
+        if (ehNumero) {
+            filtros.push(`lote.eq.${t}`);
+            const { data: doLaudo } = await supabase
+                .from('prod_op_laudo')
+                .select('op')
+                .eq('laudo', Number(t));
+            const ops = [...new Set((doLaudo ?? []).map(l => l.op as string))];
+            if (ops.length > 0) {
+                filtros.push(`op.in.(${ops.join(',')})`);
+            }
+        }
+
+        query = query.or(filtros.join(','));
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const lotes = (data ?? []) as Omit<LinhaConferencia, 'laudos'>[];
+    if (lotes.length === 0) return [];
+
+    const { data: laudos, error: erroLaudos } = await supabase
+        .from('prod_op_laudo')
+        .select('op, modelo, laudo, sequencia, created_at')
+        .in('op', [...new Set(lotes.map(l => l.op))])
+        .order('sequencia');
+    if (erroLaudos) throw erroLaudos;
+
+    return lotes.map(l => ({
+        ...l,
+        // Lote de sobra nunca tem laudo: sobra nao e entrega.
+        laudos: l.sobra
+            ? []
+            : (laudos ?? [])
+                .filter(x => x.op === l.op && x.modelo === l.modelo)
+                .map(x => ({
+                    laudo: x.laudo as number,
+                    sequencia: x.sequencia as number,
+                    created_at: x.created_at as string
+                }))
+    }));
+};
