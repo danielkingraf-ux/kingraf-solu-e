@@ -19,6 +19,7 @@ export interface Laudo {
 interface LinhaDadosOP {
     op: string;
     modelo: string;
+    sobra: boolean;
     lote: number;
     cliente: string | null;
     produto: string | null;
@@ -32,6 +33,8 @@ interface LinhaDadosOP {
 export interface DadosOP {
     op: string;
     modelo: string;
+    /** true = este e o lote de sobra daquele par, nao o da producao normal. */
+    sobra: boolean;
     lote: number;
     cliente: string | null;
     produto: string | null;
@@ -46,13 +49,18 @@ export const normalizarModelo = (modelo: string) => modelo.trim().toUpperCase();
  * Le o que o par OP+modelo ja tem. Nao aloca nada.
  * Devolve null quando o par ainda nao recebeu lote.
  */
-export const buscarDadosOP = async (op: string, modelo: string): Promise<DadosOP | null> => {
+export const buscarDadosOP = async (
+    op: string,
+    modelo: string,
+    sobra = false
+): Promise<DadosOP | null> => {
     const chave = normalizarOP(op);
     if (!chave) return null;
 
     const { data, error } = await supabase.rpc('prod_dados_da_op', {
         p_op: chave,
-        p_modelo: normalizarModelo(modelo)
+        p_modelo: normalizarModelo(modelo),
+        p_sobra: sobra
     });
     if (error) throw error;
     if (!data || data.length === 0) return null;
@@ -62,6 +70,7 @@ export const buscarDadosOP = async (op: string, modelo: string): Promise<DadosOP
     return {
         op: primeira.op,
         modelo: primeira.modelo,
+        sobra: primeira.sobra,
         lote: primeira.lote,
         cliente: primeira.cliente,
         produto: primeira.produto,
@@ -87,12 +96,14 @@ export const buscarDadosOP = async (op: string, modelo: string): Promise<DadosOP
 export const obterLoteDaOP = async (
     op: string,
     modelo: string,
+    sobra = false,
     cliente?: string,
     produto?: string
 ): Promise<number> => {
     const { data, error } = await supabase.rpc('prod_lote_da_op', {
         p_op: normalizarOP(op),
         p_modelo: normalizarModelo(modelo),
+        p_sobra: sobra,
         p_cliente: cliente || null,
         p_produto: produto || null
     });
