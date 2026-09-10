@@ -441,8 +441,9 @@
     min-height: 68mm;
     max-height: 70mm;
     background: #FFFFFF;
-    border: 2px solid #000000;
-    border-radius: 3px;
+    /* Sem moldura: a etiqueta e impressa sobre papel que ja vem com arte. */
+    border: none;
+    border-radius: 0;
     padding: 3mm;
     display: flex;
     flex-direction: column;
@@ -453,145 +454,138 @@
     /* Disabled for debugging */
 }
 
-/* Label Brand Header */
-.label-brand {
+/* ---------------------------------------------------------------------------
+   Corpo da etiqueta de caixa
+
+   Duas regras mandam neste layout:
+
+   1. ZONA PROIBIDA. O papel ja vem impresso com "VAL. 1 ANO APOS DATA DE
+      FABRICACAO" e a nota da ISO, ocupando a metade DIREITA da etiqueta da
+      altura do OP/OF para baixo. Nada pode ser impresso ali — por isso as
+      linhas .curta e o rodape sao limitados a --etq-util.
+   2. UMA COLUNA DE ROTULOS. Todos os rotulos comecam na mesma vertical e
+      todos os valores tambem, o que da a leitura em coluna que o conferente
+      precisa. Por isso grid, e nao flex com espacamento manual.
+--------------------------------------------------------------------------- */
+/* Marca no topo. Fica acima de tudo e nao entra na area ja impressa,
+   que comeca mais abaixo, na altura do OP/OF. */
+.etq-marca {
     display: flex;
     align-items: baseline;
-    gap: 6px;
-    border-bottom: 2px solid #000;
-    padding-bottom: 2mm;
-    margin-bottom: 2mm;
+    gap: 2mm;
+    /* Compacto de proposito: cada milimetro aqui empurra a linha do LOTE
+       para dentro da area ja impressa no papel. */
+    margin-bottom: 0.8mm;
+    line-height: 1;
+    font-family: 'Arial', 'Helvetica', sans-serif;
 }
 
-.brand-name {
-    font-size: 12pt;
+.etq-marca-nome {
+    font-size: 10pt;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: -0.5px;
 }
 
-.brand-subtitle {
-    font-size: 7pt;
+.etq-marca-sub {
+    font-size: 6pt;
     font-weight: 600;
     color: #444;
 }
 
-/* Label Main Content */
-.label-main-content {
+.etq-corpo {
+    --etq-rotulo: 17mm;   /* cabe "DATA ACAB.", o rotulo mais longo */
+    --etq-util: 58%;      /* limite antes da area ja impressa no papel */
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 1mm;
+    gap: 0.8mm;
+    font-family: 'Arial', 'Helvetica', sans-serif;
 }
 
-.label-field-row {
-    display: flex;
-    gap: 2mm;
+.etq-linha {
+    display: grid;
+    grid-template-columns: var(--etq-rotulo) 1fr;
+    column-gap: 2mm;
+    align-items: baseline;
 }
 
-.label-field-row.two-cols .label-field {
-    flex: 1;
+/* Par de campos na mesma linha: CLI/KING e QTDADE/LOTE. */
+.etq-linha.dupla {
+    grid-template-columns: var(--etq-rotulo) 30mm 12mm 1fr;
 }
 
-.label-field-row.three-cols .label-field {
-    flex: 1;
+/* Linhas que nao podem invadir a arte impressa a direita. */
+.etq-linha.curta {
+    max-width: var(--etq-util);
 }
 
-/* CLI, Nº interno, QTD e LOTE dividem a mesma linha. min-width: 0 evita que o
-   texto longo de um campo empurre os outros pra fora da etiqueta. */
-.label-field-row.four-cols .label-field {
-    flex: 1;
-    min-width: 0;
+/* Bloco de rastreio (OP/OF -> LAUDO -> operador) respira mais que o resto:
+   e a parte conferida a olho, e abaixo dela so sobra area livre da etiqueta.
+   O bloco de quantidades continua colado ao de identificacao, senao o LOTE
+   desce para dentro da area ja impressa no papel. */
+.etq-linha.curta {
+    margin-top: 1.8mm;
 }
 
-.label-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5mm;
-}
-
-/* Area deixada em branco de proposito (onde ficavam LOTE e VALIDADE).
-   Ocupa a coluna para nao deslocar os campos vizinhos, mas nao imprime nada. */
-.label-field.vazio {
-    border: none;
-    background: none;
-}
-
-.label-field.full {
-    flex: 1;
-}
-
-.field-label {
-    font-size: 5.5pt;
-    font-weight: 800;
+.etq-rot {
+    font-size: 6.5pt;
+    font-weight: 700;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: #333;
-    border-bottom: 1px solid #999;
-    padding-bottom: 0.3mm;
 }
 
-.field-value {
+.etq-val {
     font-size: 9pt;
     font-weight: 700;
+    line-height: 1.15;
     text-transform: uppercase;
-    line-height: 1.2;
     word-break: break-word;
 }
 
-.field-value.compact {
-    font-size: 8pt;
-}
-
-/* Quantidade 50% maior: e o numero que o conferente le de longe na caixa. */
-.field-value.compact.qtd-destaque {
+/* Quantidade: o numero que se confere de longe. */
+.etq-val.forte {
     font-size: 12pt;
     font-weight: 900;
-    line-height: 1.1;
 }
 
-/* Highlighted field (for Validade) */
-.label-field.highlight {
-    background: #FFF3CD;
-    padding: 1mm;
-    border-radius: 2px;
-    border: 1px solid #FFCC00;
+/* Emissor sai colado no laudo, como na etiqueta em uso. O nowrap impede que
+   "laudo + emissor" quebre em duas linhas dentro da faixa estreita. */
+.etq-linha.laudo .etq-val {
+    white-space: nowrap;
 }
 
-.label-field.highlight .field-label {
-    color: #856404;
-    border-bottom-color: #856404;
+.etq-emissor {
+    margin-left: 4mm;
+    font-style: normal;
+    font-weight: 400;
 }
 
-.label-field.highlight .field-value {
-    color: #856404;
+/* Segue logo abaixo do laudo, sem empurrar para o rodape: a parte de baixo
+   da etiqueta e area do texto que ja vem impresso. */
+.etq-rodape {
+    margin-top: 2.4mm;
+    max-width: var(--etq-util);
 }
 
-/* Footer Info */
-.label-footer-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1.5px solid #000;
-    padding-top: 1.5mm;
-    margin-top: auto;
-}
-
-/* Rodape reduzido a metade: o sequencial é conferencia interna, nao
-   precisa competir com os dados do produto. */
-.sequence-display {
-    font-size: 5pt;
-    font-weight: 900;
-}
-
-.sequence-number {
-    font-size: 7pt;
-    text-decoration: underline;
-}
-
-.time-display {
-    font-size: 6.5pt;
+.etq-operador {
+    font-size: 8pt;
     font-weight: 700;
+    text-transform: uppercase;
+}
+
+.etq-carimbo {
+    display: flex;
+    align-items: baseline;
+    gap: 4mm;
+    margin-top: 0.5mm;
+    font-size: 6pt;
     color: #444;
+}
+
+.etq-sequencia {
+    font-weight: 700;
 }
 
 /* Print Styles */
@@ -655,16 +649,16 @@
         min-height: 68mm;
         max-height: 70mm;
         page-break-inside: avoid;
-        border: 1.8px solid #000;
+        border: none;
     }
+}
 
-    .label-field.highlight {
-        background: #FFF3CD !important;
-        border: 1px solid #FFCC00 !important;
-    }
-
-    .label-footer-info {
-        border-top: 2px solid #000 !important;
+/* Guia so na pre-visualizacao: sem moldura, nao daria pra ver onde uma
+   etiqueta termina e a outra comeca. Nao sai na impressao. */
+@media screen {
+    .box-label-item {
+        outline: 1px dashed rgba(0, 0, 0, 0.2);
+        outline-offset: -1px;
     }
 }
 
