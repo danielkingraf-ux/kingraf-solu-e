@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Copy, Save, Search, Archive } from 'lucide-react';
+import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, type Laudo } from './lotesLaudos';
 import './BoxLabel.css';
 
 interface BoxLabelProps {
@@ -23,6 +24,9 @@ interface LabelData {
     hora: string;
 }
 
+const mensagemErro = (erro: unknown, padrao: string) =>
+    erro instanceof Error && erro.message ? erro.message : padrao;
+
 const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const [range, setRange] = useState({ start: 1, end: 8, total: 8 });
     const [validityMonths, setValidityMonths] = useState<string>('');
@@ -32,6 +36,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const [archivedLabels, setArchivedLabels] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [savedId, setSavedId] = useState<string | null>(null);
+    // Lote e laudo vem do banco, nunca digitados: ver lotesLaudos.ts
+    const [laudos, setLaudos] = useState<Laudo[]>([]);
+    const [laudoId, setLaudoId] = useState<string | null>(null);
+    const [opBusy, setOpBusy] = useState(false);
+    const [opErro, setOpErro] = useState<string | null>(null);
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
@@ -73,7 +82,83 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setLabelData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleValidityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Ao sair do campo OP: puxa o lote da OP (alocando na primeira vez) e
+    // lista as entregas ja abertas, para reimpressao nao consumir laudo novo.
+    const handleOPBlur = async () => {
+        const op = labelData.opOf.trim().toUpperCase();
+        if (!op) return;
+
+        setOpBusy(true);
+        setOpErro(null);
+        try {
+            const dados = await buscarDadosOP(op);
+            const lote = dados
+                ? dados.lote
+                : await obterLoteDaOP(op, labelData.cliente, labelData.produto);
+            const listaLaudos = dados?.laudos ?? [];
+
+            // A ultima entrega e a que costuma estar sendo impressa.
+            const atual = listaLaudos[listaLaudos.length - 1] ?? null;
+
+            setLaudos(listaLaudos);
+            setLaudoId(atual?.id ?? null);
+            setLabelData(prev => ({
+                ...prev,
+                opOf: op,
+                lote: String(lote),
+                laudo: atual ? String(atual.laudo) : '',
+                cliente: prev.cliente || dados?.cliente || '',
+                produto: prev.produto || dados?.produto || ''
+            }));
+        } catch (error) {
+            console.error('Erro ao carregar lote/laudo da OP:', error);
+            setOpErro(mensagemErro(error, 'Nao foi possivel carregar o lote desta OP.'));
+        } finally {
+            setOpBusy(false);
+        }
+    };
+
+    // Abre uma nova entrega da OP. Consome um numero de laudo — usar apenas
+    // quando for de fato uma remessa nova, nao para reimprimir.
+    const handleNovoLaudo = async () => {
+        const op = labelData.opOf.trim().toUpperCase();
+        if (!op) {
+            alert('Preencha a OP/OF antes de gerar o laudo.');
+            return;
+        }
+        const entrega = laudos.length + 1;
+        if (!confirm(`Gerar o laudo da ${entrega}a entrega da OP ${op}?\n\nIsso consome um numero novo e nao pode ser desfeito.`)) {
+            return;
+        }
+
+        setOpBusy(true);
+        setOpErro(null);
+        try {
+            const novo = await gerarNovoLaudo(op, labelData.quantidade, labelData.cliente, labelData.produto);
+            setLaudos(prev => [...prev, novo]);
+            setLaudoId(novo.id);
+            setLabelData(prev => ({
+                ...prev,
+                lote: String(novo.lote),
+                laudo: String(novo.laudo)
+            }));
+        } catch (error) {
+            console.error('Erro ao gerar laudo:', error);
+            setOpErro(mensagemErro(error, 'Nao foi possivel gerar o laudo.'));
+        } finally {
+            setOpBusy(false);
+        }
+    };
+
+    // Troca a entrega selecionada (reimpressao) sem gerar numero novo.
+    const handleSelecionarLaudo = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value;
+        const escolhido = laudos.find(l => l.id === id) || null;
+        setLaudoId(escolhido?.id ?? null);
+        setLabelData(prev => ({ ...prev, laudo: escolhido ? String(escolhido.laudo) : '' }));
+    };
+
+    const handleValidityChange =(e: React.ChangeEvent<HTMLSelectElement>) => {
         const months = e.target.value;
         setValidityMonths(months);
 
@@ -102,6 +187,14 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             alert('Por favor, preencha o numero da OP/OF antes de salvar.');
             return false;
         }
+        if (!labelData.lote) {
+            alert('Esta OP ainda nao tem lote. Saia do campo OP/OF para que o lote seja gerado.');
+            return false;
+        }
+        if (!labelData.laudo) {
+            alert('Esta OP ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
+            return false;
+        }
         try {
             setLoading(true);
             const insertData = {
@@ -119,7 +212,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                 hora: labelData.hora || null,
                 range_start: range.start,
                 range_end: range.end,
-                range_total: range.total
+                range_total: range.total,
+                laudo_id: laudoId
             };
             console.log('Salvando dados:', insertData);
             let error;
@@ -191,8 +285,16 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             total: item.range_total || 8
         });
         setSavedId(forEdit ? item.id : null);
+        setLaudoId(item.laudo_id || null);
         setIsTimeManual(true);
         setActiveTab('nova');
+
+        // Recarrega as entregas da OP para o seletor de laudo, sem alocar nada.
+        if (item.op) {
+            buscarDadosOP(item.op)
+                .then(dados => setLaudos(dados?.laudos ?? []))
+                .catch(err => console.error('Erro ao carregar laudos da OP:', err));
+        }
     };
 
     // Load archived when switching to archive tab
@@ -291,37 +393,68 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Lote</label>
-                                    <input
-                                        name="lote"
-                                        value={labelData.lote}
-                                        onChange={handleChange}
-                                        placeholder="Nº Lote"
-                                    />
-                                </div>
-                                <div className="form-group">
                                     <label>OP/OF</label>
                                     <input
                                         name="opOf"
                                         value={labelData.opOf}
                                         onChange={handleChange}
+                                        onBlur={handleOPBlur}
                                         placeholder="Nº OP/OF"
                                     />
                                 </div>
+                                <div className="form-group">
+                                    <label>
+                                        Lote {opBusy && <Loader2 size={12} className="spin-inline" />}
+                                    </label>
+                                    <input
+                                        name="lote"
+                                        value={labelData.lote}
+                                        readOnly
+                                        className="campo-gerado"
+                                        placeholder="Gerado pela OP"
+                                        title="O lote e gerado pelo sistema e fica preso a esta OP"
+                                    />
+                                </div>
                             </div>
+
+                            {opErro && <p className="campo-erro">{opErro}</p>}
                         </div>
 
                         <div className="form-section">
                             <h3 className="section-title">Datas e Controle</h3>
 
                             <div className="form-group">
-                                <label>Laudo</label>
-                                <input
-                                    name="laudo"
-                                    value={labelData.laudo}
-                                    onChange={handleChange}
-                                    placeholder="Nº do Laudo"
-                                />
+                                <label>Laudo (entrega)</label>
+                                <div className="laudo-row">
+                                    <select
+                                        className="registry-select"
+                                        value={laudoId ?? ''}
+                                        onChange={handleSelecionarLaudo}
+                                        disabled={laudos.length === 0}
+                                    >
+                                        {laudos.length === 0 && (
+                                            <option value="">Nenhuma entrega nesta OP</option>
+                                        )}
+                                        {laudos.map(l => (
+                                            <option key={l.id} value={l.id}>
+                                                {l.sequencia}ª entrega — laudo {l.laudo}
+                                                {l.quantidade ? ` (${l.quantidade})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        className="btn-novo-laudo"
+                                        onClick={handleNovoLaudo}
+                                        disabled={opBusy || !labelData.opOf}
+                                        title="Gera o laudo de uma nova remessa desta OP"
+                                    >
+                                        <Plus size={14} /> Nova entrega
+                                    </button>
+                                </div>
+                                <small className="campo-ajuda">
+                                    Reimpressão: escolha a entrega existente. O botão só para remessa nova.
+                                </small>
                             </div>
 
                             <div className="form-row">

@@ -476,3 +476,24 @@
         transform-origin: top center;
     }
 }
+/* ---- Lote gerado pelo sistema (preso a OP) ---- */
+.campo-gerado {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: not-allowed;
+}
+
+.campo-erro {
+    margin: 8px 0 0;
+    font-size: 0.72rem;
+    color: #F87171;
+}
+
+.spin-inline {
+    opacity: 0.6;
+}
+
+@media print {
+    .campo-erro { display: none; }
+}
