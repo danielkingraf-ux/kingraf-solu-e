@@ -84,7 +84,7 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
             const dados = await buscarDadosOP(op, '');
             const lote = dados
                 ? dados.lote
-                : await obterLoteDaOP(op, '', labelData.cliente, labelData.produto);
+                : await obterLoteDaOP(op, '', false, labelData.cliente, labelData.produto);
 
             setLabelData(prev => ({
                 ...prev,

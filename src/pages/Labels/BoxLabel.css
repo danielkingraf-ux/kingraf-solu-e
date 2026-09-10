@@ -777,3 +777,21 @@
     .campo-ajuda,
     .campo-erro { display: none; }
 }
+
+/* Checkbox com o texto na mesma linha, alvo de toque generoso. */
+.box-label-sidebar .check-linha {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    margin-bottom: 0 !important;
+    cursor: pointer;
+    user-select: none;
+}
+
+.box-label-sidebar .check-linha input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--kingraf-orange);
+    cursor: pointer;
+}

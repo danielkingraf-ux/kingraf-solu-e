@@ -21,8 +21,10 @@ interface LabelData {
     laudo: string;
     /** Ano de emissao do laudo. Impresso junto: laudo/ano-0. */
     laudoAno: string;
-    /** Digitado pelo operador. Sai na etiqueta com a sigla KING na frente. */
+    /** Codigo do modelo (KING). Junto com a OP, define o lote e os laudos. */
     numeroInterno: string;
+    /** Sobra daquele par OP+modelo: lote proprio, e sem laudo. */
+    sobra: boolean;
     emissor: string;
     operador: string;
     hora: string;
@@ -60,6 +62,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         laudo: '',
         laudoAno: '',
         numeroInterno: '',
+        sobra: false,
         emissor: '',
         operador: '',
         hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -97,9 +100,12 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     // pode carregar modelos diferentes, e cada um tem lote e laudos proprios.
     // Por isso a carga so acontece com os dois campos preenchidos, e roda ao
     // sair de qualquer um deles.
-    const carregarParOpModelo = async () => {
+    // sobraOverride existe porque o checkbox precisa recarregar com o valor
+    // novo, antes do setState ter sido aplicado ao closure.
+    const carregarParOpModelo = async (sobraOverride?: boolean) => {
         const op = normalizarOP(labelData.opOf);
         const modelo = normalizarModelo(labelData.numeroInterno);
+        const sobra = sobraOverride ?? labelData.sobra;
 
         if (!op || !modelo) {
             // Sem o par completo nao da para saber a qual lote isto pertence.
@@ -112,11 +118,13 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setOpBusy(true);
         setOpErro(null);
         try {
-            const dados = await buscarDadosOP(op, modelo);
+            // A sobra tem lote proprio e nunca tem laudo: e material separado,
+            // nao uma entrega.
+            const dados = await buscarDadosOP(op, modelo, sobra);
             const lote = dados
                 ? dados.lote
-                : await obterLoteDaOP(op, modelo, labelData.cliente, labelData.produto);
-            const listaLaudos = dados?.laudos ?? [];
+                : await obterLoteDaOP(op, modelo, sobra, labelData.cliente, labelData.produto);
+            const listaLaudos = sobra ? [] : (dados?.laudos ?? []);
 
             // A ultima entrega e a que costuma estar sendo impressa.
             const atual = listaLaudos[listaLaudos.length - 1] ?? null;
@@ -152,6 +160,10 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         }
         if (!modelo) {
             alert('Preencha o KING (codigo do modelo) antes de gerar o laudo.\n\nCada modelo da OP tem o seu proprio laudo.');
+            return;
+        }
+        if (labelData.sobra) {
+            alert('Sobra nao gera laudo.\n\nEla tem lote proprio para identificacao, mas nao e uma entrega.');
             return;
         }
         const entrega = laudos.length + 1;
@@ -232,6 +244,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         // Grava o laudo cru; o ano e o sufixo -0 sao formato de impressao.
         laudo: dados.laudo || null,
         numero_interno: dados.numeroInterno.trim() || null,
+        sobra: dados.sobra,
         emissor: dados.emissor || null,
         operador: dados.operador || null,
         hora: dados.hora || null,
@@ -249,11 +262,12 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             return false;
         }
         if (!labelData.lote) {
-            alert('Esta OP ainda nao tem lote. Saia do campo OP/OF para que o lote seja gerado.');
+            alert('Este par OP + modelo ainda nao tem lote. Preencha a OP e o KING e saia do campo.');
             return false;
         }
-        if (!labelData.laudo) {
-            alert('Esta OP ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
+        // Sobra tem lote mas nao tem laudo: nao cobrar o que ela nunca vai ter.
+        if (!labelData.sobra && !labelData.laudo) {
+            alert('Este modelo ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
             return false;
         }
         const insertData = montarPayload(labelData, range, laudoId);
@@ -359,6 +373,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             // e e corrigido logo abaixo, quando as entregas da OP chegarem.
             laudoAno: anoDoLaudo(item.created_at),
             numeroInterno: item.numero_interno || '',
+            sobra: Boolean(item.sobra),
             emissor: item.emissor || '',
             operador: item.operador || '',
             hora: item.hora || ''
@@ -497,7 +512,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         name="opOf"
                                         value={labelData.opOf}
                                         onChange={handleChange}
-                                        onBlur={carregarParOpModelo}
+                                        onBlur={() => carregarParOpModelo()}
                                         placeholder="Nº OP/OF"
                                     />
                                 </div>
@@ -524,13 +539,32 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         name="numeroInterno"
                                         value={labelData.numeroInterno}
                                         onChange={handleChange}
-                                        onBlur={carregarParOpModelo}
+                                        onBlur={() => carregarParOpModelo()}
                                         placeholder="Código do modelo"
                                     />
                                 </div>
                                 <small className="campo-ajuda">
                                     Código do modelo. O lote e o laudo pertencem ao par OP + modelo:
                                     modelos diferentes na mesma OP têm números diferentes.
+                                </small>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="check-linha">
+                                    <input
+                                        type="checkbox"
+                                        checked={labelData.sobra}
+                                        onChange={(e) => {
+                                            const marcado = e.target.checked;
+                                            setLabelData(prev => ({ ...prev, sobra: marcado }));
+                                            carregarParOpModelo(marcado);
+                                        }}
+                                    />
+                                    Sobra
+                                </label>
+                                <small className="campo-ajuda">
+                                    Material de sobra deste mesmo par OP + modelo. Recebe um lote
+                                    separado do lote da produção normal, e não gera laudo.
                                 </small>
                             </div>
 
