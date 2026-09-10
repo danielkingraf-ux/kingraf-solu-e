@@ -550,6 +550,16 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     const end = Math.max(range.start, range.end);
     const labelsArray = Array.from({ length: Math.min(end - start + 1, 100) }, (_, i) => start + i);
 
+    // Ano impresso ao lado da OP. Sai da data de acabamento da PROPRIA
+    // etiqueta, nao do relogio: reimprimir hoje uma etiqueta arquivada de
+    // outro ano tem que sair com o ano dela. Se a data estiver fora do
+    // formato dd/mm/aaaa, cai no ano do laudo e, por ultimo, no ano atual.
+    const anoDaEtiqueta = (() => {
+        const doCampo = labelData.dataAcabamento.split('/')[2];
+        if (/^\d{4}$/.test(doCampo ?? '')) return doCampo;
+        return labelData.laudoAno || anoDoLaudo();
+    })();
+
     return (
         <div className="box-label-container">
             <aside className="box-label-sidebar">
@@ -951,7 +961,9 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                     {/* Daqui para baixo, so a metade esquerda. */}
                                     <div className="etq-linha curta">
                                         <span className="etq-rot">OP/OF</span>
-                                        <span className="etq-val">{labelData.opOf || '---'}</span>
+                                        <span className="etq-val">
+                                            {labelData.opOf ? `${labelData.opOf}/${anoDaEtiqueta}` : '---'}
+                                        </span>
                                     </div>
 
                                     <div className="etq-linha curta">
