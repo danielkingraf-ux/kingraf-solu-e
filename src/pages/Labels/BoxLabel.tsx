@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2 } from 'lucide-react';
+import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2, Eraser } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, normalizarOP, normalizarModelo, type Laudo } from './lotesLaudos';
 import './BoxLabel.css';
@@ -330,6 +330,44 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Zera o formulario para a proxima etiqueta, sem tocar em nada do banco:
+    // lote e laudo ja emitidos continuam la, presos ao par OP+modelo.
+    const handleLimpar = () => {
+        if (!confirm('Limpar o formulario para uma nova etiqueta?\n\nOs numeros ja gerados nao sao apagados — eles ficam guardados na OP.')) {
+            return;
+        }
+
+        const agora = new Date();
+        setLabelData({
+            cliente: '',
+            produto: '',
+            cli: '',
+            quantidade: '',
+            lote: '',
+            opOf: '',
+            dataAcabamento: agora.toLocaleDateString('pt-BR'),
+            validade: '',
+            laudo: '',
+            laudoAno: '',
+            numeroInterno: '',
+            sobra: false,
+            emissor: '',
+            operador: '',
+            hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        });
+        setLaudos([]);
+        setLaudoId(null);
+        setValidityMonths('');
+        setOpErro(null);
+        setRange({ start: 1, end: 8, total: 8 });
+        // Sem isso a proxima gravacao atualizaria a etiqueta anterior em vez
+        // de criar uma nova.
+        setSavedId(null);
+        setSavedSnapshot(null);
+        // Volta a acompanhar o relogio ate esta nova etiqueta ser arquivada.
+        setIsTimeManual(false);
     };
 
     // Apaga uma etiqueta do arquivo. Nao mexe em lote nem laudo: os numeros
@@ -765,10 +803,16 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
 
                 <div className="sidebar-footer">
                     {activeTab === 'nova' && (
-                        <button className="save-btn" onClick={() => handleSave()} disabled={loading}>
-                            <Save size={20} />
-                            {loading ? 'Salvando...' : (savedId ? 'Atualizar' : 'Arquivar')}
-                        </button>
+                        <>
+                            <button className="limpar-btn" onClick={handleLimpar} disabled={loading}>
+                                <Eraser size={18} />
+                                Limpar
+                            </button>
+                            <button className="save-btn" onClick={() => handleSave()} disabled={loading}>
+                                <Save size={20} />
+                                {loading ? 'Salvando...' : (savedId ? 'Atualizar' : 'Arquivar')}
+                            </button>
+                        </>
                     )}
                     <button className="print-btn" onClick={handlePrint}>
                         <Printer size={20} />

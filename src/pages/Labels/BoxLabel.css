@@ -795,3 +795,34 @@
     accent-color: var(--kingraf-orange);
     cursor: pointer;
 }
+
+/* Limpar: acao neutra, nao compete com Arquivar nem com Imprimir. */
+.box-label-sidebar .limpar-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.7rem;
+    margin-bottom: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.box-label-sidebar .limpar-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.box-label-sidebar .limpar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
