@@ -228,17 +228,21 @@ export const buscarConferencia = async (
         .order('sequencia');
     if (erroLaudos) throw erroLaudos;
 
-    return lotes.map(l => ({
-        ...l,
-        // Lote de sobra nunca tem laudo: sobra nao e entrega.
-        laudos: l.sobra
-            ? []
-            : (laudos ?? [])
-                .filter(x => x.op === l.op && x.modelo === l.modelo)
-                .map(x => ({
-                    laudo: x.laudo as number,
-                    sequencia: x.sequencia as number,
-                    created_at: x.created_at as string
-                }))
-    }));
+    return lotes.map(l => {
+        const doPar = (laudos ?? [])
+            .filter(x => x.op === l.op && x.modelo === l.modelo)
+            .map(x => ({
+                laudo: x.laudo as number,
+                sequencia: x.sequencia as number,
+                created_at: x.created_at as string
+            }));
+
+        return {
+            ...l,
+            // A sobra nao tem laudo proprio: ela carrega o da 1a entrega da
+            // producao normal daquele par, e so esse. Como a consulta ja vem
+            // ordenada por sequencia, a 1a entrega e a primeira da lista.
+            laudos: l.sobra ? doPar.slice(0, 1) : doPar
+        };
+    });
 };
