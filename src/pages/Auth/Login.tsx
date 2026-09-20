@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Lock, Mail, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import logoFull from '../../assets/logo/logo-full.png';
 import './Login.css';
 
 interface LoginProps {
     onLoginSuccess: () => void;
 }
+
+const MODULOS = [
+    'Controle de revisão e qualidade',
+    'Controle de caixas e estoque',
+    'Emissão de etiquetas de caixa e palete',
+    'Rastreio de palete entre setores',
+];
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
@@ -21,14 +28,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) {
                 if (error.message.includes('Invalid login credentials')) {
-                    setError('E-mail ou senha incorretos.');
+                    setError('E-mail ou senha incorretos. Confira e tente de novo.');
                 } else {
                     setError(error.message);
                 }
@@ -36,119 +40,90 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             }
 
             onLoginSuccess();
-        } catch (err: any) {
-            setError('Erro ao conectar. Tente novamente.');
+        } catch {
+            setError('Sem conexão com o servidor. Confira a rede e tente de novo.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="login-page">
-            {/* Animated Background */}
-            <div className="login-bg">
-                <div className="login-bg-gradient"></div>
-                <div className="login-bg-glow glow-1"></div>
-                <div className="login-bg-glow glow-2"></div>
-                <div className="login-bg-glow glow-3"></div>
-                <div className="login-bg-grid"></div>
-                <div className="login-bg-particles">
-                    {[...Array(20)].map((_, i) => (
-                        <div key={i} className="particle" style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 5}s`,
-                            animationDuration: `${15 + Math.random() * 10}s`
-                        }}></div>
-                    ))}
-                </div>
-            </div>
+        <div className="login">
+            <aside className="login-marca">
+                <img src={logoFull} alt="Kingraf" className="login-marca-logo" />
 
-            {/* Main Content */}
-            <div className="login-content">
-                {/* Logo Section */}
-                <div className="login-logo-section">
-                    <div className="logo-glow-ring"></div>
-                    <img src={logoFull} alt="Kingraf" className="login-logo" />
-                    <div className="logo-tagline">
-                        <Sparkles size={14} />
-                        <span>Plataforma Industrial Inteligente</span>
-                    </div>
+                <div className="login-marca-texto">
+                    <span className="login-sobretitulo">Sistema de produção</span>
+                    <h1>Do planejamento à expedição, cada etapa registrada.</h1>
+                    <p>Plataforma interna da Kingraf Indústria Gráfica para o chão de fábrica.</p>
+
+                    <ul className="login-modulos">
+                        {MODULOS.map(m => <li key={m}>{m}</li>)}
+                    </ul>
                 </div>
 
-                {/* Login Card */}
-                <div className="login-card-modern">
-                    <div className="card-header-bar">
-                        <div className="bar-dot"></div>
-                        <div className="bar-dot"></div>
-                        <div className="bar-dot"></div>
-                    </div>
+                <span className="login-marca-rodape">Kingraf Indústria Gráfica · Curitiba, PR</span>
+            </aside>
 
-                    <div className="login-card-inner">
-                        <h2 className="login-title">Bem-vindo de volta</h2>
-                        <p className="login-desc">Acesse sua conta para continuar</p>
+            <main className="login-area">
+                <div className="login-form-box">
+                    <img src={logoFull} alt="Kingraf" className="login-logo-mobile" />
 
-                        <form className="login-form-modern" onSubmit={handleLogin}>
-                            <div className="input-group">
-                                <div className="input-icon">
-                                    <Mail size={18} />
-                                </div>
+                    <h2>Entrar</h2>
+                    <p className="login-sub">Use o e-mail e a senha cadastrados pelo supervisor.</p>
+
+                    <form onSubmit={handleLogin}>
+                        <div className="login-campo">
+                            <label htmlFor="login-email">E-mail</label>
+                            <input
+                                id="login-email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="nome@kingraf.com.br"
+                                required
+                                autoComplete="email"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="login-campo">
+                            <label htmlFor="login-senha">Senha</label>
+                            <div className="login-senha">
                                 <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Seu e-mail"
-                                    required
-                                    autoComplete="email"
-                                />
-                                <div className="input-focus-line"></div>
-                            </div>
-
-                            <div className="input-group">
-                                <div className="input-icon">
-                                    <Lock size={18} />
-                                </div>
-                                <input
-                                    type={showPassword ? "text" : "password"}
+                                    id="login-senha"
+                                    type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Sua senha"
                                     required
                                     autoComplete="current-password"
                                 />
                                 <button
                                     type="button"
-                                    className="toggle-password"
+                                    className="login-ver-senha"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    tabIndex={-1}
+                                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
-                                <div className="input-focus-line"></div>
                             </div>
+                        </div>
 
-                            {error && (
-                                <div className="login-error-modern">
-                                    <span>{error}</span>
-                                </div>
-                            )}
+                        {error && <div className="login-erro" role="alert">{error}</div>}
 
-                            <button type="submit" className="login-btn-modern" disabled={loading}>
-                                <span>{loading ? 'Entrando...' : 'Entrar na Plataforma'}</span>
-                                <ArrowRight size={18} className="btn-arrow" />
-                                <div className="btn-shine"></div>
-                            </button>
-                        </form>
-                    </div>
+                        <button type="submit" className="login-entrar" disabled={loading}>
+                            {loading ? 'Entrando...' : 'Entrar'}
+                        </button>
+                    </form>
+
+                    <p className="login-ajuda">Esqueceu a senha? Fale com o supervisor de produção.</p>
                 </div>
 
-                {/* Footer */}
-                <div className="login-footer-modern">
-                    <span>© 2026 Kingraf • Sistema de Produção Industrial</span>
-                    <a href="https://danielolliweb.com/" target="_blank" rel="noopener noreferrer" className="dev-credit">
-                        Desenvolvido por danielolliweb
-                    </a>
-                </div>
-            </div>
+                <footer className="login-rodape">
+                    <span>© 2026 Kingraf</span>
+                    <a href="https://danielolliweb.com/" target="_blank" rel="noopener noreferrer">Desenvolvido por danielolliweb</a>
+                </footer>
+            </main>
         </div>
     );
 };

@@ -15,7 +15,10 @@ import {
   Users,
   FileText,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  ScanLine,
+  FileUp,
+  Layers
 } from 'lucide-react';
 import './Layout.css';
 
@@ -26,6 +29,7 @@ interface LayoutProps {
   onNavigate?: (pageId: string) => void;
   onLogout?: () => void;
   session?: Session | null;
+  admin?: boolean;
 }
 
 import logoFull from '../../assets/logo/logo-full.png';
@@ -34,7 +38,7 @@ import logoFull from '../../assets/logo/logo-full.png';
 const MOBILE_QUERY = '(max-width: 1024px)';
 const STORAGE_KEY = 'kingraf.sidebar.aberta';
 
-const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout, session }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNavigate, onLogout, session, admin = false }) => {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (window.matchMedia(MOBILE_QUERY).matches) return false;
@@ -48,7 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
   const userMetadata = (session?.user?.user_metadata || {}) as Record<string, any>;
   const userName = userMetadata.full_name || userMetadata.nome_completo || session?.user?.email || 'Usuario';
-  const userRole = userMetadata.profile || 'Operador';
+  const userRole = userMetadata.profile || (admin ? 'Administrador' : 'Operador');
 
   // Atualiza o relogio a cada segundo
   useEffect(() => {
@@ -133,6 +137,20 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
         { id: 'prod-stock', label: 'Estoque', icon: <Package size={20} />, group: 'Gerenciamento' },
         { id: 'prod-sizes', label: 'Tamanhos', icon: <Box size={20} />, group: 'Gerenciamento' },
         { id: 'prod-users', label: 'Usuários', icon: <Users size={20} />, group: 'Configurações' },
+      ];
+    }
+
+    if ((currentPage || '').startsWith('rast-')) {
+      return [
+        { id: 'rast-bipagem', label: 'Bipagem', icon: <ScanLine size={20} />, group: 'Principal' },
+        { id: 'rast-novo', label: 'Novo Palete', icon: <PlusCircle size={20} />, group: 'Principal' },
+        { id: 'rast-paletes', label: 'Paletes', icon: <Layers size={20} />, group: 'Principal' },
+        { id: 'rast-fechamento', label: 'Fechamento da OP', icon: <ClipboardList size={20} />, group: 'Principal' },
+        // Administracao: so aparece para conta de administrador.
+        ...(admin ? [
+          { id: 'rast-importar', label: 'Importar OP', icon: <FileUp size={20} />, group: 'Gerenciamento' },
+          { id: 'rast-operadores', label: 'Operadores e setores', icon: <Users size={20} />, group: 'Configurações' },
+        ] : []),
       ];
     }
 

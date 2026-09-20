@@ -1,0 +1,238 @@
+// Ficha A4 que anda grampeada no palete. Preto e branco puro (laser de chao de
+// fabrica), com QR e codigo de barras do codigo do palete, e campo de baixa
+// manual no rodape como plano B se o coletor falhar.
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
+import { supabase } from '../../supabaseClient';
+import type { Etapa, Palete, RastroEtapa, Setor } from './api';
+import { buscarRastro, codigoCurto, formatarQtd, nomeDestino } from './api';
+
+export interface DadosFicha {
+    palete: Palete;
+    pedido: string | null;
+    versao: string;
+    roteiro: Etapa[];
+    setores: Setor[];
+    operador: { matricula: string; nome: string } | null;
+    etiqueta: { numero: number; motivo: string; impressa_em: string } | null;
+    rastro: RastroEtapa[];
+}
+
+const esc = (s: unknown) =>
+    String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+const dataHora = (iso: string) =>
+    new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+function codigoBarras(texto: string): string {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(svg, texto, { format: 'CODE128', height: 64, width: 2.2, margin: 0, displayValue: false, background: '#ffffff', lineColor: '#000000' });
+    return svg.outerHTML;
+}
+
+export async function montarFicha(d: DadosFicha): Promise<string> {
+    const p = d.palete;
+    const origem = d.roteiro.find(r => r.id === p.etapa_origem_id);
+    const destino = d.roteiro.find(r => r.id === p.etapa_destino_id) ?? null;
+    const qr = await QRCode.toString(p.codigo, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
+    const reimpressao = d.etiqueta?.motivo === 'reimpressao';
+    const temCura = Number(p.cura_horas) > 0;
+
+    const linhasRoteiro = d.roteiro.map(r => {
+        const marca = r.id === p.etapa_origem_id ? 'ORIGEM' : r.id === p.etapa_destino_id ? 'DESTINO' : '';
+        return `<tr class="${marca ? 'marcada' : ''}${r.movimenta_palete ? '' : ' sem-palete'}">
+            <td>${r.seq}</td>
+            <td>${esc(r.processo)}${r.movimenta_palete ? '' : ' <em>(não recebe palete)</em>'}</td>
+            <td>${r.terceiros ? 'TERCEIROS' : ''}</td>
+            <td>${marca}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+    <section class="ficha">
+        <header>
+            <div>
+                <div class="marca">KINGRAF</div>
+                <div class="titulo">FICHA DE PALETE</div>
+            </div>
+            <div class="ids">
+                <div>OP <b>${p.numero_op}</b>${d.pedido ? ` · Pedido ${esc(d.pedido)}` : ''}</div>
+                <div>Palete nº <b>${p.numero}</b> · Id Etiqueta <b>${d.etiqueta?.numero ?? '-'}</b></div>
+                ${reimpressao ? '<div class="via">2ª VIA (REIMPRESSÃO)</div>' : ''}
+            </div>
+        </header>
+
+        <div class="codigos">
+            <div class="qr">${qr}</div>
+            <div class="barras">
+                ${codigoBarras(p.codigo)}
+                <div class="codigo">${esc(p.codigo)}</div>
+            </div>
+        </div>
+
+        <div class="destino">
+            <div class="rotulo">LEVAR PARA</div>
+            <div class="valor">${esc(nomeDestino(destino, d.setores).toUpperCase())}</div>
+            ${destino?.terceiros ? '<div class="obs">Sai pela portaria. Bipar na saída e no retorno.</div>' : ''}
+        </div>
+
+        <div class="grade">
+            <div class="campo"><span>Quantidade</span><b class="grande">${formatarQtd(p.quantidade)} ${esc(p.unidade)}</b></div>
+            <div class="campo cura ${temCura ? '' : 'sem'}">
+                <span>${temCura ? `Cura ${formatarQtd(p.cura_horas)} h: liberado a partir de` : 'Cura'}</span>
+                <b class="grande">${temCura ? dataHora(p.liberado_em) : 'Não se aplica'}</b>
+            </div>
+            <div class="campo"><span>Origem</span><b>${esc(origem?.processo ?? '-')}</b></div>
+            <div class="campo"><span>Máquina</span><b>${esc(p.maquina ?? '-')}</b></div>
+            <div class="campo"><span>Operador</span><b>${d.operador ? `${esc(d.operador.matricula)} · ${esc(d.operador.nome)}` : '-'}</b></div>
+            <div class="campo"><span>Produzido em</span><b>${dataHora(p.produzido_em)}</b></div>
+            ${p.status !== 'aprovado' ? `<div class="campo"><span>Status</span><b>${esc(p.status.toUpperCase())}</b></div>` : ''}
+            ${p.observacao ? `<div class="campo largo"><span>Observação</span><b>${esc(p.observacao)}</b></div>` : ''}
+        </div>
+
+        ${montarRastro(d.rastro, p.numero_op)}
+
+        <table class="roteiro">
+            <thead><tr><th>Seq</th><th>Roteiro da OP${d.versao ? ` (versão ${esc(d.versao)})` : ''}</th><th></th><th></th></tr></thead>
+            <tbody>${linhasRoteiro}</tbody>
+        </table>
+
+        <div class="manual">
+            <div class="rotulo">BAIXA MANUAL (usar só se o coletor falhar, e lançar no sistema depois)</div>
+            <table>
+                <thead><tr><th>Setor</th><th>Matrícula</th><th>Data e hora</th><th>Quantidade</th><th>Refugo</th><th>Visto</th></tr></thead>
+                <tbody>${'<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(3)}</tbody>
+            </table>
+        </div>
+
+        <footer>Etiqueta impressa em ${d.etiqueta ? dataHora(d.etiqueta.impressa_em) : '-'} · Reimpressão gera etiqueta nova, nunca palete novo.</footer>
+    </section>`;
+}
+
+// Por onde o material passou antes de virar este palete, e quem mexeu.
+function montarRastro(rastro: RastroEtapa[], numeroOp: number): string {
+    if (!rastro.length) return '';
+    const lista = (xs: string[], max = 5) =>
+        xs.length > max ? `${xs.slice(0, max).map(esc).join(', ')} e mais ${xs.length - max}` : xs.map(esc).join(', ') || '-';
+    const linhas = rastro.map(r => `<tr>
+            <td><b>${esc(r.setor)}</b>${r.terceiros.length ? `<br><small>+ terceiros: ${lista(r.terceiros)}</small>` : ''}</td>
+            <td>${lista(r.codigos.map(c => codigoCurto(c, numeroOp)))}</td>
+            <td>${lista(r.operadores, 3)}</td>
+            <td>${lista(r.maquinas, 3)}</td>
+            <td>${dataHora(r.produzido_de)}</td>
+            <td>${lista(r.bipado_por, 3)}</td>
+        </tr>`).join('');
+    return `<table class="rastro">
+        <thead>
+            <tr><th colspan="6">RASTRO DO MATERIAL (de onde saiu este palete)</th></tr>
+            <tr><th>Etapa</th><th>Paletes</th><th>Operador</th><th>Máquina</th><th>Produzido</th><th>Entrada bipada por</th></tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+    </table>`;
+}
+
+export const CSS_FICHA = `
+@page { size: A4; margin: 10mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; font-size: 11pt; }
+.ficha { height: 277mm; overflow: hidden; display: flex; flex-direction: column; gap: 3mm; page-break-after: always; }
+.ficha:last-child { page-break-after: auto; }
+header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5mm solid #000; padding-bottom: 2mm; }
+.marca { font-size: 11pt; font-weight: 800; letter-spacing: 3px; }
+.titulo { font-size: 20pt; font-weight: 800; }
+.ids { text-align: right; font-size: 12pt; line-height: 1.5; }
+.ids b { font-size: 15pt; }
+.via { display: inline-block; border: 0.6mm solid #000; padding: 0.5mm 2mm; font-weight: 800; margin-top: 1mm; }
+.codigos { display: flex; gap: 8mm; align-items: center; }
+.qr svg { width: 32mm; height: 32mm; display: block; }
+.barras { flex: 1; text-align: center; }
+.barras svg { width: 100%; height: 20mm; }
+.codigo { font-size: 22pt; font-weight: 800; letter-spacing: 2px; font-family: 'Courier New', monospace; }
+.destino { border: 1.2mm solid #000; padding: 3mm 4mm; text-align: center; }
+.destino .rotulo { font-size: 11pt; font-weight: 800; letter-spacing: 2px; }
+.destino .valor { font-size: 30pt; font-weight: 900; line-height: 1.1; }
+.destino .obs { font-size: 11pt; margin-top: 1mm; }
+.grade { display: grid; grid-template-columns: 1fr 1fr; border: 0.4mm solid #000; }
+.campo { padding: 2mm 3mm; border-bottom: 0.3mm solid #000; display: flex; flex-direction: column; gap: 0.5mm; }
+.campo:nth-child(odd) { border-right: 0.3mm solid #000; }
+.campo.largo { grid-column: 1 / -1; border-right: none; }
+.campo span { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; }
+.campo b { font-size: 12pt; }
+.campo b.grande { font-size: 18pt; }
+.campo.cura:not(.sem) { border: 1mm solid #000; }
+table { width: 100%; border-collapse: collapse; }
+.roteiro th, .roteiro td { border: 0.3mm solid #000; padding: 1mm 2mm; font-size: 10pt; text-align: left; }
+.roteiro td:first-child { width: 10mm; text-align: center; }
+.roteiro td:nth-child(3), .roteiro td:nth-child(4) { width: 24mm; font-weight: 800; }
+.roteiro tr.marcada td { font-weight: 800; border-width: 0.7mm; }
+.roteiro tr.sem-palete td { color: #000; }
+.rastro th, .rastro td { border: 0.3mm solid #000; padding: 1mm 2mm; font-size: 9pt; text-align: left; vertical-align: top; }
+.rastro thead tr:first-child th { font-size: 10pt; letter-spacing: 1px; border-width: 0.6mm; }
+.rastro small { font-size: 8pt; }
+.manual { margin-top: auto; }
+.manual .rotulo { font-size: 9pt; font-weight: 800; margin-bottom: 1mm; }
+.manual th, .manual td { border: 0.3mm solid #000; font-size: 9pt; padding: 1mm; }
+.manual td { height: 9mm; }
+footer { font-size: 8pt; text-align: center; }
+`;
+
+/** Carrega os dados e manda imprimir uma ficha por palete. */
+export async function imprimirFichas(paleteIds: string[]) {
+    if (!paleteIds.length) return;
+
+    const { data: paletes, error } = await supabase.from('rast_paletes').select('*').in('id', paleteIds);
+    if (error) throw error;
+    const lista = (paletes || []) as Palete[];
+    lista.sort((a, b) => a.numero_op - b.numero_op || a.setor_origem_id - b.setor_origem_id || a.numero - b.numero);
+
+    const opIds = [...new Set(lista.map(p => p.op_id))];
+    const operIds = [...new Set(lista.map(p => p.operador_id))];
+
+    const [ops, roteiros, operadores, etiquetas, setores] = await Promise.all([
+        supabase.from('rast_ops').select('id, pedido, versao_xml').in('id', opIds),
+        supabase.from('rast_op_roteiro').select('*').in('op_id', opIds).order('seq'),
+        supabase.from('rast_operadores').select('id, matricula, nome').in('id', operIds),
+        supabase.from('rast_etiquetas').select('palete_id, numero, motivo, impressa_em').in('palete_id', paleteIds).order('numero', { ascending: false }),
+        supabase.from('rast_setores').select('*'),
+    ]);
+    for (const r of [ops, roteiros, operadores, etiquetas, setores]) if (r.error) throw r.error;
+    const rastros = await Promise.all(lista.map(p => buscarRastro(p.id)));
+
+    const html: string[] = [];
+    for (const [i, p] of lista.entries()) {
+        const op = ops.data!.find(o => o.id === p.op_id);
+        html.push(await montarFicha({
+            palete: p,
+            pedido: op?.pedido ?? null,
+            versao: op?.versao_xml ?? '',
+            roteiro: (roteiros.data as Etapa[]).filter(r => r.op_id === p.op_id),
+            setores: setores.data as Setor[],
+            operador: operadores.data!.find(o => o.id === p.operador_id) ?? null,
+            // a mais recente: na reimpressao e a que acabou de ser gerada
+            etiqueta: etiquetas.data!.find(e => e.palete_id === p.id) ?? null,
+            rastro: rastros[i],
+        }));
+    }
+
+    imprimirHtml(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Fichas de palete</title><style>${CSS_FICHA}</style></head><body>${html.join('')}</body></html>`);
+}
+
+// Imprime por um iframe escondido: nao depende de pop-up liberado no navegador.
+function imprimirHtml(documento: string) {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument!;
+    doc.open();
+    doc.write(documento);
+    doc.close();
+    const janela = iframe.contentWindow!;
+    const remover = () => setTimeout(() => iframe.remove(), 1000);
+    janela.addEventListener('afterprint', remover);
+    setTimeout(() => {
+        janela.focus();
+        janela.print();
+        // alguns navegadores nao disparam afterprint
+        setTimeout(remover, 60000);
+    }, 300);
+}
