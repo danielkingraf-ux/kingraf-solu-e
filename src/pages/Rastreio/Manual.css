@@ -1,0 +1,309 @@
+/* Manual impresso do modulo. Tudo prefixado com .rast-manual: estes seletores
+   sao genericos (h1, table, .topo) e nao podem vazar para o resto do app. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+
+  .rast-manual {
+    --tinta: #141A21;
+    --tinta-2: #46505C;
+    --tinta-3: #78838F;
+    --papel: #FFFFFF;
+    --linha: #C9D1D9;
+    --linha-fina: #E4E9EE;
+    --laranja: #E65200;
+    --laranja-claro: #FFF1E6;
+    --escuro: #0F172A;
+    --atencao: #9A5B00;
+    --atencao-fundo: #FFF6E5;
+    --ok: #0F6B4F;
+    --ok-fundo: #E8F5EF;
+    --erro: #A32020;
+    --erro-fundo: #FDEDED;
+    --mesa: #DCE2E9;
+  }
+
+  /* A folha e sempre branca: isto e um impresso. So a mesa atras muda no tema escuro. */
+  @media (prefers-color-scheme: dark) {
+    .rast-manual:not([data-theme="light"]) { --mesa: #1B2129; }
+  }
+  .rast-manual[data-theme="dark"] { --mesa: #1B2129; }
+
+  .rast-manual * { box-sizing: border-box; }
+
+  .rast-manual {
+    background: transparent;
+    color: var(--tinta);
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding-block: 24px;
+    padding-inline: 16px;
+  }
+
+  .rast-manual .barra {
+    max-width: 210mm;
+    margin: 0 auto 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--tinta-2);
+    background: var(--papel);
+    border: 1px solid var(--linha);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  .rast-manual .barra button {
+    font: 600 13px/1 'IBM Plex Sans', sans-serif;
+    color: var(--papel);
+    background: var(--laranja);
+    border: none;
+    border-radius: 4px;
+    padding: 10px 18px;
+    cursor: pointer;
+  }
+  .rast-manual .barra button:hover { background: #C44800; }
+  .rast-manual .barra button:focus-visible { outline: 3px solid #F59E4B; outline-offset: 2px; }
+
+  .rast-manual .folha {
+    width: 100%;
+    max-width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 24px;
+    padding: 18mm 16mm 14mm;
+    background: var(--papel);
+    border: 1px solid var(--linha);
+    box-shadow: 0 2px 10px rgba(20, 26, 33, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 7mm;
+  }
+
+  /* ---------- cabecalho de folha ---------- */
+  .rast-manual .topo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 3px solid var(--escuro);
+    padding-bottom: 6px;
+  }
+  .rast-manual .marca {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--laranja);
+  }
+  .rast-manual .marca span { color: var(--tinta-3); }
+  .rast-manual .folio {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--tinta-3);
+    white-space: nowrap;
+  }
+
+  .rast-manual h1 {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .rast-manual h2 {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .rast-manual h3 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tinta-2);
+    margin: 0;
+  }
+  .rast-manual p { margin: 0; max-width: 62ch; }
+  .rast-manual .chamada { font-size: 17px; line-height: 1.5; color: var(--tinta-2); max-width: 58ch; }
+
+  .rast-manual .secao { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---------- passos numerados (a ordem importa de verdade) ---------- */
+  .rast-manual ol.passos { list-style: none; counter-reset: passo; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .rast-manual ol.passos > li {
+    counter-increment: passo;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 12px;
+    align-items: start;
+    border-top: 1px solid var(--linha-fina);
+    padding-top: 12px;
+  }
+  .rast-manual ol.passos > li:first-child { border-top: none; padding-top: 0; }
+  .rast-manual ol.passos > li::before {
+    content: counter(passo);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.1;
+    color: var(--laranja);
+    text-align: right;
+  }
+  .rast-manual ol.passos b { display: block; }
+  .rast-manual ol.passos p { font-size: 14px; color: var(--tinta-2); }
+
+  /* ---------- blocos de aviso ---------- */
+  .rast-manual .aviso {
+    border-left: 4px solid var(--laranja);
+    background: var(--laranja-claro);
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .rast-manual .aviso.atencao { border-color: var(--atencao); background: var(--atencao-fundo); }
+  .rast-manual .aviso.ok { border-color: var(--ok); background: var(--ok-fundo); }
+  .rast-manual .aviso b { color: var(--tinta); }
+
+  /* ---------- tabelas ---------- */
+  .rast-manual .rolagem { overflow-x: auto; }
+  .rast-manual table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .rast-manual th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tinta-2);
+    border-bottom: 2px solid var(--tinta);
+    padding: 6px 10px 6px 0;
+    white-space: nowrap;
+  }
+  .rast-manual td { border-bottom: 1px solid var(--linha-fina); padding: 8px 10px 8px 0; vertical-align: top; }
+  .rast-manual td:last-child, .rast-manual th:last-child { padding-right: 0; }
+  .rast-manual .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .rast-manual code, .rast-manual .codigo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.92em;
+    background: #F2F5F8;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .rast-manual .mensagem {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    background: var(--erro-fundo);
+    border-left: 3px solid var(--erro);
+    color: #7A1717;
+    padding: 8px 12px;
+    display: block;
+  }
+  .rast-manual .mensagem.verde { background: var(--ok-fundo); border-color: var(--ok); color: #0B4B38; }
+
+  .rast-manual .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .rast-manual .tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+
+  .rast-manual .quadro {
+    border: 1px solid var(--linha);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rast-manual .quadro h3 { color: var(--laranja); }
+  .rast-manual .quadro ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--tinta-2); }
+  .rast-manual .quadro li { margin-bottom: 4px; }
+
+  .rast-manual .regra {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .rast-manual .regra .n {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--escuro);
+    line-height: 1;
+  }
+  .rast-manual .regra p { font-size: 14px; color: var(--tinta-2); }
+
+  .rast-manual .rodape-folha {
+    margin-top: auto;
+    border-top: 1px solid var(--linha);
+    padding-top: 6px;
+    font-size: 11px;
+    color: var(--tinta-3);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .rast-manual svg { display: block; max-width: 100%; height: auto; }
+
+  /* ---------- cartao de parede ---------- */
+  .rast-manual .cartao {
+    border: 2px solid var(--escuro);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    break-inside: avoid;
+  }
+  .rast-manual .cartao h2 { font-size: 22px; }
+  .rast-manual .cartao ol { margin: 0; padding-left: 18px; font-size: 14px; }
+  .rast-manual .cartao li { margin-bottom: 5px; }
+
+  @media print {
+    .rast-manual { background: #fff; padding: 0; }
+    .rast-manual .barra { display: none; }
+    .rast-manual .folha {
+      max-width: none;
+      width: auto;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      break-after: page;
+    }
+    .rast-manual .folha:last-of-type { break-after: auto; }
+  }
+
+  @page { size: A4; margin: 14mm; }
+
+  @media (max-width: 700px) {
+    .rast-manual .duas, .rast-manual .tres { grid-template-columns: 1fr; }
+    .rast-manual .folha { padding: 16px; min-height: 0; }
+    .rast-manual h1 { font-size: 34px; }
+  }
+
+/* ---------- barra de acoes da tela (nao vai para o papel) ---------- */
+.rast-manual-topo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Imprimindo a tela do manual, o app sai do papel: so as folhas. */
+@media print {
+    body:has(.rast-manual) .sidebar,
+    body:has(.rast-manual) .top-header,
+    body:has(.rast-manual) .sidebar-backdrop,
+    .rast-manual-topo { display: none !important; }
+
+    body:has(.rast-manual) .main-content,
+    body:has(.rast-manual) .content-inner,
+    body:has(.rast-manual) .app-container { margin: 0 !important; padding: 0 !important; display: block !important; }
+}

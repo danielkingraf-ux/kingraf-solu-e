@@ -18,7 +18,8 @@ import {
   PanelLeftOpen,
   ScanLine,
   FileUp,
-  Layers
+  Layers,
+  BookOpen
 } from 'lucide-react';
 import './Layout.css';
 
@@ -146,6 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
         { id: 'rast-novo', label: 'Novo Palete', icon: <PlusCircle size={20} />, group: 'Principal' },
         { id: 'rast-paletes', label: 'Paletes', icon: <Layers size={20} />, group: 'Principal' },
         { id: 'rast-fechamento', label: 'Fechamento da OP', icon: <ClipboardList size={20} />, group: 'Principal' },
+        { id: 'rast-manual', label: 'Manual', icon: <BookOpen size={20} />, group: 'Sistema' },
         // Administracao: so aparece para conta de administrador.
         ...(admin ? [
           { id: 'rast-importar', label: 'Importar OP', icon: <FileUp size={20} />, group: 'Gerenciamento' },

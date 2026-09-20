@@ -23,6 +23,7 @@ import ListaPaletes from './pages/Rastreio/ListaPaletes';
 import ImportarOP from './pages/Rastreio/ImportarOP';
 import Fechamento from './pages/Rastreio/Fechamento';
 import Operadores from './pages/Rastreio/Operadores';
+import Manual from './pages/Rastreio/Manual';
 import SemAcesso from './pages/Rastreio/SemAcesso';
 import { ehAdministrador } from './pages/Rastreio/api';
 
@@ -127,6 +128,7 @@ function App() {
     if (selectedModule === 'rast-novo') return <NovoPalete />;
     if (selectedModule === 'rast-paletes') return <ListaPaletes />;
     if (selectedModule === 'rast-fechamento') return <Fechamento />;
+    if (selectedModule === 'rast-manual') return <Manual />;
     if (selectedModule === 'rast-importar') return admin ? <ImportarOP /> : <SemAcesso />;
     if (selectedModule === 'rast-operadores') return admin ? <Operadores /> : <SemAcesso />;
 
