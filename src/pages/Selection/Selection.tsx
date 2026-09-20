@@ -1,84 +1,85 @@
 import React from 'react';
-import { ClipboardCheck, Package, Tags, ArrowRight, LogOut } from 'lucide-react';
+import { ClipboardCheck, Package, Tags, ChevronRight, LogOut, Route } from 'lucide-react';
 import './Selection.css';
 import logoFull from '../../assets/logo/logo-full.png';
 
 interface SelectionProps {
     onSelect: (module: string) => void;
     onLogout?: () => void;
+    usuario?: string;
 }
 
-const Selection: React.FC<SelectionProps> = ({ onSelect, onLogout }) => {
+const Selection: React.FC<SelectionProps> = ({ onSelect, onLogout, usuario }) => {
     const modules = [
         {
             id: 'revisions',
             title: 'Controle de Revisão',
-            description: 'Gerenciamento de qualidade, revisões de produção e registro de desvios.',
-            icon: <ClipboardCheck size={40} />,
-            color: '#FF5C00',
-            bgLight: 'rgba(255, 92, 0, 0.05)'
+            description: 'Revisões de produção, desvios e relatórios de qualidade.',
+            icon: <ClipboardCheck size={24} />,
+            color: '#E65200',
         },
         {
             id: 'production',
             title: 'Controle de Caixas',
-            description: 'Acompanhamento de produção física, volumes produzidos e vinculação com OPs.',
-            icon: <Package size={40} />,
-            color: '#3B82F6',
-            bgLight: 'rgba(59, 130, 246, 0.05)'
+            description: 'Produção física, volumes produzidos, estoque e vínculo com OP.',
+            icon: <Package size={24} />,
+            color: '#2563EB',
         },
         {
             id: 'labels',
             title: 'Emissão de Etiquetas',
-            description: 'Geração de etiquetas de pallet e caixa com rastreabilidade total.',
-            icon: <Tags size={40} />,
-            color: '#10B981',
-            bgLight: 'rgba(16, 185, 129, 0.05)'
+            description: 'Etiquetas de caixa e de palete, com lote e laudo da OP.',
+            icon: <Tags size={24} />,
+            color: '#059669',
+        },
+        {
+            id: 'rast-bipagem',
+            title: 'Rastreio de Palete',
+            description: 'Ficha do palete, cura, destino e baixa por bipagem em cada setor.',
+            icon: <Route size={24} />,
+            color: '#7C3AED',
         }
     ];
 
     return (
-        <div className="selection-container">
-            {onLogout && (
-                <button className="selection-logout-btn" onClick={onLogout} title="Sair">
-                    <LogOut size={20} />
-                    <span>Sair</span>
-                </button>
-            )}
-            <div className="selection-header">
-                <div className="logo-large">
-                    <img src={logoFull} alt="Kingraf Logo" className="selection-logo-img" />
-                    <div className="logo-subtitle">PLATAFORMA UNIFICADA</div>
+        <div className="sel">
+            <header className="sel-topo">
+                <img src={logoFull} alt="Kingraf" className="sel-logo" />
+                <div className="sel-usuario">
+                    {usuario && <span className="sel-email">{usuario}</span>}
+                    {onLogout && (
+                        <button className="sel-sair" onClick={onLogout}>
+                            <LogOut size={16} />
+                            <span>Sair</span>
+                        </button>
+                    )}
                 </div>
-                <h1>Bem-vindo ao Sistema Unificado</h1>
-                <p>Selecione o módulo que deseja acessar para iniciar suas atividades.</p>
-            </div>
+            </header>
 
-            <div className="module-grid">
-                {modules.map((module, index) => (
-                    <button
-                        key={module.id}
-                        className={`module-card animate-fade-in-up delay-${(index + 1) * 100}`}
-                        onClick={() => onSelect(module.id)}
-                        style={{ '--module-color': module.color, '--module-bg': module.bgLight } as React.CSSProperties}
-                    >
-                        <div className="module-icon-box">
-                            {module.icon}
-                        </div>
-                        <div className="module-info">
-                            <h3>{module.title}</h3>
-                            <p>{module.description}</p>
-                        </div>
-                        <div className="module-footer">
-                            <span>Acessar módulo</span>
-                            <ArrowRight size={18} />
-                        </div>
-                    </button>
-                ))}
-            </div>
+            <main className="sel-conteudo">
+                <h1>Módulos</h1>
+                <p className="sel-sub">Escolha onde você vai trabalhar agora.</p>
 
-            <div className="selection-footer">
-                <p>Kingraf Lean Start © 2026 • Sistema de Monitoramento Industrial</p>
-            </div>
+                <div className="sel-grade">
+                    {modules.map(module => (
+                        <button
+                            key={module.id}
+                            className="sel-card"
+                            onClick={() => onSelect(module.id)}
+                            style={{ '--cor': module.color } as React.CSSProperties}
+                        >
+                            <span className="sel-icone">{module.icon}</span>
+                            <span className="sel-texto">
+                                <span className="sel-titulo">{module.title}</span>
+                                <span className="sel-desc">{module.description}</span>
+                            </span>
+                            <ChevronRight size={20} className="sel-seta" />
+                        </button>
+                    ))}
+                </div>
+            </main>
+
+            <footer className="sel-rodape">© 2026 Kingraf Indústria Gráfica</footer>
         </div>
     );
 };

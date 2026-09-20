@@ -17,6 +17,14 @@ import NewRevision from './pages/Quality/NewRevision';
 import RevisionHistory from './pages/Quality/RevisionHistory';
 import Registrations from './pages/Quality/Registrations';
 import QualityReports from './pages/Quality/QualityReports';
+import Bipagem from './pages/Rastreio/Bipagem';
+import NovoPalete from './pages/Rastreio/NovoPalete';
+import ListaPaletes from './pages/Rastreio/ListaPaletes';
+import ImportarOP from './pages/Rastreio/ImportarOP';
+import Fechamento from './pages/Rastreio/Fechamento';
+import Operadores from './pages/Rastreio/Operadores';
+import SemAcesso from './pages/Rastreio/SemAcesso';
+import { ehAdministrador } from './pages/Rastreio/api';
 
 
 
@@ -24,6 +32,9 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  // Conta de administracao (PCP, supervisao) enxerga importacao e cadastros.
+  // O PC da maquina entra com conta de operacao e nao vê essas telas.
+  const [admin, setAdmin] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -35,15 +46,25 @@ function App() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setAdmin(false);   // o perfil e conferido de novo para a conta que entrou
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // O perfil vem do banco a cada login, nunca do que a tela guardou.
+  useEffect(() => {
+    if (!session) return;
+    let valendo = true;
+    ehAdministrador().then(v => { if (valendo) setAdmin(v); });
+    return () => { valendo = false; };
+  }, [session]);
+
   // Handle logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setAdmin(false);
     setSelectedModule(null);
   };
 
@@ -74,7 +95,7 @@ function App() {
 
   // Authenticated content
   if (!selectedModule) {
-    return <Selection onSelect={setSelectedModule} onLogout={handleLogout} />;
+    return <Selection onSelect={setSelectedModule} onLogout={handleLogout} usuario={session.user.email} />;
   }
 
   if (selectedModule === 'labels') {
@@ -101,6 +122,14 @@ function App() {
     if (selectedModule === 'registrations') return <Registrations />;
     if (selectedModule === 'users') return <Users />;
 
+    // Módulo de Rastreio de Palete
+    if (selectedModule === 'rast-bipagem') return <Bipagem />;
+    if (selectedModule === 'rast-novo') return <NovoPalete />;
+    if (selectedModule === 'rast-paletes') return <ListaPaletes />;
+    if (selectedModule === 'rast-fechamento') return <Fechamento />;
+    if (selectedModule === 'rast-importar') return admin ? <ImportarOP /> : <SemAcesso />;
+    if (selectedModule === 'rast-operadores') return admin ? <Operadores /> : <SemAcesso />;
+
     // Dashboard padrão (Qualidade)
     return <Dashboard />;
   };
@@ -113,6 +142,7 @@ function App() {
         onExit={() => setSelectedModule(null)}
         onNavigate={handleNavigate}
         onLogout={handleLogout}
+        admin={admin}
       >
         {content()}
       </Layout>
