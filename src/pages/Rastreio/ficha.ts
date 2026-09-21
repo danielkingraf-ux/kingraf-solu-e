@@ -21,6 +21,8 @@ export interface DadosFicha {
     rastro: RastroEtapa[];
 }
 
+const normalizar = (t: string | null | undefined) => (t || '').trim().toLowerCase();
+
 const esc = (s: unknown) =>
     String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
@@ -55,11 +57,12 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
     <section class="ficha">
         <header>
             <div>
-                <div class="marca">KINGRAF</div>
+                <img class="logo" src="/logo-kingraf-preto.png" alt="Kingraf">
                 <div class="titulo">FICHA DE PALETE</div>
             </div>
             <div class="ids">
-                <div>OP <b>${p.numero_op}</b>${d.pedido ? ` · Pedido ${esc(d.pedido)}` : ''}${d.cliente ? ` · ${esc(d.cliente)}` : ''}</div>
+                ${d.pedido ? `<div>Pedido ${esc(d.pedido)}</div>` : ''}
+                ${d.cliente ? `<div>${esc(d.cliente)}</div>` : ''}
                 <div>Palete nº <b>${p.numero}</b> · Id Etiqueta <b>${d.etiqueta?.numero ?? '-'}</b></div>
                 ${reimpressao ? '<div class="via">2ª VIA (REIMPRESSÃO)</div>' : ''}
             </div>
@@ -76,6 +79,8 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
         <div class="destino">
             <div class="rotulo">LEVAR PARA</div>
             <div class="valor">${esc(nomeDestino(destino, d.setores).toUpperCase())}</div>
+            ${destino && !destino.terceiros && normalizar(destino.processo) !== normalizar(nomeDestino(destino, d.setores))
+                ? `<div class="etapa">etapa: ${esc(destino.processo)}</div>` : ''}
             ${destino?.terceiros ? '<div class="obs">Sai pela portaria. Bipar na saída e no retorno.</div>' : ''}
         </div>
 
@@ -84,16 +89,21 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
             <b>${esc(d.produto ? [d.produto.codigo, d.produto.descricao].filter(Boolean).join(" · ") : d.servico)}</b>
         </div>` : ''}
 
+        <div class="destaques">
+            <div><span>OP</span><b>${p.numero_op}</b></div>
+            <div><span>Quantidade</span><b>${formatarQtd(p.quantidade)} <small>${esc(p.unidade)}</small></b></div>
+            <div><span>Operador</span><b>${d.operador ? esc(d.operador.matricula) : '-'}</b>${d.operador ? `<em>${esc(d.operador.nome)}</em>` : ''}</div>
+            <div><span>Produzido em</span><b class="data">${dataHora(p.produzido_em)}</b></div>
+        </div>
+
+        ${temCura ? `<div class="cura">
+            <span>Cura de ${formatarQtd(p.cura_horas)} h: só pode ser bipado a partir de</span>
+            <b>${dataHora(p.liberado_em)}</b>
+        </div>` : ''}
+
         <div class="grade">
-            <div class="campo"><span>Quantidade</span><b class="grande">${formatarQtd(p.quantidade)} ${esc(p.unidade)}</b></div>
-            <div class="campo cura ${temCura ? '' : 'sem'}">
-                <span>${temCura ? `Cura ${formatarQtd(p.cura_horas)} h: liberado a partir de` : 'Cura'}</span>
-                <b class="grande">${temCura ? dataHora(p.liberado_em) : 'Não se aplica'}</b>
-            </div>
             <div class="campo"><span>Origem</span><b>${esc(origem?.processo ?? '-')}</b></div>
             <div class="campo"><span>Máquina</span><b>${esc(p.maquina ?? '-')}</b></div>
-            <div class="campo"><span>Operador</span><b>${d.operador ? `${esc(d.operador.matricula)} · ${esc(d.operador.nome)}` : '-'}</b></div>
-            <div class="campo"><span>Produzido em</span><b>${dataHora(p.produzido_em)}</b></div>
             ${p.status !== 'aprovado' ? `<div class="campo"><span>Status</span><b>${esc(p.status.toUpperCase())}</b></div>` : ''}
             ${p.observacao ? `<div class="campo largo"><span>Observação</span><b>${esc(p.observacao)}</b></div>` : ''}
         </div>
@@ -109,7 +119,7 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
             <div class="rotulo">BAIXA MANUAL (usar só se o coletor falhar, e lançar no sistema depois)</div>
             <table>
                 <thead><tr><th>Setor</th><th>Matrícula</th><th>Data e hora</th><th>Quantidade</th><th>Refugo</th><th>Visto</th></tr></thead>
-                <tbody>${'<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(3)}</tbody>
+                <tbody>${'<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(2)}</tbody>
             </table>
         </div>
 
@@ -143,47 +153,61 @@ export const CSS_FICHA = `
 @page { size: A4; margin: 10mm; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; font-size: 11pt; }
-.ficha { height: 277mm; overflow: hidden; display: flex; flex-direction: column; gap: 3mm; page-break-after: always; }
+.ficha { height: 269mm; overflow: hidden; display: flex; flex-direction: column; gap: 2.5mm; page-break-after: always; }
 .ficha:last-child { page-break-after: auto; }
 header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5mm solid #000; padding-bottom: 2mm; }
-.marca { font-size: 11pt; font-weight: 800; letter-spacing: 3px; }
-.titulo { font-size: 20pt; font-weight: 800; }
+.logo { height: 13mm; width: auto; display: block; margin-bottom: 1.5mm; }
+.titulo { font-size: 18pt; font-weight: 800; letter-spacing: 1px; }
 .ids { text-align: right; font-size: 12pt; line-height: 1.5; }
 .ids b { font-size: 15pt; }
 .via { display: inline-block; border: 0.6mm solid #000; padding: 0.5mm 2mm; font-weight: 800; margin-top: 1mm; }
 .codigos { display: flex; gap: 8mm; align-items: center; }
-.qr svg { width: 32mm; height: 32mm; display: block; }
+.qr svg { width: 24mm; height: 24mm; display: block; }
 .barras { flex: 1; text-align: center; }
-.barras svg { width: 100%; height: 20mm; }
-.codigo { font-size: 22pt; font-weight: 800; letter-spacing: 2px; font-family: 'Courier New', monospace; }
-.destino { border: 1.2mm solid #000; padding: 3mm 4mm; text-align: center; }
+.barras svg { width: 100%; height: 15mm; }
+.codigo { font-size: 19pt; font-weight: 800; letter-spacing: 2px; font-family: 'Courier New', monospace; }
+.destino { border: 1.2mm solid #000; padding: 2mm 4mm; text-align: center; }
 .destino .rotulo { font-size: 11pt; font-weight: 800; letter-spacing: 2px; }
-.destino .valor { font-size: 30pt; font-weight: 900; line-height: 1.1; }
+.destino .valor { font-size: 28pt; font-weight: 900; line-height: 1.05; }
 .destino .obs { font-size: 11pt; margin-top: 1mm; }
-.produto { border: 0.4mm solid #000; padding: 2mm 3mm; }
+.destino .etapa { font-size: 12pt; font-weight: 700; margin-top: 0.5mm; }
+.produto { border: 0.4mm solid #000; padding: 1.5mm 3mm; }
 .produto span { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; display: block; }
 .produto b { font-size: 13pt; }
+/* O que o operador precisa ler de longe: OP, quantidade, quem fez e quando. */
+.destaques { display: grid; grid-template-columns: 1fr 1fr; border: 0.5mm solid #000; }
+.destaques > div { padding: 2mm 4mm; border-bottom: 0.3mm solid #000; }
+.destaques > div:nth-child(odd) { border-right: 0.3mm solid #000; }
+.destaques > div:nth-last-child(-n+2) { border-bottom: none; }
+.destaques span { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; }
+.destaques b { font-size: 26pt; font-weight: 900; line-height: 1.1; display: block; }
+.destaques b small { font-size: 15pt; font-weight: 700; }
+.destaques em { font-size: 12pt; font-style: normal; }
+.destaques b.data { font-size: 19pt; }
+
+.cura { border: 1.2mm solid #000; padding: 2mm 4mm; text-align: center; }
+.cura span { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.cura b { display: block; font-size: 22pt; font-weight: 900; line-height: 1.1; }
+
 .grade { display: grid; grid-template-columns: 1fr 1fr; border: 0.4mm solid #000; }
 .campo { padding: 2mm 3mm; border-bottom: 0.3mm solid #000; display: flex; flex-direction: column; gap: 0.5mm; }
 .campo:nth-child(odd) { border-right: 0.3mm solid #000; }
 .campo.largo { grid-column: 1 / -1; border-right: none; }
 .campo span { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; }
 .campo b { font-size: 12pt; }
-.campo b.grande { font-size: 18pt; }
-.campo.cura:not(.sem) { border: 1mm solid #000; }
 table { width: 100%; border-collapse: collapse; }
-.roteiro th, .roteiro td { border: 0.3mm solid #000; padding: 1mm 2mm; font-size: 10pt; text-align: left; }
+.roteiro th, .roteiro td { border: 0.3mm solid #000; padding: 0.7mm 2mm; font-size: 9.5pt; text-align: left; }
 .roteiro td:first-child { width: 10mm; text-align: center; }
 .roteiro td:nth-child(3), .roteiro td:nth-child(4) { width: 24mm; font-weight: 800; }
 .roteiro tr.marcada td { font-weight: 800; border-width: 0.7mm; }
 .roteiro tr.sem-palete td { color: #000; }
-.rastro th, .rastro td { border: 0.3mm solid #000; padding: 1mm 2mm; font-size: 9pt; text-align: left; vertical-align: top; }
+.rastro th, .rastro td { border: 0.3mm solid #000; padding: 0.7mm 2mm; font-size: 8.5pt; text-align: left; vertical-align: top; }
 .rastro thead tr:first-child th { font-size: 10pt; letter-spacing: 1px; border-width: 0.6mm; }
 .rastro small { font-size: 8pt; }
 .manual { margin-top: auto; }
 .manual .rotulo { font-size: 9pt; font-weight: 800; margin-bottom: 1mm; }
 .manual th, .manual td { border: 0.3mm solid #000; font-size: 9pt; padding: 1mm; }
-.manual td { height: 9mm; }
+.manual td { height: 8mm; }
 footer { font-size: 8pt; text-align: center; }
 `;
 
