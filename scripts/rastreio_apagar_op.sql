@@ -46,5 +46,7 @@ BEGIN
     RAISE NOTICE 'OP % apagada. Pode importar o XML de novo.', v_numero_op;
 END $$;
 
-SELECT numero_op, id_wo, pedido, versao_xml, arquivo_origem, importado_em
+-- Sem id_wo nem descricao aqui de proposito: este script roda ANTES da
+-- migration que cria essas colunas.
+SELECT numero_op, pedido, versao_xml, arquivo_origem, importado_em
   FROM rast_ops ORDER BY importado_em DESC;
