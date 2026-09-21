@@ -43,7 +43,11 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
     const p = d.palete;
     const origem = d.roteiro.find(r => r.id === p.etapa_origem_id);
     const destino = d.roteiro.find(r => r.id === p.etapa_destino_id) ?? null;
-    const qr = await QRCode.toString(p.codigo, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
+    // O QR leva o endereco do sistema com o codigo junto: lido pela camera do
+    // celular, abre a tela de bipagem com o palete carregado. O codigo de
+    // barras continua com o codigo puro, que e o que o leitor USB espera.
+    const enderecoQr = `${location.origin}/?bipar=${encodeURIComponent(p.codigo)}`;
+    const qr = await QRCode.toString(enderecoQr, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
     const reimpressao = d.etiqueta?.motivo === 'reimpressao';
     const temCura = Number(p.cura_horas) > 0;
 

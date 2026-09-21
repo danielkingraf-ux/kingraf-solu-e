@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ScanLine, CheckCircle2, XCircle, Truck, Undo2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import type { Setor } from './api';
-import { formatarQtd, lerMatricula, listarSetores, mensagemErro, salvarMatricula } from './api';
+import { codigoDoTexto, formatarQtd, lerMatricula, listarSetores, mensagemErro, salvarMatricula } from './api';
 import './Rastreio.css';
 
 // A estacao (computador ou tablet do setor) fica presa a um setor.
@@ -50,6 +50,15 @@ const Bipagem: React.FC = () => {
     useEffect(() => {
         listarSetores().then(s => setSetores(s.filter(x => x.ativo))).catch(e =>
             setResultado({ tipo: 'erro', titulo: 'Sem setores', texto: mensagemErro(e) }));
+
+        // Veio do QR da ficha, lido pela camera do celular: ja deixa o codigo
+        // no campo. Quem confirma e o operador, porque recarregar a pagina nao
+        // pode virar uma bipagem sozinha.
+        const doQr = new URLSearchParams(location.search).get('bipar');
+        if (doQr) {
+            setCodigo(codigoDoTexto(doQr));
+            history.replaceState(null, '', location.pathname);
+        }
     }, []);
 
     const setor = setores.find(s => s.id === setorId) ?? null;
@@ -75,7 +84,7 @@ const Bipagem: React.FC = () => {
 
     const bipar = async (e: React.FormEvent) => {
         e.preventDefault();
-        const cod = codigo.trim().toUpperCase();
+        const cod = codigoDoTexto(codigo);
         if (!cod || !setor || enviando) return;
         setEnviando(true);
         salvarMatricula(matricula.trim());
@@ -102,7 +111,7 @@ const Bipagem: React.FC = () => {
 
     const retorno = async (e: React.FormEvent) => {
         e.preventDefault();
-        const cod = codigo.trim().toUpperCase();
+        const cod = codigoDoTexto(codigo);
         if (!cod || enviando) return;
         setEnviando(true);
         salvarMatricula(matricula.trim());
@@ -159,7 +168,11 @@ const Bipagem: React.FC = () => {
             {!pronto ? (
                 <div className="rast-aviso info">
                     <ScanLine size={18} />
-                    <span>Escolha o setor desta estação e informe a matrícula para começar a bipar.</span>
+                    <span>
+                        {codigo
+                            ? <>Ficha <b className="rast-codigo">{codigo}</b> lida. Escolha o setor desta estação e informe a matrícula para bipar.</>
+                            : 'Escolha o setor desta estação e informe a matrícula para começar a bipar.'}
+                    </span>
                 </div>
             ) : aba === 'bipar' ? (
                 <form className="rast-card" onSubmit={bipar}>

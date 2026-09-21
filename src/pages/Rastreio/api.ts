@@ -283,6 +283,28 @@ export async function buscarRastro(paleteId: string): Promise<RastroEtapa[]> {
     return (data || []) as RastroEtapa[];
 }
 
+/**
+ * Tira o codigo do palete do que chegou no campo. Pode vir de tres lugares:
+ * leitor de codigo de barras (codigo puro), camera lendo o QR (endereco do
+ * sistema com ?bipar=), ou leitor 2D lendo o QR, que digita o endereco inteiro.
+ */
+export function codigoDoTexto(texto: string): string {
+    const t = (texto || '').trim();
+    if (!t) return '';
+    if (/^https?:\/\//i.test(t) || t.includes('?bipar=')) {
+        try {
+            const url = new URL(t, location.origin);
+            const doParam = url.searchParams.get('bipar');
+            if (doParam) return doParam.trim().toUpperCase();
+            const ultimo = url.pathname.split('/').filter(Boolean).pop();
+            if (ultimo) return decodeURIComponent(ultimo).trim().toUpperCase();
+        } catch {
+            // nao era URL valida: segue com o texto como veio
+        }
+    }
+    return t.toUpperCase();
+}
+
 /** 20418-IMP-003 vira IMP-003 quando a OP ja esta escrita ao lado. */
 export const codigoCurto = (codigo: string, numeroOp: number) =>
     codigo.startsWith(`${numeroOp}-`) ? codigo.slice(String(numeroOp).length + 1) : codigo;
