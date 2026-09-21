@@ -1,6 +1,10 @@
 // Ficha A4 que anda grampeada no palete. Preto e branco puro (laser de chao de
 // fabrica), com QR e codigo de barras do codigo do palete, e campo de baixa
 // manual no rodape como plano B se o coletor falhar.
+// ?inline: o logo entra como data URI, dentro do proprio HTML da ficha. Se
+// fosse um arquivo por URL, a impressao poderia comecar antes de ele carregar
+// e a ficha sairia sem logo, que foi o que aconteceu no primeiro teste.
+import logoPreto from '../../assets/logo/logo-preto.png?inline';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 import { supabase } from '../../supabaseClient';
@@ -57,7 +61,7 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
     <section class="ficha">
         <header>
             <div>
-                <img class="logo" src="/logo-kingraf-preto.png" alt="Kingraf">
+                <img class="logo" src="${logoPreto}" alt="Kingraf">
                 <div class="titulo">FICHA DE PALETE</div>
             </div>
             <div class="ids">
@@ -277,10 +281,23 @@ function imprimirHtml(documento: string) {
     const janela = iframe.contentWindow!;
     const remover = () => setTimeout(() => iframe.remove(), 1000);
     janela.addEventListener('afterprint', remover);
-    setTimeout(() => {
+
+    let jaImprimiu = false;
+    const imprimir = () => {
+        if (jaImprimiu) return;   // load e o prazo de seguranca podem disparar juntos
+        jaImprimiu = true;
         janela.focus();
         janela.print();
         // alguns navegadores nao disparam afterprint
         setTimeout(remover, 60000);
-    }, 300);
+    };
+
+    // Espera a pagina montar antes de imprimir: mandando cedo demais, a ficha
+    // sai sem o que ainda nao desenhou.
+    if (doc.readyState === 'complete') {
+        setTimeout(imprimir, 150);
+    } else {
+        janela.addEventListener('load', () => setTimeout(imprimir, 150));
+        setTimeout(imprimir, 3000);   // rede lenta ou load que nao dispara
+    }
 }
