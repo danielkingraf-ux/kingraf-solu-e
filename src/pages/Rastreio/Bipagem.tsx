@@ -48,13 +48,26 @@ const Bipagem: React.FC = () => {
     const scanRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        listarSetores().then(s => setSetores(s.filter(x => x.ativo))).catch(e =>
-            setResultado({ tipo: 'erro', titulo: 'Sem setores', texto: mensagemErro(e) }));
+        const params = new URLSearchParams(location.search);
+
+        listarSetores().then(lista => {
+            const ativos = lista.filter(x => x.ativo);
+            setSetores(ativos);
+
+            // ?estacao=CV deixa o aparelho preso a um setor de uma vez so. E o
+            // atalho para preparar os PCs e celulares do chao sem ninguem
+            // escolher em menu: cada maquina recebe o seu link.
+            const sigla = params.get('estacao');
+            if (sigla) {
+                const alvo = ativos.find(x => x.sigla.toLowerCase() === sigla.toLowerCase().trim());
+                if (alvo) escolherSetor(alvo.id);
+            }
+        }).catch(e => setResultado({ tipo: 'erro', titulo: 'Sem setores', texto: mensagemErro(e) }));
 
         // Veio do QR da ficha, lido pela camera do celular: ja deixa o codigo
         // no campo. Quem confirma e o operador, porque recarregar a pagina nao
         // pode virar uma bipagem sozinha.
-        const doQr = new URLSearchParams(location.search).get('bipar');
+        const doQr = params.get('bipar');
         if (doQr) {
             setCodigo(codigoDoTexto(doQr));
             history.replaceState(null, '', location.pathname);

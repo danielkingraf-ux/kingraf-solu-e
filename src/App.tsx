@@ -32,10 +32,12 @@ import { ehAdministrador } from './pages/Rastreio/api';
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Abriu pelo QR da ficha (?bipar=CODIGO): vai direto para a bipagem.
-  const [selectedModule, setSelectedModule] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).has('bipar') ? 'rast-bipagem' : null
-  );
+  // Abre direto na bipagem em dois casos: QR da ficha (?bipar=CODIGO) e o
+  // atalho de estacao que cada PC ou celular do chao recebe (?estacao=CV).
+  const [selectedModule, setSelectedModule] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.has('bipar') || p.has('estacao') ? 'rast-bipagem' : null;
+  });
   // Conta de administracao (PCP, supervisao) enxerga importacao e cadastros.
   // O PC da maquina entra com conta de operacao e nao vê essas telas.
   const [admin, setAdmin] = useState(false);
