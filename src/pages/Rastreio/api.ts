@@ -49,6 +49,8 @@ export interface Operador {
 export interface Op {
     id: string;
     numero_op: number;
+    id_wo: number | null;
+    descricao: string | null;
     pedido: string | null;
     versao_xml: string;
     entrega_prevista: string | null;

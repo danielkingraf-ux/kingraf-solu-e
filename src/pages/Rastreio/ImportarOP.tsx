@@ -39,7 +39,7 @@ const ImportarOP: React.FC = () => {
         setLido(null);
         try {
             const r = extrair(await f.text());
-            if (!r.op.numero_op) throw new Error('Não achei o número da OP (IdWO) no arquivo. Confira se é o XML de planejamento do Metrics.');
+            if (!r.op.numero_op) throw new Error('Não achei o número da OP no arquivo. Confira se é o XML de planejamento do Metrics.');
             if (!r.roteiro.length) throw new Error('Não achei nenhum processo com ligação de material neste XML. Confira se a OP está planejada no Metrics.');
             setArquivo(f.name);
             setLido(r);
@@ -105,8 +105,10 @@ const ImportarOP: React.FC = () => {
             {lido && (
                 <div className="rast-card">
                     <h2>OP {lido.op.numero_op}{lido.op.versao_xml ? `, versão ${lido.op.versao_xml}` : ''}</h2>
+                    {lido.op.descricao && <p className="rast-ajuda" style={{ marginTop: -8, marginBottom: 12 }}>{lido.op.descricao}</p>}
                     <div className="rast-resumo" style={{ marginBottom: 16 }}>
                         <div><span>Pedido</span><b>{lido.op.pedido || '-'}</b></div>
+                        <div><span>IdWO no Metrics</span><b>{lido.op.id_wo ?? '-'}</b></div>
                         <div><span>Entrega</span><b>{lido.op.entrega_prevista ? new Date(lido.op.entrega_prevista).toLocaleDateString('pt-BR') : '-'}</b></div>
                         <div><span>Arquivo</span><b style={{ fontSize: 14 }}>{arquivo}</b></div>
                     </div>
@@ -218,15 +220,15 @@ const ImportarOP: React.FC = () => {
                 ) : (
                     <div className="rast-tabela-wrap">
                         <table className="rast-tabela">
-                            <thead><tr><th>OP</th><th>Versão</th><th>Pedido</th><th>Arquivo</th><th>Importada em</th><th></th></tr></thead>
+                            <thead><tr><th>OP</th><th>Produto</th><th>Versão</th><th>Pedido</th><th>Arquivo</th><th></th></tr></thead>
                             <tbody>
                                 {recentes.map(o => (
                                     <tr key={o.id} className={o.ativa ? '' : 'apagada'}>
                                         <td><b>{o.numero_op}</b></td>
+                                        <td style={{ maxWidth: 320 }}>{o.descricao || '-'}</td>
                                         <td>{o.versao_xml || '-'}</td>
                                         <td>{o.pedido || '-'}</td>
                                         <td>{o.arquivo_origem || '-'}</td>
-                                        <td>{new Date(o.importado_em).toLocaleString('pt-BR')}</td>
                                         <td>{o.ativa ? <span className="rast-badge consumido">em uso</span> : <span className="rast-badge cancelado">substituída</span>}</td>
                                     </tr>
                                 ))}

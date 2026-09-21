@@ -87,7 +87,9 @@ const NovoPalete: React.FC = () => {
     // Busca pelo numero da OP ou pelo pedido: no chao ninguem lembra o numero.
     const termo = filtro.trim().toLowerCase();
     const opsFiltradas = termo
-        ? ops.filter(o => String(o.numero_op).includes(termo) || (o.pedido || '').toLowerCase().includes(termo))
+        ? ops.filter(o => String(o.numero_op).includes(termo)
+            || (o.pedido || '').toLowerCase().includes(termo)
+            || (o.descricao || '').toLowerCase().includes(termo))
         : ops;
 
     const salvar = async () => {
@@ -150,7 +152,7 @@ const NovoPalete: React.FC = () => {
                     <div className="rast-campo" style={{ marginLeft: 'auto', maxWidth: 280 }}>
                         <label htmlFor="rast-filtro">Procurar na lista</label>
                         <input id="rast-filtro" value={filtro} onChange={e => setFiltro(e.target.value)}
-                            placeholder="Número da OP ou pedido" />
+                            placeholder="OP, pedido ou produto" />
                     </div>
                 </form>
 
@@ -170,6 +172,7 @@ const NovoPalete: React.FC = () => {
                             <thead>
                                 <tr>
                                     <th>OP</th>
+                                    <th>Produto</th>
                                     <th>Pedido</th>
                                     <th>Entrega</th>
                                     <th style={{ textAlign: 'right' }}>Paletes em aberto</th>
@@ -181,6 +184,7 @@ const NovoPalete: React.FC = () => {
                                 {opsFiltradas.map(o => (
                                     <tr key={o.id} className={op?.id === o.id ? 'selecionada' : ''}>
                                         <td><b>{o.numero_op}</b></td>
+                                        <td style={{ maxWidth: 300 }}>{o.descricao || '-'}</td>
                                         <td>{o.pedido || '-'}</td>
                                         <td>{o.entrega_prevista ? new Date(o.entrega_prevista + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</td>
                                         <td className="num">{o.paletes_abertos || '-'}</td>

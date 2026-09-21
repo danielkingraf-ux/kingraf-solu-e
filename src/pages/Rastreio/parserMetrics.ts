@@ -32,11 +32,21 @@ const CAMPOS_COMPONENTE = new Set([
 ]);
 
 const CAMPOS_OP = new Set([
-    'IdWO',
+    'IdWO',               // id interno do Metrics, NAO e o numero da OP
+    'IdWS',               // liga a OP ao servico, onde mora o numero da OP
     'RequestNum',         // numero do pedido
     'DtMinStart',         // inicio minimo planejado
     'IdWOStatus',
     'Version',            // versao do planejamento: reimportar versao nova nao reescreve historico
+]);
+
+// plnWS e o servico. O numero que a fabrica chama de OP (e que da nome ao
+// arquivo PLNxxxxx.xml) esta aqui em Code, nao no IdWO do plnWO.
+const CAMPOS_SERVICO = new Set([
+    'IdWS',
+    'Code',               // o numero da OP
+    'ExtRef',
+    'Description',        // cliente e produto, do jeito que o Metrics escreve
 ]);
 
 // Terceirizacao. O sinal certo e o proprio Metrics escrever "(Terceiros)" no
@@ -77,7 +87,9 @@ export interface EtapaRoteiro {
 }
 
 export interface OpXml {
-    numero_op: number | null;
+    numero_op: number | null;   // plnWS.Code: o numero que a fabrica usa
+    id_wo: number | null;       // IdWO: id interno do Metrics, para conferencia
+    descricao: string | null;   // cliente e produto
     pedido: string | null;
     versao_xml: string;
     entrega_prevista: string | null;
@@ -157,6 +169,10 @@ export function extrair(textoXml: string): ResultadoParser {
     for (const elem of iterTag(raiz, 'plnWODelivery')) {
         if (elem.getAttribute('DueDate')) { dueDate = elem.getAttribute('DueDate'); break; }
     }
+
+    // --- servico: e daqui que sai o numero da OP -------------------------
+    const servicos = iterTag(raiz, 'plnWS').map(e => filtrar(e, CAMPOS_SERVICO));
+    const servico = servicos.find(s => s.IdWS && s.IdWS === opAttrs.IdWS) ?? servicos[0] ?? {};
 
     // --- processos ------------------------------------------------------
     // plnProcessAtv = processo com maquina. plnProcess = etapa sem maquina.
@@ -274,10 +290,14 @@ export function extrair(textoXml: string): ResultadoParser {
     const primeiraImpressao = roteiro.findIndex(r => normalizar(r.processo).includes('impress'));
     for (let i = 0; i < primeiraImpressao; i++) roteiro[i].movimenta_palete = false;
 
-    const numeroOp = num(opAttrs.IdWO);
+    // O numero da OP e o Code do servico. O IdWO so serve de conferencia: ele
+    // e outro numero, interno do Metrics, e nao e o que esta na ordem impressa.
+    const numeroOp = num(servico.Code ?? servico.ExtRef);
     return {
         op: {
-            numero_op: typeof numeroOp === 'number' ? numeroOp : null,
+            numero_op: numeroOp,
+            id_wo: num(opAttrs.IdWO),
+            descricao: servico.Description ?? null,
             pedido: opAttrs.RequestNum ?? null,
             versao_xml: opAttrs.Version ?? '',
             entrega_prevista: dueDate,
