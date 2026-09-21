@@ -7,8 +7,8 @@
 -- gente, mesmo PC. Quem separa o que foi feito e a ETAPA do roteiro (que
 -- continua chamando "Hot Stamping") e a MAQUINA do palete.
 --
--- Maquinas do corte e vinco: Bobst 1, Bobst 2, Bobst 3 e a BMA, que e a de hot
--- e as vezes faz relevo.
+-- Maquinas do corte e vinco: Bobst 1, Bobst 2 e Bobst 3, que fazem corte e
+-- tambem relevo, e a BMA, que e so de hot stamping.
 --
 -- Sem isto, um palete com destino "Hot Stamping" era recusado na estacao do
 -- corte e vinco, porque o sistema achava que era outro setor.
@@ -34,10 +34,14 @@ CREATE TABLE IF NOT EXISTS rast_maquinas (
 COMMENT ON TABLE rast_maquinas IS
     'Maquinas de cada setor. O palete guarda o nome da maquina em texto: trocar a maquina de nome depois nao reescreve ficha ja impressa.';
 
+-- Quem rodou a primeira versao desta migration pegou o nome errado: a BMA nao
+-- faz relevo, quem faz sao as Bobst, junto com o corte.
+UPDATE rast_maquinas SET nome = 'BMA (hot stamping)' WHERE nome = 'BMA (hot e relevo)';
+
 INSERT INTO rast_maquinas (setor_id, nome)
 SELECT s.id, m.nome
   FROM rast_setores s
-  JOIN (VALUES ('Bobst 1'), ('Bobst 2'), ('Bobst 3'), ('BMA (hot e relevo)')) AS m(nome) ON true
+  JOIN (VALUES ('Bobst 1'), ('Bobst 2'), ('Bobst 3'), ('BMA (hot stamping)')) AS m(nome) ON true
  WHERE s.sigla = 'CV'
 ON CONFLICT (setor_id, nome) DO NOTHING;
 
