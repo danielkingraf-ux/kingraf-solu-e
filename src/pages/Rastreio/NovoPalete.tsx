@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Search, Plus, Trash2, Printer, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
-import type { Etapa, Op, OpResumo, Palete, Produto, Setor } from './api';
+import type { Etapa, Maquina, Op, OpResumo, Palete, Produto, Setor } from './api';
 import {
-    buscarOp, formatarDataHora, formatarQtd, lerMatricula, listarOps, listarSetores,
+    buscarOp, formatarDataHora, formatarQtd, lerMatricula, listarMaquinas, listarOps, listarSetores,
     mensagemErro, nomeDestino, proximaEtapa, salvarMatricula,
 } from './api';
 import { imprimirFichas } from './ficha';
@@ -33,10 +33,12 @@ const NovoPalete: React.FC = () => {
     const [agora, setAgora] = useState(Date.now());
     const [ops, setOps] = useState<OpResumo[]>([]);
     const [filtro, setFiltro] = useState('');
+    const [maquinas, setMaquinas] = useState<Maquina[]>([]);
 
     useEffect(() => {
         listarSetores().then(setSetores).catch(e => setErro(mensagemErro(e)));
         listarOps().then(setOps).catch(e => setErro(mensagemErro(e)));
+        listarMaquinas().then(setMaquinas).catch(() => { });
         const t = setInterval(() => setAgora(Date.now()), 30000);
         return () => clearInterval(t);
     }, []);
@@ -144,6 +146,9 @@ const NovoPalete: React.FC = () => {
 
     // "Bocas" e o numero de poses na folha: 2.500 folhas x 14 bocas = 35.000 unidades.
     const bocas = etapa?.poses_por_ciclo ?? null;
+    // Hot stamping e relevo ficam dentro do corte e vinco: quem separa o que
+    // foi feito e a etapa do roteiro e a maquina escolhida aqui.
+    const maquinasDoSetor = maquinas.filter(m => m.setor_id === setor?.id);
     const exigeModelo = !!setor?.exige_produto && produtos.length > 1;
     const podeSalvarModelo = !exigeModelo || produtoId !== '';
 
@@ -280,7 +285,12 @@ const NovoPalete: React.FC = () => {
                         </div>
                         <div className="rast-campo">
                             <label htmlFor="rast-maq">Máquina</label>
-                            <input id="rast-maq" value={maquina} onChange={e => setMaquina(e.target.value)} placeholder="Ex.: Heidelberg 1" />
+                            <input id="rast-maq" list="rast-maquinas" value={maquina}
+                                onChange={e => setMaquina(e.target.value)}
+                                placeholder={maquinasDoSetor.length ? 'Escolha ou digite' : 'Ex.: Bobst 1'} />
+                            <datalist id="rast-maquinas">
+                                {maquinasDoSetor.map(m => <option key={m.id} value={m.nome} />)}
+                            </datalist>
                         </div>
                         <div className="rast-campo estreito">
                             <label htmlFor="rast-un">Unidade</label>

@@ -217,6 +217,20 @@ export async function fechamentoOp(numeroOp: number): Promise<FechamentoSetor[]>
     }));
 }
 
+export interface Maquina {
+    id: number;
+    setor_id: number;
+    nome: string;
+    ativo: boolean;
+}
+
+/** Maquinas cadastradas, para o operador escolher em vez de digitar. */
+export async function listarMaquinas(): Promise<Maquina[]> {
+    const { data, error } = await supabase.from('rast_maquinas').select('*').eq('ativo', true).order('nome');
+    if (error) return [];   // banco ainda sem a tabela: segue digitando na mao
+    return (data || []) as Maquina[];
+}
+
 export async function listarClientes(): Promise<Cliente[]> {
     const { data, error } = await supabase.from('rast_clientes').select('*').order('id');
     if (error) throw error;
