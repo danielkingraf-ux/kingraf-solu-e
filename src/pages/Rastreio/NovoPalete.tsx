@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Search, Plus, Trash2, Printer, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
-import type { Etapa, Op, OpResumo, Palete, Setor } from './api';
+import type { Etapa, Op, OpResumo, Palete, Produto, Setor } from './api';
 import {
     buscarOp, formatarDataHora, formatarQtd, lerMatricula, listarOps, listarSetores,
     mensagemErro, nomeDestino, proximaEtapa, salvarMatricula,
@@ -17,6 +17,8 @@ const NovoPalete: React.FC = () => {
     const [buscando, setBuscando] = useState(false);
     const [op, setOp] = useState<Op | null>(null);
     const [roteiro, setRoteiro] = useState<Etapa[]>([]);
+    const [produtos, setProdutos] = useState<Produto[]>([]);
+    const [produtoId, setProdutoId] = useState<string>('');
     const [etapaId, setEtapaId] = useState<string>('');
     const [matricula, setMatricula] = useState(lerMatricula());
     const [maquina, setMaquina] = useState('');
@@ -48,7 +50,7 @@ const NovoPalete: React.FC = () => {
     const numeros = qtds.map(q => Number(q.replace(/\./g, '').replace(',', '.')));
     const validas = numeros.filter(n => Number.isFinite(n) && n > 0);
     const total = validas.reduce((a, b) => a + b, 0);
-    const podeSalvar = !!etapa && matricula.trim() !== '' && validas.length === qtds.length && qtds.length > 0;
+    const podeSalvarQtd = !!etapa && matricula.trim() !== '' && validas.length === qtds.length && qtds.length > 0;
 
     const buscar = (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -72,6 +74,9 @@ const NovoPalete: React.FC = () => {
             }
             setOp(r.op);
             setRoteiro(r.roteiro);
+            setProdutos(r.produtos);
+            // OP de um modelo so: nao faz o operador escolher o obvio.
+            setProdutoId(r.produtos.length === 1 ? r.produtos[0].id : '');
             // Palete nasce na impressao: ja deixa ela escolhida.
             const imp = setores.find(s => s.sigla === 'IMP');
             const primeira = r.roteiro.find(x => x.movimenta_palete && !x.terceiros && x.setor_id === imp?.id)
@@ -106,6 +111,7 @@ const NovoPalete: React.FC = () => {
                 p_unidade: unidade,
                 p_status: status,
                 p_observacao: observacao,
+                p_produto_id: produtoId || null,
             });
             if (error) throw error;
             const novos = (data || []) as Palete[];
@@ -135,6 +141,11 @@ const NovoPalete: React.FC = () => {
     };
 
     const etapaNome = (e: Etapa) => `${e.seq}. ${e.processo}`;
+
+    // "Bocas" e o numero de poses na folha: 2.500 folhas x 14 bocas = 35.000 unidades.
+    const bocas = etapa?.poses_por_ciclo ?? null;
+    const exigeModelo = !!setor?.exige_produto && produtos.length > 1;
+    const podeSalvarModelo = !exigeModelo || produtoId !== '';
 
     return (
         <div className="rast-page">
@@ -240,6 +251,28 @@ const NovoPalete: React.FC = () => {
                         </div>
                     )}
 
+                    {produtos.length > 0 && (
+                        <div className="rast-campo" style={{ marginBottom: 16 }}>
+                            <label htmlFor="rast-modelo">
+                                Modelo {exigeModelo ? '(obrigatório neste setor)' : produtos.length === 1 ? '(único da OP)' : '(opcional até o destaque)'}
+                            </label>
+                            <select id="rast-modelo" value={produtoId} onChange={e => setProdutoId(e.target.value)}
+                                className={exigeModelo && !produtoId ? 'faltando' : ''}>
+                                <option value="">{exigeModelo ? 'Escolha o modelo' : 'Ainda misturado, sem modelo'}</option>
+                                {produtos.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.codigo} · {p.descricao}{p.quantidade ? ` · ${formatarQtd(p.quantidade)} un` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            {exigeModelo && !produtoId && (
+                                <span className="rast-ajuda" style={{ color: 'var(--danger)' }}>
+                                    Esta OP tem {produtos.length} modelos e aqui o material já está separado: escolha de qual modelo é o palete.
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     <div className="rast-linha" style={{ marginBottom: 16 }}>
                         <div className="rast-campo estreito">
                             <label htmlFor="rast-mat">Matrícula do operador</label>
@@ -304,8 +337,9 @@ const NovoPalete: React.FC = () => {
                     <div className="rast-linha" style={{ justifyContent: 'space-between' }}>
                         <span className="rast-ajuda">
                             {validas.length} palete(s), total {formatarQtd(total)} {unidade}
+                            {unidade === 'folhas' && bocas ? `, que dão ${formatarQtd(total * bocas)} unidades com ${formatarQtd(bocas)} bocas` : ''}
                         </span>
-                        <button className="rast-btn primario" disabled={!podeSalvar || salvando} onClick={salvar}>
+                        <button className="rast-btn primario" disabled={!podeSalvarQtd || !podeSalvarModelo || salvando} onClick={salvar}>
                             <Printer size={18} /> {salvando ? 'Registrando...' : 'Registrar e imprimir fichas'}
                         </button>
                     </div>

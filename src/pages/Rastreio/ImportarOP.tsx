@@ -71,7 +71,7 @@ const ImportarOP: React.FC = () => {
             const { error } = await supabase.rpc('rast_importar_op', {
                 p_op: lido.op,
                 p_roteiro: linhas,
-                p_produtos: [],
+                p_produtos: lido.produtos,
                 p_arquivo: arquivo,
             });
             if (error) throw error;
@@ -142,6 +142,29 @@ const ImportarOP: React.FC = () => {
                         )}
                     </div>
 
+                    {lido.produtos.length > 0 && (
+                        <div className="rast-tabela-wrap" style={{ marginBottom: 16 }}>
+                            <table className="rast-tabela">
+                                <thead>
+                                    <tr>
+                                        <th>{lido.produtos.length > 1 ? `${lido.produtos.length} modelos nesta OP` : 'Modelo'}</th>
+                                        <th>Código</th>
+                                        <th style={{ textAlign: 'right' }}>Quantidade</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lido.produtos.map((p, i) => (
+                                        <tr key={i}>
+                                            <td>{p.descricao || '-'}</td>
+                                            <td className="rast-codigo">{p.codigo || '-'}</td>
+                                            <td className="num">{formatarQtd(p.quantidade)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
                     <div className="rast-tabela-wrap">
                         <table className="rast-tabela">
                             <thead>
@@ -152,7 +175,7 @@ const ImportarOP: React.FC = () => {
                                     <th>Terceiros</th>
                                     <th>Setor</th>
                                     <th style={{ textAlign: 'right' }}>Qtd planejada</th>
-                                    <th style={{ textAlign: 'right' }}>Poses</th>
+                                    <th style={{ textAlign: 'right' }}>Bocas</th>
                                 </tr>
                             </thead>
                             <tbody>

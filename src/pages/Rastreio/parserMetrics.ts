@@ -47,6 +47,15 @@ const CAMPOS_SERVICO = new Set([
     'Code',               // o numero da OP
     'ExtRef',
     'Description',        // cliente e produto, do jeito que o Metrics escreve
+    'IdActorCustomer',    // so o numero do cliente: nome, contato e endereco ficam de fora
+]);
+
+// plnFinalProduct: os modelos (SKU) da OP, com a quantidade de cada um.
+// Custo e orcamento existem neste elemento e NAO entram: a lista abaixo e o filtro.
+const CAMPOS_PRODUTO_FINAL = new Set([
+    'IdCmp',              // liga ao componente, onde estao codigo e descricao
+    'QtyAdjusted',        // quantidade a produzir
+    'QtyApproved',        // quantidade aprovada no pedido
 ]);
 
 // Terceirizacao. O sinal certo e o proprio Metrics escrever "(Terceiros)" no
@@ -86,10 +95,19 @@ export interface EtapaRoteiro {
     poses_por_ciclo: number | null;
 }
 
+export interface ProdutoXml {
+    codigo: string | null;      // codigo Kingraf, ex.: 90.001.10524
+    descricao: string | null;   // ex.: 400514.00 CAR VULT BAT ICON/CRM 207
+    quantidade: number | null;
+    qtd_aprovada: number | null;
+    unidade_id: number | null;
+}
+
 export interface OpXml {
     numero_op: number | null;   // plnWS.Code: o numero que a fabrica usa
     id_wo: number | null;       // IdWO: id interno do Metrics, para conferencia
     descricao: string | null;   // cliente e produto
+    cliente_id: number | null;  // IdActorCustomer: o nome nao vem no XML
     pedido: string | null;
     versao_xml: string;
     entrega_prevista: string | null;
@@ -99,6 +117,7 @@ export interface OpXml {
 
 export interface ResultadoParser {
     op: OpXml;
+    produtos: ProdutoXml[];
     roteiro: EtapaRoteiro[];
     etapas_sem_movimentacao: string[];
     componentes: Attrs[];
@@ -290,6 +309,28 @@ export function extrair(textoXml: string): ResultadoParser {
     const primeiraImpressao = roteiro.findIndex(r => normalizar(r.processo).includes('impress'));
     for (let i = 0; i < primeiraImpressao; i++) roteiro[i].movimenta_palete = false;
 
+    // --- modelos da OP --------------------------------------------------
+    // Uma OP de embalagem simples tem um modelo. A do batom Vult tem cinco,
+    // e cada um tem a sua quantidade. O palete so sabe de qual modelo e
+    // depois do destaque, quando o material ja esta separado.
+    const porIdCmp = new Map<string, Attrs>();
+    for (const cmp of cmps) {
+        const id = cmp.getAttribute("IdCmp");
+        if (id && !porIdCmp.has(id)) porIdCmp.set(id, filtrar(cmp, CAMPOS_COMPONENTE));
+    }
+
+    const produtos: ProdutoXml[] = iterTag(raiz, "plnFinalProduct").map(el => {
+        const fp = filtrar(el, CAMPOS_PRODUTO_FINAL);
+        const cmp = porIdCmp.get(fp.IdCmp ?? "") ?? {};
+        return {
+            codigo: cmp.Code ?? null,
+            descricao: cmp.Description ?? null,
+            quantidade: num(fp.QtyAdjusted),
+            qtd_aprovada: num(fp.QtyApproved),
+            unidade_id: num(cmp.IdUnit),
+        };
+    }).filter(p => p.codigo || p.descricao);
+
     // O numero da OP e o Code do servico. O IdWO so serve de conferencia: ele
     // e outro numero, interno do Metrics, e nao e o que esta na ordem impressa.
     const numeroOp = num(servico.Code ?? servico.ExtRef);
@@ -298,12 +339,14 @@ export function extrair(textoXml: string): ResultadoParser {
             numero_op: numeroOp,
             id_wo: num(opAttrs.IdWO),
             descricao: servico.Description ?? null,
+            cliente_id: num(servico.IdActorCustomer),
             pedido: opAttrs.RequestNum ?? null,
             versao_xml: opAttrs.Version ?? '',
             entrega_prevista: dueDate,
             inicio_minimo: opAttrs.DtMinStart ?? null,
             status_erp: opAttrs.IdWOStatus ?? null,
         },
+        produtos,
         roteiro,
         etapas_sem_movimentacao: semFluxo,
         componentes,

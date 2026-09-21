@@ -10,6 +10,7 @@ export interface Setor {
     terceiros: boolean;
     cura_horas: number;
     expedicao: boolean;
+    exige_produto: boolean;
     ativo: boolean;
     ordem: number;
 }
@@ -46,11 +47,29 @@ export interface Operador {
     ativo: boolean;
 }
 
+/** Modelo (SKU) da OP. A do batom Vult tem cinco; a de embalagem simples, um. */
+export interface Produto {
+    id: string;
+    op_id: string;
+    codigo: string | null;
+    descricao: string | null;
+    quantidade: number | null;
+    qtd_aprovada: number | null;
+    unidade_id: number | null;
+}
+
+export interface Cliente {
+    id: number;
+    nome: string | null;
+    ativo: boolean;
+}
+
 export interface Op {
     id: string;
     numero_op: number;
     id_wo: number | null;
     descricao: string | null;
+    cliente_id: number | null;
     pedido: string | null;
     versao_xml: string;
     entrega_prevista: string | null;
@@ -79,6 +98,7 @@ export interface Palete {
     codigo: string;
     op_id: string;
     numero_op: number;
+    produto_id: string | null;
     setor_origem_id: number;
     numero: number;
     etapa_origem_id: string;
@@ -197,8 +217,14 @@ export async function fechamentoOp(numeroOp: number): Promise<FechamentoSetor[]>
     }));
 }
 
-/** Versao ativa da OP e o roteiro dela. */
-export async function buscarOp(numero: number): Promise<{ op: Op; roteiro: Etapa[] } | null> {
+export async function listarClientes(): Promise<Cliente[]> {
+    const { data, error } = await supabase.from('rast_clientes').select('*').order('id');
+    if (error) throw error;
+    return (data || []) as Cliente[];
+}
+
+/** Versao ativa da OP, o roteiro e os modelos dela. */
+export async function buscarOp(numero: number): Promise<{ op: Op; roteiro: Etapa[]; produtos: Produto[] } | null> {
     const { data: op, error } = await supabase
         .from('rast_ops')
         .select('*')
@@ -208,13 +234,13 @@ export async function buscarOp(numero: number): Promise<{ op: Op; roteiro: Etapa
     if (error) throw error;
     if (!op) return null;
 
-    const { data: roteiro, error: e2 } = await supabase
-        .from('rast_op_roteiro')
-        .select('*')
-        .eq('op_id', op.id)
-        .order('seq');
+    const [{ data: roteiro, error: e2 }, { data: produtos, error: e3 }] = await Promise.all([
+        supabase.from('rast_op_roteiro').select('*').eq('op_id', op.id).order('seq'),
+        supabase.from('rast_op_produtos').select('*').eq('op_id', op.id).order('descricao'),
+    ]);
     if (e2) throw e2;
-    return { op: op as Op, roteiro: (roteiro || []) as Etapa[] };
+    if (e3) throw e3;
+    return { op: op as Op, roteiro: (roteiro || []) as Etapa[], produtos: (produtos || []) as Produto[] };
 }
 
 /** Proxima etapa que movimenta palete depois de `etapa`. Espelha rast_proxima_etapa. */

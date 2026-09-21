@@ -9,6 +9,9 @@ import { buscarRastro, codigoCurto, formatarQtd, nomeDestino } from './api';
 
 export interface DadosFicha {
     palete: Palete;
+    produto: { codigo: string | null; descricao: string | null } | null;
+    cliente: string | null;
+    servico: string | null;
     pedido: string | null;
     versao: string;
     roteiro: Etapa[];
@@ -56,7 +59,7 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
                 <div class="titulo">FICHA DE PALETE</div>
             </div>
             <div class="ids">
-                <div>OP <b>${p.numero_op}</b>${d.pedido ? ` · Pedido ${esc(d.pedido)}` : ''}</div>
+                <div>OP <b>${p.numero_op}</b>${d.pedido ? ` · Pedido ${esc(d.pedido)}` : ''}${d.cliente ? ` · ${esc(d.cliente)}` : ''}</div>
                 <div>Palete nº <b>${p.numero}</b> · Id Etiqueta <b>${d.etiqueta?.numero ?? '-'}</b></div>
                 ${reimpressao ? '<div class="via">2ª VIA (REIMPRESSÃO)</div>' : ''}
             </div>
@@ -75,6 +78,11 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
             <div class="valor">${esc(nomeDestino(destino, d.setores).toUpperCase())}</div>
             ${destino?.terceiros ? '<div class="obs">Sai pela portaria. Bipar na saída e no retorno.</div>' : ''}
         </div>
+
+        ${d.produto || d.servico ? `<div class="produto">
+            <span>${d.produto ? "Modelo deste palete" : "Serviço"}</span>
+            <b>${esc(d.produto ? [d.produto.codigo, d.produto.descricao].filter(Boolean).join(" · ") : d.servico)}</b>
+        </div>` : ''}
 
         <div class="grade">
             <div class="campo"><span>Quantidade</span><b class="grande">${formatarQtd(p.quantidade)} ${esc(p.unidade)}</b></div>
@@ -152,6 +160,9 @@ header { display: flex; justify-content: space-between; align-items: flex-end; b
 .destino .rotulo { font-size: 11pt; font-weight: 800; letter-spacing: 2px; }
 .destino .valor { font-size: 30pt; font-weight: 900; line-height: 1.1; }
 .destino .obs { font-size: 11pt; margin-top: 1mm; }
+.produto { border: 0.4mm solid #000; padding: 2mm 3mm; }
+.produto span { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; display: block; }
+.produto b { font-size: 13pt; }
 .grade { display: grid; grid-template-columns: 1fr 1fr; border: 0.4mm solid #000; }
 .campo { padding: 2mm 3mm; border-bottom: 0.3mm solid #000; display: flex; flex-direction: column; gap: 0.5mm; }
 .campo:nth-child(odd) { border-right: 0.3mm solid #000; }
@@ -189,7 +200,7 @@ export async function imprimirFichas(paleteIds: string[]) {
     const operIds = [...new Set(lista.map(p => p.operador_id))];
 
     const [ops, roteiros, operadores, etiquetas, setores] = await Promise.all([
-        supabase.from('rast_ops').select('id, pedido, versao_xml').in('id', opIds),
+        supabase.from('rast_ops').select('id, pedido, versao_xml, descricao, cliente_id').in('id', opIds),
         supabase.from('rast_op_roteiro').select('*').in('op_id', opIds).order('seq'),
         supabase.from('rast_operadores').select('id, matricula, nome').in('id', operIds),
         supabase.from('rast_etiquetas').select('palete_id, numero, motivo, impressa_em').in('palete_id', paleteIds).order('numero', { ascending: false }),
@@ -198,11 +209,24 @@ export async function imprimirFichas(paleteIds: string[]) {
     for (const r of [ops, roteiros, operadores, etiquetas, setores]) if (r.error) throw r.error;
     const rastros = await Promise.all(lista.map(p => buscarRastro(p.id)));
 
+    const idsProduto = [...new Set(lista.map(p => p.produto_id).filter(Boolean))] as string[];
+    const idsCliente = [...new Set((ops.data || []).map(o => (o as { cliente_id: number | null }).cliente_id).filter(Boolean))] as number[];
+    const [produtos, clientes] = await Promise.all([
+        idsProduto.length ? supabase.from('rast_op_produtos').select('id, codigo, descricao').in('id', idsProduto) : Promise.resolve({ data: [], error: null }),
+        idsCliente.length ? supabase.from('rast_clientes').select('id, nome').in('id', idsCliente) : Promise.resolve({ data: [], error: null }),
+    ]);
+
     const html: string[] = [];
     for (const [i, p] of lista.entries()) {
         const op = ops.data!.find(o => o.id === p.op_id);
+        const cli = (clientes.data as { id: number; nome: string | null }[] | null)
+            ?.find(c => c.id === (op as { cliente_id?: number | null })?.cliente_id);
         html.push(await montarFicha({
             palete: p,
+            produto: (produtos.data as { id: string; codigo: string | null; descricao: string | null }[] | null)
+                ?.find(x => x.id === p.produto_id) ?? null,
+            cliente: cli?.nome ?? (cli ? `Cliente ${cli.id}` : null),
+            servico: (op as { descricao?: string | null })?.descricao ?? null,
             pedido: op?.pedido ?? null,
             versao: op?.versao_xml ?? '',
             roteiro: (roteiros.data as Etapa[]).filter(r => r.op_id === p.op_id),
