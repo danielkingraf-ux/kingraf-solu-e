@@ -41,6 +41,13 @@ SELECT s.id, m.nome
  WHERE s.sigla = 'CV'
 ON CONFLICT (setor_id, nome) DO NOTHING;
 
+INSERT INTO rast_maquinas (setor_id, nome)
+SELECT s.id, m.nome
+  FROM rast_setores s
+  JOIN (VALUES ('Bobst 68'), ('Bobst Vision'), ('Ricall'), ('Bobst Baby 1'), ('Bobst Baby 2')) AS m(nome) ON true
+ WHERE s.sigla = 'COL'
+ON CONFLICT (setor_id, nome) DO NOTHING;
+
 ALTER TABLE rast_maquinas ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Leitura rast_maquinas" ON rast_maquinas;
 CREATE POLICY "Leitura rast_maquinas" ON rast_maquinas FOR SELECT TO authenticated USING (true);
