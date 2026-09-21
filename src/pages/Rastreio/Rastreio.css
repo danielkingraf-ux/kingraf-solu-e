@@ -337,3 +337,41 @@
     .rast-campo, .rast-campo.estreito { flex: 1 1 100%; min-width: 0; }
     .rast-scan { font-size: var(--text-xl) !important; }
 }
+
+/* ---------- leitor pela camera ---------- */
+
+.rast-camera {
+    margin-top: var(--space-4);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0F172A;
+}
+
+.rast-camera-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    color: #fff;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.rast-camera-topo span { display: flex; align-items: center; gap: 8px; }
+
+.rast-camera-video {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+    background: #000;
+}
+
+.rast-camera-ajuda {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-xs);
+    color: #94A3B8;
+    margin: 0;
+}

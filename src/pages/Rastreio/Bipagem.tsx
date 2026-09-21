@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ScanLine, CheckCircle2, XCircle, Truck, Undo2 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ScanLine, CheckCircle2, XCircle, Truck, Undo2, Camera } from 'lucide-react';
+import LeitorCamera from './LeitorCamera';
 import { supabase } from '../../supabaseClient';
 import type { Setor } from './api';
 import { codigoDoTexto, formatarQtd, lerMatricula, listarSetores, mensagemErro, salvarMatricula } from './api';
@@ -46,6 +47,7 @@ const Bipagem: React.FC = () => {
     const [retRefugo, setRetRefugo] = useState('');
     const [retObs, setRetObs] = useState('');
     const scanRef = useRef<HTMLInputElement>(null);
+    const [camera, setCamera] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -95,9 +97,9 @@ const Bipagem: React.FC = () => {
         }, ...h].slice(0, 20));
     };
 
-    const bipar = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const cod = codigoDoTexto(codigo);
+    const bipar = async (e?: React.FormEvent, codigoLido?: string) => {
+        e?.preventDefault();
+        const cod = codigoDoTexto(codigoLido ?? codigo);
         if (!cod || !setor || enviando) return;
         setEnviando(true);
         salvarMatricula(matricula.trim());
@@ -150,6 +152,14 @@ const Bipagem: React.FC = () => {
         }
     };
 
+    const aoLerPelaCamera = useCallback((cod: string) => {
+        setCodigo(cod);
+        if (aba === 'bipar') bipar(undefined, cod);
+        // No retorno de terceiros a camera so preenche: falta a quantidade.
+        else setCamera(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aba, setor?.id, matricula, enviando]);
+
     return (
         <div className="rast-page">
             <div className="rast-card">
@@ -189,10 +199,16 @@ const Bipagem: React.FC = () => {
                 </div>
             ) : aba === 'bipar' ? (
                 <form className="rast-card" onSubmit={bipar}>
-                    <h2>{setor!.terceiros ? 'Saída para terceiros' : `Entrada em ${setor!.nome}`}</h2>
+                    <div className="rast-manual-topo" style={{ marginBottom: 12 }}>
+                        <h2 style={{ margin: 0 }}>{setor!.terceiros ? 'Saída para terceiros' : `Entrada em ${setor!.nome}`}</h2>
+                        <button type="button" className="rast-btn" onClick={() => setCamera(true)}>
+                            <Camera size={18} /> Ler pela câmera
+                        </button>
+                    </div>
                     <input ref={scanRef} className="rast-input rast-scan" value={codigo} disabled={enviando}
                         onChange={e => setCodigo(e.target.value)} placeholder="Bipe a ficha do palete"
                         aria-label="Código do palete" autoComplete="off" />
+                    {camera && <LeitorCamera onLer={aoLerPelaCamera} onFechar={() => setCamera(false)} />}
                 </form>
             ) : (
                 <form className="rast-card" onSubmit={retorno}>
@@ -200,6 +216,11 @@ const Bipagem: React.FC = () => {
                     <div className="rast-linha">
                         <div className="rast-campo" style={{ flexBasis: '100%' }}>
                             <label htmlFor="rast-ret-cod">Código do palete</label>
+                            <button type="button" className="rast-btn pequeno" style={{ alignSelf: 'flex-start', marginBottom: 6 }}
+                                onClick={() => setCamera(true)}>
+                                <Camera size={16} /> Ler pela câmera
+                            </button>
+                            {camera && <LeitorCamera onLer={aoLerPelaCamera} onFechar={() => setCamera(false)} />}
                             <input id="rast-ret-cod" ref={scanRef} className="rast-scan" value={codigo}
                                 onChange={e => setCodigo(e.target.value)} placeholder="Bipe a ficha" autoComplete="off"
                                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('rast-ret-qtd')?.focus(); } }} />
