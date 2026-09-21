@@ -2,7 +2,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Carimbo da versao: aparece no rodape do menu. E o que responde "o PC da
+// maquina esta com o app novo?" sem ninguem precisar abrir o DevTools.
+const VERSAO = new Date().toISOString().slice(0, 16).replace("T", " ");
+
 export default defineConfig({
+  define: {
+    __VERSAO_APP__: JSON.stringify(VERSAO),
+  },
   server: {
     port: 8080
   },
@@ -37,7 +44,13 @@ export default defineConfig({
         ]
       },
       workbox: {
-        navigateFallback: '/index.html'
+        navigateFallback: '/index.html',
+        // O PC do setor fica semanas com a mesma aba aberta. Sem estas tres
+        // linhas o app novo so entra quando todas as abas fecham, e o operador
+        // segue trabalhando com a versao velha sem saber.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true
       }
     })
   ]

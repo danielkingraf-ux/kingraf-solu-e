@@ -241,7 +241,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
             </div>
             <div className="user-details">
               <span className="user-name">{userName}</span>
-              <span className="user-role">{userRole}</span>
+              <span className="user-role">{userRole} · v{__VERSAO_APP__}</span>
             </div>
             <button className="logout-btn" onClick={onLogout} title="Sair da conta" aria-label="Sair da conta">
               <LogOut size={18} />
