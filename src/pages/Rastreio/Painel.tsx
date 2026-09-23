@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock, Lock, LockOpen, Maximize2, Minimize2, RefreshCw, Search, ShieldCheck, Truck,
+    AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Lock, LockOpen, Maximize2, Minimize2, RefreshCw, Search, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
@@ -110,7 +110,7 @@ const SITUACAO: Record<Situacao, { texto: string; icone: React.ReactNode }> = {
     producao: { texto: 'Em produção', icone: <RefreshCw size={13} /> },
 };
 
-type Filtro = 'abertas' | 'acima' | 'encerradas' | 'todas';
+type Filtro = 'abertas' | 'atencao' | 'encerradas' | 'todas';
 
 const TIPO_LIBERACAO: Record<string, string> = {
     palete_etiqueta: 'Etiqueta de palete',
@@ -163,6 +163,7 @@ const Painel: React.FC = () => {
     // Modo TV: tela cheia para o chao de fabrica, so OPs abertas, sem botoes
     // de acao, atualizando sozinho a cada minuto.
     const [tv, setTv] = useState(false);
+    const [mostrarParadas, setMostrarParadas] = useState(false);
     const paginaRef = useRef<HTMLDivElement>(null);
 
     const carregar = async () => {
@@ -278,256 +279,326 @@ const Painel: React.FC = () => {
 
     const analisadas = useMemo(() => linhas.map(l => ({ l, a: analisar(l) })), [linhas]);
 
+    const hoje = new Date().toISOString().slice(0, 10);
+    const diasAte = (data: string | null) =>
+        data ? Math.round((new Date(data + 'T12:00:00').getTime() - new Date(hoje + 'T12:00:00').getTime()) / 86_400_000) : null;
+
+    // OP importada que ainda nao teve palete, etiqueta, caixa nem revisao.
+    // Sao a maioria no comeco e so faziam barulho: vao para um grupo recolhido.
+    const semMovimento = (l: LinhaPainel) =>
+        l.paletes_colagem === 0 && l.paletes_expedicao === 0 && l.caixas_emitidas === 0
+        && l.paletes_escolha === 0 && !(l.revisado_revisao ?? 0) && l.setores.length === 0;
+
+    type Analisada = { l: LinhaPainel; a: ReturnType<typeof analisar> };
+
+    // O que precisa de gente olhando vem primeiro.
+    const prioridade = ({ l, a }: Analisada) => {
+        if (a.situacao === 'encerrada') return 6;
+        if (a.situacao === 'acima') return 0;
+        if (a.semBipagem) return 1;
+        const dias = diasAte(l.entrega_prevista);
+        if (dias !== null && dias < 0) return 2;
+        if (a.situacao === 'pronta') return 3;
+        return semMovimento(l) ? 5 : 4;
+    };
+    const precisaAtencao = (x: Analisada) => prioridade(x) <= 2;
+
     const termo = busca.trim().toLowerCase();
-    const visiveis = analisadas.filter(({ l, a }) => {
-        if ((tv || filtro === 'abertas') && a.situacao === 'encerrada') return false;
-        if (tv) return true;
-        if (filtro === 'acima' && a.situacao !== 'acima') return false;
-        if (filtro === 'encerradas' && a.situacao !== 'encerrada') return false;
-        if (!termo) return true;
-        return [l.op, l.cliente, l.descricao, l.pedido].some(t => (t || '').toLowerCase().includes(termo));
-    });
+    const filtradas = analisadas
+        .filter(x => {
+            const { l, a } = x;
+            if ((tv || filtro === 'abertas' || filtro === 'atencao') && a.situacao === 'encerrada') return false;
+            if (!tv && filtro === 'atencao' && !precisaAtencao(x)) return false;
+            if (!tv && filtro === 'encerradas' && a.situacao !== 'encerrada') return false;
+            if (!termo) return true;
+            return [l.op, l.cliente, l.descricao, l.pedido].some(t => (t || '').toLowerCase().includes(termo));
+        })
+        .sort((x, y) => prioridade(x) - prioridade(y)
+            || (x.l.entrega_prevista ?? '9999').localeCompare(y.l.entrega_prevista ?? '9999')
+            || x.l.op.localeCompare(y.l.op, 'pt-BR', { numeric: true }));
+
+    // Buscando, mostra tudo; sem busca, as OPs paradas ficam recolhidas.
+    const recolher = !termo && filtro !== 'encerradas';
+    const comMovimento = recolher ? filtradas.filter(({ l }) => !semMovimento(l)) : filtradas;
+    const paradas = recolher ? filtradas.filter(({ l }) => semMovimento(l)) : [];
 
     const abertas = analisadas.filter(({ a }) => a.situacao !== 'encerrada');
     const kpi = {
         ops: abertas.length,
-        noChao: abertas.reduce((s, { l }) => s + l.paletes_em_aberto, 0),
-        expedidos: abertas.reduce((s, { l }) => s + l.paletes_colagem, 0),
+        comMovimento: abertas.filter(({ l }) => !semMovimento(l)).length,
+        enviados: abertas.reduce((s, { l }) => s + l.paletes_colagem, 0),
         bipados: abertas.reduce((s, { l }) => s + l.paletes_expedicao, 0),
-        acima: abertas.filter(({ a }) => a.situacao === 'acima').length,
-        liberacoes: abertas.reduce((s, { l }) => s + l.liberacoes, 0),
+        aguardando: abertas.reduce((s, { l }) => s + l.aguardando_bipagem, 0),
         semBipagem: abertas.filter(({ a }) => a.semBipagem).length,
+        acima: abertas.filter(({ a }) => a.situacao === 'acima').length,
+        atencao: abertas.filter(precisaAtencao).length,
+        liberacoes: abertas.reduce((s, { l }) => s + l.liberacoes, 0),
+    };
+    const contagem: Record<Filtro, number> = {
+        abertas: abertas.length,
+        atencao: kpi.atencao,
+        encerradas: analisadas.length - abertas.length,
+        todas: analisadas.length,
     };
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    // Numero zerado vira traco: numa tela cheia de zeros, o que importa some.
+    const qtd = (n: number | null | undefined) => (n ? formatarQtd(n) : '—');
+
+    const linhaOp = ({ l, a }: Analisada) => {
+        const dias = l.encerrada_em ? null : diasAte(l.entrega_prevista);
+        const detalhe = aberta === l.op;
+        const expedido = a.expedido;
+        return (
+            <React.Fragment key={l.op}>
+                <div
+                    className={`painel-linha ${a.situacao} ${a.semBipagem ? 'sem-bipagem' : ''} ${detalhe ? 'aberta' : ''}`}
+                    role="row"
+                    onClick={tv ? undefined : () => abrirDetalhe(l.op)}
+                >
+                    <div className="col-op" role="cell">
+                        <b>{l.op}</b>
+                    </div>
+                    <div className="col-produto" role="cell" title={l.descricao || ''}>
+                        <span className="produto">{l.descricao || '—'}</span>
+                        <small>{[l.cliente, l.pedido ? `pedido ${l.pedido}` : null].filter(Boolean).join(' · ') || '—'}</small>
+                    </div>
+                    <div className="col-entrega" role="cell">
+                        <span>{l.entrega_prevista ? new Date(l.entrega_prevista + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—'}</span>
+                        {dias !== null && dias < 0 && <small className="tag perigo">atrasada {-dias}d</small>}
+                        {dias !== null && dias >= 0 && dias <= 2 && <small className="tag alerta">{dias === 0 ? 'hoje' : `em ${dias}d`}</small>}
+                    </div>
+                    <div className="col-num col-enviados" role="cell" data-rotulo="Enviados">
+                        <span className={a.acimaPaletes ? 'num perigo' : 'num'}>
+                            {qtd(l.paletes_colagem)}{a.paletesPrevistos !== null && <em> / {a.paletesPrevistos}</em>}
+                        </span>
+                        {expedido !== null && l.pecas_colagem > 0 && (
+                            <span className={`mini-barra ${expedido > 1 + TOLERANCIA ? 'perigo' : expedido >= 1 ? 'ok' : ''}`}
+                                title={`${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`}>
+                                <i style={{ width: `${(Math.min(expedido, 1.2) / 1.2) * 100}%` }} />
+                            </span>
+                        )}
+                    </div>
+                    <div className="col-num col-bipados" role="cell" data-rotulo="Bipados">
+                        <span className="num">{qtd(l.paletes_expedicao)}</span>
+                        {l.aguardando_bipagem > 0 && (
+                            <small className={a.semBipagem ? 'tag alerta' : 'fraco'}>{l.aguardando_bipagem} aguardando</small>
+                        )}
+                    </div>
+                    <div className="col-num col-caixas" role="cell" data-rotulo="Caixas">
+                        <span className={a.acimaCaixas ? 'num perigo' : 'num'}>
+                            {qtd(l.caixas_emitidas)}{l.caixas_emitidas > 0 && a.caixasPrevistas !== null && <em> / {a.caixasPrevistas}</em>}
+                        </span>
+                    </div>
+                    <div className="col-num col-revisao" role="cell" data-rotulo="Revisão">
+                        <span className="num">{qtd(l.aprovado_revisao)}</span>
+                        {(l.revisado_revisao ?? 0) > 0 && l.qtd_op
+                            ? <small className="fraco">{pct((l.aprovado_revisao ?? 0) / l.qtd_op)} da OP</small>
+                            : null}
+                    </div>
+                    <div className="col-situacao" role="cell">
+                        {a.situacao === 'producao'
+                            ? <span className="fraco">em produção</span>
+                            : <span className={`painel-situacao ${a.situacao}`}>{SITUACAO[a.situacao].icone}{SITUACAO[a.situacao].texto}</span>}
+                        {l.paletes_escolha > 0 && <small className="tag perigo">{l.paletes_escolha} escolha</small>}
+                        {l.liberacoes > 0 && <small className="tag lib"><ShieldCheck size={11} /> {l.liberacoes}</small>}
+                    </div>
+                    {!tv && (
+                        <div className="col-abrir" role="cell">
+                            <button type="button" className="painel-abrir" aria-expanded={detalhe}
+                                aria-label={detalhe ? `Fechar OP ${l.op}` : `Abrir OP ${l.op}`}
+                                onClick={e => { e.stopPropagation(); abrirDetalhe(l.op); }}>
+                                {detalhe ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {detalhe && !tv && (
+                    <div className="painel-detalhe" role="row">
+                        <div className="painel-detalhe-numeros">
+                            <div><span>Unidades enviadas</span><b>{formatarQtd(l.pecas_colagem)}</b><small>de {qtd(l.qtd_op)} da OP</small></div>
+                            <div><span>Bipados na expedição</span><b>{l.paletes_expedicao}</b><small>{formatarQtd(l.pecas_expedicao)} unidades</small></div>
+                            <div><span>Aguardando bipagem</span><b>{l.aguardando_bipagem}</b><small>{l.aguardando_bipagem > 0 ? `mais antigo há ${Math.floor(a.esperaHoras)} h` : '—'}</small></div>
+                            <div><span>Escolha separada</span><b>{l.paletes_escolha}</b><small>{formatarQtd(l.pecas_escolha)} unidades</small></div>
+                            <div><span>Revisão</span><b>{qtd(l.aprovado_revisao)}</b><small>aprovadas de {qtd(l.revisado_revisao)}</small></div>
+                            <div><span>Etiquetas de palete</span><b>{l.etiquetas_palete}</b><small>{l.modelos} modelo(s) na OP</small></div>
+                        </div>
+
+                        <div className="painel-detalhe-medidores">
+                            <Medidor valor={a.expedido} rotulo="Enviado à expedição"
+                                detalhe={l.qtd_op ? `${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades` : 'OP sem quantidade no XML'} />
+                            {(l.revisado_revisao ?? 0) > 0 && (
+                                <Medidor valor={l.qtd_op ? (l.aprovado_revisao ?? 0) / l.qtd_op : null} rotulo="Aprovado na revisão"
+                                    detalhe={`${formatarQtd(l.aprovado_revisao)} aprovadas de ${formatarQtd(l.revisado_revisao)} revisadas`} />
+                            )}
+                        </div>
+
+                        {l.setores.length > 0 && (
+                            <div className="painel-detalhe-bloco">
+                                <h4>Paletes no rastreio, por setor</h4>
+                                <table className="rast-tabela">
+                                    <thead><tr><th>Setor</th><th style={{ textAlign: 'right' }}>Paletes</th><th style={{ textAlign: 'right' }}>Quantidade</th><th style={{ textAlign: 'right' }}>No chão</th></tr></thead>
+                                    <tbody>
+                                        {l.setores.map(s => (
+                                            <tr key={s.sigla}>
+                                                <td>{s.nome}</td>
+                                                <td className="num">{s.paletes}</td>
+                                                <td className="num">{formatarQtd(s.quantidade)} {s.unidade || ''}</td>
+                                                <td className="num">{s.abertos || '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {a.caixasPrevistas === null && (
+                            <p className="rast-ajuda">
+                                Caixas e paletes previstos saem da Conta da OP na etiqueta de palete (quantidade por caixa e caixas por palete). Esta OP ainda não tem essa conta.
+                            </p>
+                        )}
+
+                        <div className="painel-detalhe-bloco">
+                            <h4>Liberações da supervisão</h4>
+                            {liberacoes.length === 0 ? (
+                                <p className="rast-ajuda">Nenhuma.</p>
+                            ) : (
+                                <ul className="painel-libs">
+                                    {liberacoes.map(x => (
+                                        <li key={x.id}>
+                                            <b>{TIPO_LIBERACAO[x.tipo] || x.tipo}</b>
+                                            <span>
+                                                {x.previsto !== null ? `previsto ${formatarQtd(x.previsto)}, ` : ''}
+                                                emitido {formatarQtd(x.emitido)}
+                                                {x.referencia ? ` · ${x.referencia}` : ''}
+                                            </span>
+                                            <span>“{x.motivo}” · {x.supervisor?.nome ?? '—'} · {formatarDataHora(x.created_at)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+
+                        <div className="painel-acoes">
+                            {l.encerrada_em ? (
+                                <>
+                                    <span className="rast-ajuda">Encerrada em {formatarDataHora(l.encerrada_em)}</span>
+                                    <button className="rast-btn pequeno" disabled={agindo} onClick={() => reabrir(l)}>
+                                        <LockOpen size={14} /> Reabrir
+                                    </button>
+                                </>
+                            ) : (
+                                <button className="rast-btn primario" disabled={agindo} onClick={() => encerrar(l)}>
+                                    <Lock size={16} /> Encerrar OP{a.abaixo ? ' (abaixo do previsto)' : ''}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </React.Fragment>
+        );
+    };
+
+    const ABAS: [Filtro, string][] = [['abertas', 'Abertas'], ['atencao', 'Precisam de atenção'], ['encerradas', 'Encerradas'], ['todas', 'Todas']];
 
     return (
         <div className={`rast-page painel ${tv ? 'tv' : ''}`} ref={paginaRef}>
             {modalLiberacao}
 
+            {/* Resumo: cinco numeros, cada um responde uma pergunta. */}
             <div className="painel-kpis">
-                <div className="painel-kpi"><span>OPs abertas</span><b>{kpi.ops}</b></div>
-                <div className="painel-kpi"><span>Paletes no chão</span><b>{kpi.noChao}</b><small>aguardando ou em terceiros</small></div>
-                <div className="painel-kpi"><span>Paletes enviados à expedição</span><b>{kpi.expedidos}</b><small>{kpi.bipados} já bipados lá</small></div>
-                <div className={`painel-kpi ${kpi.acima ? 'perigo' : ''}`}>
-                    <span>OPs acima do previsto</span><b>{kpi.acima}</b>
-                    <small>mais de {pct(TOLERANCIA)} acima</small>
+                <div className="painel-kpi">
+                    <span>OPs abertas</span>
+                    <b>{kpi.ops}</b>
+                    <small>{kpi.comMovimento} com movimento</small>
+                </div>
+                <div className="painel-kpi">
+                    <span>Paletes enviados</span>
+                    <b>{kpi.enviados}</b>
+                    <small>{kpi.bipados} bipados na expedição</small>
                 </div>
                 <div className={`painel-kpi ${kpi.semBipagem ? 'alerta' : ''}`}>
-                    <span>Sem bipagem na expedição</span><b>{kpi.semBipagem}</b>
-                    <small>OPs com palete enviado há mais de {HORAS_SEM_BIPAGEM} h</small>
+                    <span>Aguardando bipagem</span>
+                    <b>{kpi.aguardando}</b>
+                    <small>{kpi.semBipagem ? `${kpi.semBipagem} OP(s) há mais de ${HORAS_SEM_BIPAGEM} h` : 'nenhum atrasado'}</small>
                 </div>
-                <div className="painel-kpi"><span>Liberações</span><b>{kpi.liberacoes}</b><small>da supervisão, nas OPs abertas</small></div>
+                <div className={`painel-kpi ${kpi.acima ? 'perigo' : ''}`}>
+                    <span>Acima do previsto</span>
+                    <b>{kpi.acima}</b>
+                    <small>OPs mais de {pct(TOLERANCIA)} acima</small>
+                </div>
+                <div className="painel-kpi">
+                    <span>Liberações</span>
+                    <b>{kpi.liberacoes}</b>
+                    <small>da supervisão, OPs abertas</small>
+                </div>
             </div>
 
             {tv ? (
                 <div className="painel-filtros">
-                    <span className="painel-tv-hora">
-                        <RefreshCw size={16} /> Atualiza sozinho a cada minuto
-                    </span>
-                    <button className="rast-btn pequeno" onClick={alternarTv}>
-                        <Minimize2 size={14} /> Sair do modo TV
-                    </button>
+                    <span className="painel-tv-hora"><RefreshCw size={16} /> Atualiza sozinho a cada minuto</span>
+                    <button className="rast-btn pequeno" onClick={alternarTv}><Minimize2 size={14} /> Sair do modo TV</button>
                 </div>
             ) : (
-            <div className="painel-filtros">
-                <div className="painel-abas" role="tablist">
-                    {([['abertas', 'Abertas'], ['acima', 'Acima do previsto'], ['encerradas', 'Encerradas'], ['todas', 'Todas']] as [Filtro, string][]).map(([f, t]) => (
-                        <button key={f} role="tab" aria-selected={filtro === f}
-                            className={filtro === f ? 'ativa' : ''} onClick={() => setFiltro(f)}>{t}</button>
-                    ))}
+                <div className="painel-filtros">
+                    <div className="painel-abas" role="tablist">
+                        {ABAS.map(([f, t]) => (
+                            <button key={f} role="tab" aria-selected={filtro === f}
+                                className={filtro === f ? 'ativa' : ''} onClick={() => setFiltro(f)}>
+                                {t} <em>{contagem[f]}</em>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="painel-busca">
+                        <Search size={16} />
+                        <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar OP, cliente, produto ou pedido" aria-label="Buscar OP" />
+                    </div>
+                    <button className="rast-btn pequeno" onClick={carregar} disabled={carregando}>
+                        <RefreshCw size={14} /> {carregando ? 'Atualizando...' : 'Atualizar'}
+                    </button>
+                    <button className="rast-btn pequeno" onClick={alternarTv}>
+                        <Maximize2 size={14} /> Modo TV
+                    </button>
                 </div>
-                <div className="painel-busca">
-                    <Search size={16} />
-                    <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="OP, cliente, produto ou pedido" />
-                </div>
-                <button className="rast-btn pequeno" onClick={carregar} disabled={carregando}>
-                    <RefreshCw size={14} /> {carregando ? 'Atualizando...' : 'Atualizar'}
-                </button>
-                <button className="rast-btn pequeno" onClick={alternarTv}>
-                    <Maximize2 size={14} /> Modo TV
-                </button>
-            </div>
             )}
 
             {erro && <div className="rast-aviso erro"><AlertTriangle size={18} /><span>{erro}</span></div>}
 
-            {!carregando && visiveis.length === 0 && !erro && (
+            {!carregando && filtradas.length === 0 && !erro && (
                 <div className="rast-vazio">
-                    {linhas.length === 0 ? 'Nenhuma OP importada no rastreio ainda.' : 'Nenhuma OP neste filtro.'}
+                    {linhas.length === 0 ? 'Nenhuma OP importada no rastreio ainda.'
+                        : filtro === 'atencao' ? 'Nenhuma OP precisando de atenção agora.' : 'Nenhuma OP neste filtro.'}
                 </div>
             )}
 
-            <div className="painel-grade">
-                {visiveis.map(({ l, a }) => {
-                    const atrasada = !l.encerrada_em && l.entrega_prevista && l.entrega_prevista < hoje;
-                    const detalhe = aberta === l.op;
-                    return (
-                        <article key={l.op} className={`painel-op ${a.situacao} ${detalhe ? 'expandida' : ''}`}>
-                            <header className="painel-op-topo">
-                                <div>
-                                    <h3>OP {l.op}</h3>
-                                    <p>{l.cliente || 'Cliente sem nome'}{l.pedido ? ` · pedido ${l.pedido}` : ''}</p>
-                                </div>
-                                <span className={`painel-situacao ${a.situacao}`}>
-                                    {SITUACAO[a.situacao].icone}{SITUACAO[a.situacao].texto}
-                                </span>
-                            </header>
+            {filtradas.length > 0 && (
+                <div className={`painel-lista ${tv ? 'sem-abrir' : ''}`} role="table" aria-label="OPs">
+                    <div className="painel-cabecalho" role="row">
+                        <span role="columnheader">OP</span>
+                        <span role="columnheader">Produto</span>
+                        <span role="columnheader">Entrega</span>
+                        <span role="columnheader" className="dir">Enviados</span>
+                        <span role="columnheader" className="dir">Bipados</span>
+                        <span role="columnheader" className="dir">Caixas</span>
+                        <span role="columnheader" className="dir">Revisão</span>
+                        <span role="columnheader">Situação</span>
+                        {!tv && <span role="columnheader" />}
+                    </div>
 
-                            <p className="painel-produto" title={l.descricao || ''}>{l.descricao || '—'}</p>
+                    {comMovimento.map(linhaOp)}
 
-                            <div className="painel-numeros">
-                                <div>
-                                    <span>Enviados à expedição</span>
-                                    <b className={a.acimaPaletes ? 'perigo' : ''}>
-                                        {l.paletes_colagem}
-                                        <em>{a.paletesPrevistos !== null ? ` / ${a.paletesPrevistos}` : ''}</em>
-                                    </b>
-                                </div>
-                                <div>
-                                    <span><Truck size={12} /> Bipados na expedição</span>
-                                    <b>{l.paletes_expedicao}</b>
-                                </div>
-                                <div>
-                                    <span>Caixas emitidas</span>
-                                    <b className={a.acimaCaixas ? 'perigo' : ''}>
-                                        {l.caixas_emitidas}
-                                        <em>{a.caixasPrevistas !== null ? ` / ${a.caixasPrevistas}` : ''}</em>
-                                    </b>
-                                </div>
-                            </div>
-
-                            <Medidor
-                                valor={a.expedido}
-                                rotulo="Expedido"
-                                detalhe={l.qtd_op
-                                    ? `${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
-                                    : 'OP sem quantidade no XML'}
-                            />
-
-                            {/* O que a qualidade aprovou na revisao, contra a OP. */}
-                            {(l.revisado_revisao ?? 0) > 0 && (
-                                <Medidor
-                                    valor={l.qtd_op ? (l.aprovado_revisao ?? 0) / l.qtd_op : null}
-                                    rotulo="Aprovado na revisão"
-                                    detalhe={`${formatarQtd(l.aprovado_revisao)} aprovadas de ${formatarQtd(l.revisado_revisao)} revisadas`
-                                        + (l.qtd_op ? ` · OP pede ${formatarQtd(l.qtd_op)}` : '')}
-                                />
-                            )}
-
-                            {/* Separado na colagem para escolha: nao foi para a expedicao. */}
-                            {l.paletes_escolha > 0 && (
-                                <p className="painel-espera escolha">
-                                    <AlertTriangle size={14} />
-                                    Escolha separada: {l.paletes_escolha} palete(s) · {formatarQtd(l.pecas_escolha)} unidades (não foram para a expedição)
-                                </p>
-                            )}
-
-                            {/* Enviado pela colagem e ainda nao bipado na expedicao. */}
-                            {l.aguardando_bipagem > 0 && l.paletes_expedicao > 0 && (
-                                <p className={`painel-espera ${a.semBipagem ? 'alerta' : ''}`}>
-                                    <Clock size={14} />
-                                    {l.aguardando_bipagem} palete(s) enviado(s) ainda sem bipagem na expedição
-                                    {a.esperaHoras >= 1 && ` · o mais antigo há ${Math.floor(a.esperaHoras)} h`}
-                                </p>
-                            )}
-
-                            {/* O caminho do material: paletes que cada setor soltou,
-                                e quantos ainda estao no chao esperando o proximo. */}
-                            <div className="painel-fluxo" aria-label="Paletes por setor">
-                                {l.setores.length === 0 && <small className="rast-ajuda">Nenhum palete no rastreio ainda.</small>}
-                                {l.setores.map(s => (
-                                    <div key={s.sigla} className="painel-setor"
-                                        title={`${s.nome}: ${s.paletes} paletes, ${formatarQtd(s.quantidade)} ${s.unidade || ''}; ${s.abertos} no chão`}>
-                                        <span>{s.sigla}</span>
-                                        <b>{s.paletes}</b>
-                                        {s.abertos > 0 && <small>{s.abertos} no chão</small>}
-                                    </div>
-                                ))}
-                            </div>
-
-                            <footer className="painel-op-rodape">
-                                <span className={atrasada ? 'atrasada' : ''}>
-                                    Entrega {l.entrega_prevista ? new Date(l.entrega_prevista + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
-                                    {atrasada ? ' · atrasada' : ''}
-                                </span>
-                                {l.liberacoes > 0 && (
-                                    <span className="painel-lib"><ShieldCheck size={13} /> {l.liberacoes} liberação(ões)</span>
-                                )}
-                                {!tv && (
-                                    <button className="rast-btn pequeno" onClick={() => abrirDetalhe(l.op)} aria-expanded={detalhe}>
-                                        {detalhe ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Detalhes
-                                    </button>
-                                )}
-                            </footer>
-
-                            {detalhe && (
-                                <div className="painel-detalhe">
-                                    <table className="rast-tabela">
-                                        <thead><tr><th>Setor</th><th style={{ textAlign: 'right' }}>Paletes</th><th style={{ textAlign: 'right' }}>Quantidade</th><th style={{ textAlign: 'right' }}>No chão</th></tr></thead>
-                                        <tbody>
-                                            {l.setores.map(s => (
-                                                <tr key={s.sigla}>
-                                                    <td>{s.nome}</td>
-                                                    <td className="num">{s.paletes}</td>
-                                                    <td className="num">{formatarQtd(s.quantidade)} {s.unidade || ''}</td>
-                                                    <td className="num">{s.abertos || '-'}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-
-                                    <div className="painel-detalhe-linha">
-                                        <span>Etiquetas de palete impressas</span><b>{l.etiquetas_palete}</b>
-                                    </div>
-                                    <div className="painel-detalhe-linha">
-                                        <span>Modelos na OP</span><b>{l.modelos}</b>
-                                    </div>
-                                    {(a.caixasPrevistas === null) && (
-                                        <p className="rast-ajuda">
-                                            Caixas e paletes previstos saem da conta da OP na etiqueta de palete (quantidade por caixa e caixas por palete). Esta OP ainda não tem essa conta.
-                                        </p>
-                                    )}
-
-                                    <h4>Liberações da supervisão</h4>
-                                    {liberacoes.length === 0 ? (
-                                        <p className="rast-ajuda">Nenhuma.</p>
-                                    ) : (
-                                        <ul className="painel-libs">
-                                            {liberacoes.map(x => (
-                                                <li key={x.id}>
-                                                    <b>{TIPO_LIBERACAO[x.tipo] || x.tipo}</b>
-                                                    <span>
-                                                        {x.previsto !== null ? `previsto ${formatarQtd(x.previsto)}, ` : ''}
-                                                        emitido {formatarQtd(x.emitido)}
-                                                        {x.referencia ? ` · ${x.referencia}` : ''}
-                                                    </span>
-                                                    <span>“{x.motivo}” · {x.supervisor?.nome ?? '—'} · {formatarDataHora(x.created_at)}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-
-                                    <div className="painel-acoes">
-                                        {l.encerrada_em ? (
-                                            <>
-                                                <span className="rast-ajuda">Encerrada em {formatarDataHora(l.encerrada_em)}</span>
-                                                <button className="rast-btn pequeno" disabled={agindo} onClick={() => reabrir(l)}>
-                                                    <LockOpen size={14} /> Reabrir
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <button className="rast-btn primario" disabled={agindo} onClick={() => encerrar(l)}>
-                                                <Lock size={16} /> Encerrar OP{a.abaixo ? ' (abaixo do previsto)' : ''}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </article>
-                    );
-                })}
-            </div>
+                    {paradas.length > 0 && (
+                        <>
+                            <button type="button" className="painel-paradas" onClick={() => setMostrarParadas(v => !v)} aria-expanded={mostrarParadas}>
+                                {mostrarParadas ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                <b>{paradas.length} OP(s) sem movimento ainda</b>
+                                <small>importadas, sem palete, etiqueta, caixa ou revisão</small>
+                            </button>
+                            {mostrarParadas && paradas.map(linhaOp)}
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

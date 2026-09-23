@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import type { Operador, Papel, Setor } from './api';
 import { PAPEL_LABEL, listarSetores, mensagemErro } from './api';
+import Clientes from './Clientes';
 import './Rastreio.css';
 
 const Operadores: React.FC = () => {
@@ -168,6 +169,8 @@ const Operadores: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            <Clientes />
         </div>
     );
 };
