@@ -53,6 +53,9 @@ interface LinhaPainel {
     // Enviados que a expedicao ainda nao bipou e desde quando o mais antigo espera.
     aguardando_bipagem: number;
     aguardando_desde: string | null;
+    // Revisao da qualidade, em unidades. null = OP sem revisao.
+    revisado_revisao: number | null;
+    aprovado_revisao: number | null;
 }
 
 interface Liberacao {
@@ -81,7 +84,9 @@ const analisar = (l: LinhaPainel) => {
     // Caixas so contam se a OP tem etiqueta de caixa: no piloto a colagem pode
     // imprimir so a de palete.
     const abaixo = (l.qtd_op !== null && l.pecas_colagem < l.qtd_op)
-        || (caixasPrevistas !== null && l.caixas_emitidas > 0 && l.caixas_emitidas < caixasPrevistas);
+        || (caixasPrevistas !== null && l.caixas_emitidas > 0 && l.caixas_emitidas < caixasPrevistas)
+        // A revisao aprovou menos que a OP pede.
+        || (l.qtd_op !== null && (l.revisado_revisao ?? 0) > 0 && (l.aprovado_revisao ?? 0) < l.qtd_op);
     // Palete enviado e nao bipado ha muito tempo: so alerta onde a expedicao
     // ja bipa esta OP, senao toda OP do piloto acenderia.
     const esperaHoras = l.aguardando_desde ? (Date.now() - new Date(l.aguardando_desde).getTime()) / 3600_000 : 0;
@@ -171,6 +176,8 @@ const Painel: React.FC = () => {
                 qtd_por_caixa: n(l.qtd_por_caixa),
                 pecas_colagem: Number(l.pecas_colagem),
                 pecas_expedicao: Number(l.pecas_expedicao),
+                revisado_revisao: n(l.revisado_revisao),
+                aprovado_revisao: n(l.aprovado_revisao),
                 setores: (l.setores || []).map(s => ({ ...s, quantidade: Number(s.quantidade) })),
             })));
         } catch (err) {
@@ -209,6 +216,7 @@ const Painel: React.FC = () => {
                     ? `caixas ${l.caixas_emitidas} de ${a.caixasPrevistas}` : undefined,
                 titulo: `Foram para a expedição ${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
                     + (a.caixasPrevistas !== null && l.caixas_emitidas > 0 ? ` e saíram ${l.caixas_emitidas} de ${a.caixasPrevistas} caixas` : '')
+                    + ((l.revisado_revisao ?? 0) > 0 ? `; a revisão aprovou ${formatarQtd(l.aprovado_revisao)}` : '')
                     + '. Encerrar abaixo do previsto precisa da supervisão.',
             });
             if (!liberacaoId) return;
@@ -392,6 +400,16 @@ const Painel: React.FC = () => {
                                     ? `${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
                                     : 'OP sem quantidade no XML'}
                             />
+
+                            {/* O que a qualidade aprovou na revisao, contra a OP. */}
+                            {(l.revisado_revisao ?? 0) > 0 && (
+                                <Medidor
+                                    valor={l.qtd_op ? (l.aprovado_revisao ?? 0) / l.qtd_op : null}
+                                    rotulo="Aprovado na revisão"
+                                    detalhe={`${formatarQtd(l.aprovado_revisao)} aprovadas de ${formatarQtd(l.revisado_revisao)} revisadas`
+                                        + (l.qtd_op ? ` · OP pede ${formatarQtd(l.qtd_op)}` : '')}
+                                />
+                            )}
 
                             {/* Enviado pela colagem e ainda nao bipado na expedicao. */}
                             {l.aguardando_bipagem > 0 && l.paletes_expedicao > 0 && (

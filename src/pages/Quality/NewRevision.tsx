@@ -13,6 +13,7 @@ import {
 import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { useModal } from '../../components/Modal/useModal';
+import { buscarPlano } from '../Labels/planoPalete';
 import '../Production/Stock.css';
 
 interface Revisor {
@@ -86,6 +87,17 @@ const NewRevision: React.FC = () => {
     const [quantidadeReprovada, setQuantidadeReprovada] = useState(0);
     const [acumuladoRevisada, setAcumuladoRevisada] = useState(0);
     const [acumuladoAprovada, setAcumuladoAprovada] = useState(0);
+    // Contagem em caixas ou unidades. quantidade_* no banco fica sempre em
+    // unidades (os relatorios somam essas colunas); em caixas, o que foi
+    // contado vai para caixas_* e a conversao usa a quantidade por caixa.
+    const [unidadeContagem, setUnidadeContagem] = useState<'unidades' | 'caixas'>('unidades');
+    const [porCaixa, setPorCaixa] = useState('');
+    const [acumuladoCaixasRevisadas, setAcumuladoCaixasRevisadas] = useState(0);
+    const [acumuladoCaixasAprovadas, setAcumuladoCaixasAprovadas] = useState(0);
+    const emCaixas = unidadeContagem === 'caixas';
+    const unidadesPorCaixa = Number(String(porCaixa).replace(/\./g, '').replace(',', '.')) || 0;
+    // Fator do que se digita para unidades.
+    const fator = emCaixas ? unidadesPorCaixa : 1;
     const [observacaoGeral, setObservacaoGeral] = useState('');
     const [desvios, setDesvios] = useState<DesvioItem[]>([]);
     const [temposAnteriores, setTemposAnteriores] = useState<TempoItem[]>([]);
@@ -153,6 +165,10 @@ const NewRevision: React.FC = () => {
                 );
                 setAcumuladoRevisada(revisao.quantidade_revisada || 0);
                 setAcumuladoAprovada(revisao.quantidade_aprovada || 0);
+                setUnidadeContagem(revisao.unidade_contagem === 'caixas' ? 'caixas' : 'unidades');
+                setPorCaixa(revisao.quantidade_por_caixa ? String(revisao.quantidade_por_caixa) : '');
+                setAcumuladoCaixasRevisadas(revisao.caixas_revisadas || 0);
+                setAcumuladoCaixasAprovadas(revisao.caixas_aprovadas || 0);
                 setObservacaoGeral(revisao.observacao_geral || '');
                 setTemposAnteriores(revisao.tempos || []);
                 setPeriodosPendentes([]);
@@ -166,9 +182,16 @@ const NewRevision: React.FC = () => {
                 if (revisao.revisores) {
                     setSelectedRevisores(revisao.revisores.map((r: any) => r.revisor_id));
                 }
-            } else if (revisaId && activeOp && activeOp !== opValue) {
-                resetForm(true);
-                setOp(opValue);
+            } else {
+                if (revisaId && activeOp && activeOp !== opValue) {
+                    resetForm(true);
+                    setOp(opValue);
+                }
+                // Revisao nova: a quantidade por caixa vem da conta da OP que a
+                // etiqueta de palete guardou, se houver.
+                buscarPlano(opValue)
+                    .then(plano => { if (plano?.quantidadePorCaixa) setPorCaixa(atual => atual || plano.quantidadePorCaixa); })
+                    .catch(() => { });
             }
         } catch (err) {
             console.error('Erro ao buscar OP ativa:', err);
@@ -481,6 +504,11 @@ const NewRevision: React.FC = () => {
             return;
         }
 
+        if (emCaixas && unidadesPorCaixa <= 0) {
+            toast.showWarning('Contando em caixas, informe quantas unidades vão em cada caixa.');
+            return;
+        }
+
         const dataFimValue = dataFim || getLocalDateTimeString();
         const inicioMs = new Date(dataInicio).getTime();
         const fimMs = new Date(dataFimValue).getTime();
@@ -492,8 +520,9 @@ const NewRevision: React.FC = () => {
         setLoading(true);
         try {
             // 1. Criar ou Atualizar a revisão
-            const totalRevisada = acumuladoRevisada + quantidadeRevisada;
-            const totalAprovada = acumuladoAprovada + quantidadeAprovada;
+            // No banco, sempre em unidades.
+            const totalRevisada = acumuladoRevisada + quantidadeRevisada * fator;
+            const totalAprovada = acumuladoAprovada + quantidadeAprovada * fator;
             const primarySetorId = selectedSetores[0] || null;
             const primaryOperadorId = selectedOperadores[0] || null;
             const revisionData = {
@@ -503,6 +532,10 @@ const NewRevision: React.FC = () => {
                 quantidade_revisada: totalRevisada,
                 quantidade_aprovada: totalAprovada,
                 quantidade_reprovada: Math.max(0, totalRevisada - totalAprovada),
+                unidade_contagem: unidadeContagem,
+                quantidade_por_caixa: emCaixas ? unidadesPorCaixa : null,
+                caixas_revisadas: acumuladoCaixasRevisadas + (emCaixas ? quantidadeRevisada : 0),
+                caixas_aprovadas: acumuladoCaixasAprovadas + (emCaixas ? quantidadeAprovada : 0),
                 observacao_geral: observacaoGeral,
                 status: finalizar ? 'finalizada' : 'em_andamento'
             };
@@ -691,8 +724,12 @@ const NewRevision: React.FC = () => {
             } else {
                 toast.showSuccess('Progresso salvo!');
                 // Atualiza o acumulado local para permitir continuar na mesma tela
-                setAcumuladoRevisada(prev => prev + quantidadeRevisada);
-                setAcumuladoAprovada(prev => prev + quantidadeAprovada);
+                setAcumuladoRevisada(prev => prev + quantidadeRevisada * fator);
+                setAcumuladoAprovada(prev => prev + quantidadeAprovada * fator);
+                if (emCaixas) {
+                    setAcumuladoCaixasRevisadas(prev => prev + quantidadeRevisada);
+                    setAcumuladoCaixasAprovadas(prev => prev + quantidadeAprovada);
+                }
 
                 // Prepara para novo período
                 setDataInicio(getLocalDateTimeString());
@@ -732,6 +769,10 @@ const NewRevision: React.FC = () => {
         setQuantidadeReprovada(0);
         setAcumuladoRevisada(0);
         setAcumuladoAprovada(0);
+        setUnidadeContagem('unidades');
+        setPorCaixa('');
+        setAcumuladoCaixasRevisadas(0);
+        setAcumuladoCaixasAprovadas(0);
         setObservacaoGeral('');
         setDesvios([]);
         setTemposAnteriores([]);
@@ -770,11 +811,13 @@ const NewRevision: React.FC = () => {
                     }}>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--kingraf-orange)' }}>JÁ REVISADO</div>
-                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{acumuladoRevisada.toLocaleString()}</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{acumuladoRevisada.toLocaleString()} un</div>
+                            {acumuladoCaixasRevisadas > 0 && <div style={{ fontSize: '12px', fontWeight: 600 }}>{acumuladoCaixasRevisadas.toLocaleString()} caixas</div>}
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '11px', fontWeight: 800, color: '#10B981' }}>JÁ APROVADO</div>
-                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{acumuladoAprovada.toLocaleString()}</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{acumuladoAprovada.toLocaleString()} un</div>
+                            {acumuladoCaixasAprovadas > 0 && <div style={{ fontSize: '12px', fontWeight: 600 }}>{acumuladoCaixasAprovadas.toLocaleString()} caixas</div>}
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '11px', fontWeight: 800, color: '#EF4444' }}>JÁ REPROVADO</div>
@@ -1090,9 +1133,57 @@ const NewRevision: React.FC = () => {
                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Quantidades</h3>
                     </div>
                     <div className="card-content">
+                        {/* Caixas ou unidades. Em caixas, o banco recebe a conversao
+                            em unidades e guarda as caixas a parte. */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end', marginBottom: '20px' }}>
+                            <div className="form-group" style={{ margin: 0 }}>
+                                <label>Contar em</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {(['unidades', 'caixas'] as const).map(u => (
+                                        <button
+                                            key={u}
+                                            type="button"
+                                            onClick={() => setUnidadeContagem(u)}
+                                            disabled={acumuladoRevisada > 0 && unidadeContagem !== u}
+                                            title={acumuladoRevisada > 0 && unidadeContagem !== u ? 'Esta revisão já foi começada em outra unidade' : undefined}
+                                            style={{
+                                                padding: '10px 18px',
+                                                borderRadius: '10px',
+                                                fontWeight: 700,
+                                                border: `1px solid ${unidadeContagem === u ? 'var(--kingraf-orange)' : 'var(--border-color)'}`,
+                                                background: unidadeContagem === u ? 'var(--kingraf-orange)' : '#fff',
+                                                color: unidadeContagem === u ? '#fff' : 'var(--text-primary)',
+                                                cursor: acumuladoRevisada > 0 && unidadeContagem !== u ? 'not-allowed' : 'pointer',
+                                                opacity: acumuladoRevisada > 0 && unidadeContagem !== u ? 0.5 : 1
+                                            }}
+                                        >
+                                            {u === 'unidades' ? 'Unidades' : 'Caixas'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {emCaixas && (
+                                <div className="form-group" style={{ margin: 0, minWidth: '180px' }}>
+                                    <label>Unidades por caixa</label>
+                                    <input
+                                        inputMode="numeric"
+                                        value={porCaixa}
+                                        onChange={e => setPorCaixa(e.target.value)}
+                                        placeholder="Ex.: 1.600"
+                                        disabled={acumuladoCaixasRevisadas > 0}
+                                    />
+                                </div>
+                            )}
+                            {emCaixas && unidadesPorCaixa > 0 && (
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', paddingBottom: '10px' }}>
+                                    {quantidadeRevisada.toLocaleString()} caixas revisadas = <b>{(quantidadeRevisada * unidadesPorCaixa).toLocaleString()} unidades</b>
+                                    {' · '}aprovadas = <b>{(quantidadeAprovada * unidadesPorCaixa).toLocaleString()} unidades</b>
+                                </span>
+                            )}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
                             <div className="form-group">
-                                <label>Quantidade Revisada</label>
+                                <label>{emCaixas ? 'Caixas Revisadas' : 'Quantidade Revisada'}</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -1101,7 +1192,7 @@ const NewRevision: React.FC = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Quantidade Aprovada</label>
+                                <label>{emCaixas ? 'Caixas Aprovadas' : 'Quantidade Aprovada'}</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -1111,7 +1202,7 @@ const NewRevision: React.FC = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Quantidade Reprovada (Auto)</label>
+                                <label>{emCaixas ? 'Caixas Reprovadas (Auto)' : 'Quantidade Reprovada (Auto)'}</label>
                                 <input
                                     type="number"
                                     readOnly
