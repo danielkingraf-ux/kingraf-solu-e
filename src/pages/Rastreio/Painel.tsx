@@ -42,7 +42,7 @@ interface LinhaPainel {
     // Piloto: etiquetas de palete impressas = sairam da colagem para a expedicao.
     paletes_colagem: number;
     pecas_colagem: number;
-    // Bipagem da expedicao no rastreio (palete finalizado).
+    // Bipados na expedicao: palete do rastreio finalizado + etiqueta de palete recebida.
     paletes_expedicao: number;
     pecas_expedicao: number;
     paletes_em_aberto: number;
@@ -56,6 +56,9 @@ interface LinhaPainel {
     // Revisao da qualidade, em unidades. null = OP sem revisao.
     revisado_revisao: number | null;
     aprovado_revisao: number | null;
+    // Paletes de escolha: separados na colagem, nao foram para a expedicao.
+    paletes_escolha: number;
+    pecas_escolha: number;
 }
 
 interface Liberacao {
@@ -178,6 +181,7 @@ const Painel: React.FC = () => {
                 pecas_expedicao: Number(l.pecas_expedicao),
                 revisado_revisao: n(l.revisado_revisao),
                 aprovado_revisao: n(l.aprovado_revisao),
+                pecas_escolha: Number(l.pecas_escolha),
                 setores: (l.setores || []).map(s => ({ ...s, quantidade: Number(s.quantidade) })),
             })));
         } catch (err) {
@@ -409,6 +413,14 @@ const Painel: React.FC = () => {
                                     detalhe={`${formatarQtd(l.aprovado_revisao)} aprovadas de ${formatarQtd(l.revisado_revisao)} revisadas`
                                         + (l.qtd_op ? ` · OP pede ${formatarQtd(l.qtd_op)}` : '')}
                                 />
+                            )}
+
+                            {/* Separado na colagem para escolha: nao foi para a expedicao. */}
+                            {l.paletes_escolha > 0 && (
+                                <p className="painel-espera escolha">
+                                    <AlertTriangle size={14} />
+                                    Escolha separada: {l.paletes_escolha} palete(s) · {formatarQtd(l.pecas_escolha)} unidades (não foram para a expedição)
+                                </p>
                             )}
 
                             {/* Enviado pela colagem e ainda nao bipado na expedicao. */}

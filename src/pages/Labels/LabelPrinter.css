@@ -849,3 +849,91 @@
     background: var(--kingraf-orange);
     color: #FFF;
 }
+
+/* ---- Codigo que a expedicao bipa (etiqueta de palete) ---- */
+.qr-palete {
+    width: 140px;
+    height: 140px;
+    background: #FFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qr-palete svg {
+    width: 132px;
+    height: 132px;
+}
+
+.barras-palete {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.barras-palete svg {
+    width: 100%;
+    max-width: 150mm;
+    height: 22mm;
+}
+
+.barras-palete span {
+    font-family: 'Courier New', monospace;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #000;
+}
+
+/* Palete de escolha: faixa preta, impossivel de nao ver. */
+.faixa-escolha {
+    margin-top: 12px;
+    padding: 10px;
+    background: #000;
+    color: #FFF;
+    font-size: 2.6rem;
+    font-weight: 900;
+    text-align: center;
+    letter-spacing: 2px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* Botoes "vai para a expedicao / escolha" na barra lateral */
+.destino-palete {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.destino-palete button {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.destino-palete button.ativo {
+    border-color: var(--kingraf-orange);
+    background: var(--kingraf-orange);
+    color: #FFF;
+}
+
+.destino-palete button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.paletes-op.escolha {
+    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.paletes-op .mono { font-family: 'Courier New', monospace; letter-spacing: 1px; }

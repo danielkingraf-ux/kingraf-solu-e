@@ -4,6 +4,7 @@ import LeitorCamera from './LeitorCamera';
 import { supabase } from '../../supabaseClient';
 import type { Setor } from './api';
 import { codigoDoTexto, formatarQtd, lerMatricula, listarSetores, mensagemErro, salvarMatricula } from './api';
+import { ehCodigoEtiquetaPalete } from '../Labels/codigoPalete';
 import './Rastreio.css';
 
 // A estacao (computador ou tablet do setor) fica presa a um setor.
@@ -104,7 +105,10 @@ const Bipagem: React.FC = () => {
         setEnviando(true);
         salvarMatricula(matricula.trim());
         try {
-            const { data, error } = await supabase.rpc('rast_bipar_palete', {
+            // 20330-PAL-001 e etiqueta de palete da colagem (piloto): a
+            // expedicao registra o recebimento. O resto e palete do rastreio.
+            const funcao = ehCodigoEtiquetaPalete(cod) ? 'rast_bipar_etiqueta_palete' : 'rast_bipar_palete';
+            const { data, error } = await supabase.rpc(funcao, {
                 p_codigo: cod, p_setor_id: setor.id, p_matricula: matricula.trim(),
             });
             if (error) throw error;

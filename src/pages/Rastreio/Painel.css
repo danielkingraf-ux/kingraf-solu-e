@@ -441,3 +441,9 @@
     font-weight: 600;
     color: var(--text-secondary);
 }
+
+/* Paletes de escolha separados na colagem */
+.painel-espera.escolha {
+    background: var(--danger-light);
+    color: #991B1B;
+}

@@ -11,6 +11,7 @@ import {
 } from './planoPalete';
 import { buscarDadosOP, type DadosOP } from './opRastreio';
 import { acimaDoPrevisto, useLiberacao } from '../Rastreio/liberacao';
+import { codigoDoPalete, desenharCodigos, type CodigosDesenhados } from './codigoPalete';
 
 /** Etiquetas carregadas por vez na Biblioteca. */
 const LIMITE_BIBLIOTECA = 200;
@@ -61,7 +62,13 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             // Faixa das caixas (numeracao da etiqueta de caixa) que vao neste
             // palete. Dada na impressao, continuando do palete anterior.
             caixaInicio: '',
-            caixaFim: ''
+            caixaFim: '',
+            // Para onde vai o palete. escolha = separado na colagem, NAO vai
+            // para a expedicao: numeracao propria (E1, E2) e nao conta como enviado.
+            destinoPalete: 'expedicao' as 'expedicao' | 'escolha',
+            escolhaNumero: '',
+            // Codigo que a expedicao bipa (20330-PAL-001). Dado na impressao.
+            codigoPalete: ''
         }
     });
     const [planoErro, setPlanoErro] = useState<string | null>(null);
@@ -105,14 +112,33 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     // Piloto colagem -> expedicao: etiqueta de palete impressa = palete que
     // foi para a expedicao. O numero e a sequencia das etiquetas da OP.
     const [expedidos, setExpedidos] = useState<PaletesExpedidos | null>(null);
-    const numeroGravado = parseInt(labelData.especifico.paleteNumero, 10) || null;
+    // Palete de escolha: separado na colagem, nao vai para a expedicao.
+    const ehEscolha = labelType === 'pallet' && labelData.especifico.destinoPalete === 'escolha';
+    const numeroGravado = parseInt(ehEscolha ? labelData.especifico.escolhaNumero : labelData.especifico.paleteNumero, 10) || null;
     // Reaberta sem numero = etiqueta de antes do piloto: volume digitado.
     const legado = labelType === 'pallet' && !!savedId && numeroGravado === null;
     const numeracaoAutomatica = labelType === 'pallet' && !legado;
-    const numeroExibido = numeroGravado ?? (expedidos ? expedidos.ultimo + 1 : 1);
-    const volume = numeracaoAutomatica
-        ? volumeDoPalete(numeroExibido, paletesDaOP)
-        : labelData.boxNumber;
+    const numeroExibido = numeroGravado
+        ?? (expedidos ? (ehEscolha ? expedidos.ultimaEscolha : expedidos.ultimo) + 1 : 1);
+    const volume = !numeracaoAutomatica
+        ? labelData.boxNumber
+        : ehEscolha
+            ? `ESCOLHA ${numeroExibido}`
+            : volumeDoPalete(numeroExibido, paletesDaOP);
+
+    // Codigo que a expedicao bipa. Escolha nao vai para la: sem codigo.
+    const codigoExibido = !numeracaoAutomatica || ehEscolha || !labelData.op.trim()
+        ? null
+        : labelData.especifico.codigoPalete || codigoDoPalete(labelData.op, numeroExibido);
+    const [codigos, setCodigos] = useState<CodigosDesenhados | null>(null);
+    useEffect(() => {
+        if (!codigoExibido) { setCodigos(null); return; }
+        let vivo = true;
+        desenharCodigos(codigoExibido)
+            .then(c => { if (vivo) setCodigos(c); })
+            .catch(erro => console.error('Nao foi possivel desenhar o codigo:', erro));
+        return () => { vivo = false; };
+    }, [codigoExibido]);
 
     // Caixas deste palete na numeracao das etiquetas de caixa (ex.: 11 a 14).
     const caixaInicioExibida = inteiroDe(labelData.especifico.caixaInicio)
@@ -140,7 +166,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     useEffect(() => {
         // Sem o padrao do palete cheio, "Qtd. Caixas" e o proprio divisor da
         // conta: mexer nele mudaria o numero de paletes.
-        if (!numeracaoAutomatica || numeroGravado !== null || !divisao || !expedidos
+        if (!numeracaoAutomatica || ehEscolha || numeroGravado !== null || !divisao || !expedidos
             || !labelData.especifico.caixasPorPalete) return;
         const chave = `${labelData.op}|${numeroExibido}|${divisao.paletes}`;
         if (numeroExibido !== divisao.paletes || autoUltimo.current === chave) return;
@@ -226,6 +252,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         setSavedId(null);
         setEspecifico({
             paleteNumero: '',
+            escolhaNumero: '',
+            codigoPalete: '',
+            destinoPalete: 'expedicao',
             qtdCaixas: labelData.especifico.caixasPorPalete || labelData.especifico.qtdCaixas,
             ultimaCaixa: '',
             caixaInicio: '',
@@ -357,8 +386,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         const lerDoBanco = async () => {
             const atual = await buscarExpedidos(op);
             setExpedidos(atual);
-            numero = atual.ultimo + 1;
-            caixaInicio = atual.ultimaCaixa + 1;
+            // Escolha tem numeracao propria e nao ocupa faixa de caixas.
+            numero = (ehEscolha ? atual.ultimaEscolha : atual.ultimo) + 1;
+            caixaInicio = ehEscolha ? 0 : atual.ultimaCaixa + 1;
         };
         if (novoPalete) {
             try {
@@ -372,7 +402,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
         // Palete acima dos previstos pela OP + 10%: so com supervisor.
         let liberacaoId: string | null = null;
-        if (novoPalete && numero !== null && acimaDoPrevisto(paletesDaOP, numero)) {
+        if (novoPalete && !ehEscolha && numero !== null && acimaDoPrevisto(paletesDaOP, numero)) {
             liberacaoId = await pedirLiberacao({
                 tipo: 'palete_etiqueta',
                 op,
@@ -388,9 +418,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         // A conta da OP vai para o banco ANTES da etiqueta: e com ela que o
         // banco confere os 10% (gatilho prod_trava_etiqueta_palete). O 1o
         // palete cheio ja vira o padrao de caixas por palete.
-        const planoAGravar: PlanoOP = primeiroCheio && !labelData.especifico.caixasPorPalete
-            ? { ...plano, caixasPorPallet: String(caixasNoPalete) }
-            : plano;
+        // Palete de escolha nao e palete padrao: nao vira o padrao de caixas.
+        const planoAGravar: PlanoOP = ehEscolha
+            ? { ...plano, caixasPorPallet: labelData.especifico.caixasPorPalete }
+            : primeiroCheio && !labelData.especifico.caixasPorPalete
+                ? { ...plano, caixasPorPallet: String(caixasNoPalete) }
+                : plano;
         if (labelType === 'pallet') {
             try {
                 await salvarPlano(op, planoAGravar);
@@ -403,23 +436,34 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             ? String(totalPallet())
             : null;
 
-        const montarPayload = (n: number | null) => ({
-            tipo: labelType,
-            op,
-            cliente: labelType === 'info' ? '' : labelData.client,
-            produto: labelType === 'info' ? '' : labelData.product,
-            quantidade,
-            volume: numeracaoAutomatica && n !== null ? volumeDoPalete(n, paletesDaOP) : volume,
-            data: labelData.date,
-            info_extra: {
+        const montarPayload = (n: number | null) => {
+            const numerado = numeracaoAutomatica && n !== null;
+            const extra: Record<string, unknown> = {
                 ...labelData.especifico,
-                ...(numeracaoAutomatica && n !== null ? { paleteNumero: n } : {}),
+                ...(numerado && ehEscolha ? { escolhaNumero: n } : {}),
+                ...(numerado && !ehEscolha ? { paleteNumero: n, codigoPalete: codigoDoPalete(op, n as number) } : {}),
                 // Quais caixas vao neste palete (ex.: 11 a 14).
-                ...(numeracaoAutomatica && caixasDoPalete > 0 && caixaInicio > 0
+                ...(numerado && !ehEscolha && caixasDoPalete > 0 && caixaInicio > 0
                     ? { caixaInicio, caixaFim: caixaInicio + caixasDoPalete - 1 } : {}),
                 ...(liberacaoId ? { liberacaoId } : {})
+            };
+            // Campo de numero vazio nao vai para o banco: la, "tem o campo"
+            // significava "e palete numerado", e etiqueta sem numero entrava
+            // na contagem e batia na trava de numero repetido.
+            for (const chave of ['paleteNumero', 'escolhaNumero', 'codigoPalete', 'caixaInicio', 'caixaFim']) {
+                if (extra[chave] === '' || extra[chave] === undefined || extra[chave] === null) delete extra[chave];
             }
-        });
+            return {
+                tipo: labelType,
+                op,
+                cliente: labelType === 'info' ? '' : labelData.client,
+                produto: labelType === 'info' ? '' : labelData.product,
+                quantidade,
+                volume: !numerado ? volume : ehEscolha ? `ESCOLHA ${n}` : volumeDoPalete(n as number, paletesDaOP),
+                data: labelData.date,
+                info_extra: extra
+            };
+        };
 
         try {
             // 1. Salvar no historico. Para palete, e isto que conta a saida.
@@ -454,19 +498,28 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 return;
             }
 
-            // flushSync: a etiqueta precisa estar com o numero certo na tela
-            // antes do window.print() tirar a foto dela.
+            // flushSync: a etiqueta precisa estar com o numero e o codigo
+            // certos na tela antes do window.print() tirar a foto dela. O QR
+            // e o codigo de barras sao desenhados antes, porque o desenho e
+            // assincrono e a impressao nao espera.
             const gravado = montarPayload(numero).info_extra;
+            const texto = (v: unknown, atual: string) => (v === undefined ? atual : String(v));
+            const desenhados = typeof gravado.codigoPalete === 'string'
+                ? await desenharCodigos(gravado.codigoPalete).catch(() => null)
+                : null;
             flushSync(() => {
                 setSavedId(etiquetaId);
+                if (desenhados) setCodigos(desenhados);
                 setLabelData(prev => ({
                     ...prev,
                     op,
                     especifico: {
                         ...prev.especifico,
-                        paleteNumero: numeracaoAutomatica && numero !== null ? String(numero) : prev.especifico.paleteNumero,
-                        caixaInicio: 'caixaInicio' in gravado ? String(gravado.caixaInicio) : prev.especifico.caixaInicio,
-                        caixaFim: 'caixaFim' in gravado ? String(gravado.caixaFim) : prev.especifico.caixaFim,
+                        paleteNumero: texto(gravado.paleteNumero, prev.especifico.paleteNumero),
+                        escolhaNumero: texto(gravado.escolhaNumero, prev.especifico.escolhaNumero),
+                        codigoPalete: texto(gravado.codigoPalete, prev.especifico.codigoPalete),
+                        caixaInicio: texto(gravado.caixaInicio, prev.especifico.caixaInicio),
+                        caixaFim: texto(gravado.caixaFim, prev.especifico.caixaFim),
                         caixasPorPalete: String(planoAGravar.caixasPorPallet || '')
                     }
                 }));
@@ -496,12 +549,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             especifico: {
                 lote: '', destino: '', obs: '', operador: '',
                 qtdCaixas: '', qtdPorCaixa: '', ultimaCaixa: '', caixaInicio: '', caixaFim: '',
-                quantidadeOP: '', caixasPorPalete: '', folhasVinco: '', bocas: '',
+                quantidadeOP: '', caixasPorPalete: '', folhasVinco: '', bocas: '', codigoPalete: '',
+                destinoPalete: 'expedicao' as 'expedicao' | 'escolha',
                 ...(item.info_extra || {}),
-                // Usar como modelo e palete NOVO: nao herda o numero nem a
-                // liberacao da etiqueta de origem.
-                ...(forEdit ? {} : { liberacaoId: undefined, caixaInicio: '', caixaFim: '' }),
-                paleteNumero: forEdit && item.info_extra?.paleteNumero ? String(item.info_extra.paleteNumero) : ''
+                // Usar como modelo e palete NOVO: nao herda o numero, o codigo
+                // nem a liberacao da etiqueta de origem.
+                ...(forEdit ? {} : { liberacaoId: undefined, caixaInicio: '', caixaFim: '', codigoPalete: '' }),
+                paleteNumero: forEdit && item.info_extra?.paleteNumero ? String(item.info_extra.paleteNumero) : '',
+                escolhaNumero: forEdit && item.info_extra?.escolhaNumero ? String(item.info_extra.escolhaNumero) : ''
             }
         });
         setSavedId(forEdit ? item.id : null);
@@ -688,8 +743,8 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFF' }}>{totalPallet()} unidades</div>
                                 </div>
                                 <div className="form-group animate-fade-in-up delay-500">
-                                    <label>Operador</label>
-                                    <input name="operador" value={labelData.especifico.operador} onChange={handleChange} placeholder="Nome do operador" />
+                                    <label>Emissor</label>
+                                    <input name="operador" value={labelData.especifico.operador} onChange={handleChange} placeholder="Quem emitiu a etiqueta" />
                                 </div>
 
                                 {/* A conta da OP. Nao sai impressa: serve para
@@ -789,13 +844,43 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         {numeracaoAutomatica && (
                             // Piloto: etiqueta de palete impressa = palete que
                             // saiu da colagem para a expedicao.
-                            <div className="paletes-op animate-fade-in-up delay-600">
+                            <div className={`paletes-op animate-fade-in-up delay-600 ${ehEscolha ? 'escolha' : ''}`}>
+                                {/* Para onde vai: depois de impresso nao muda, porque
+                                    o numero ja foi dado numa das duas sequencias. */}
+                                <div className="destino-palete" role="radiogroup" aria-label="Destino do palete">
+                                    {([['expedicao', 'Vai para a expedição'], ['escolha', 'Escolha (separado)']] as const).map(([valor, texto]) => (
+                                        <button
+                                            key={valor}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={labelData.especifico.destinoPalete === valor}
+                                            className={labelData.especifico.destinoPalete === valor ? 'ativo' : ''}
+                                            disabled={!!savedId}
+                                            onClick={() => setEspecifico({ destinoPalete: valor })}
+                                        >
+                                            {texto}
+                                        </button>
+                                    ))}
+                                </div>
                                 <div className="conta-titulo">
-                                    {numeroGravado !== null ? 'Este palete' : 'Próximo palete'}
+                                    {ehEscolha
+                                        ? (numeroGravado !== null ? 'Este palete de escolha' : 'Próximo palete de escolha')
+                                        : (numeroGravado !== null ? 'Este palete' : 'Próximo palete')}
                                     {labelData.op ? ` · OP ${labelData.op.trim().toUpperCase()}` : ''}
                                 </div>
                                 <div className="paletes-numero">{volume}</div>
-                                {faixaCaixas && (
+                                {ehEscolha && (
+                                    <p className="conta-veredito falta">
+                                        Separado na colagem para escolha: não vai para a expedição, não entra no {paletesDaOP !== null ? `x/${paletesDaOP}` : 'total'} e não conta como enviado.
+                                    </p>
+                                )}
+                                {codigoExibido && (
+                                    <div className="conta-linha">
+                                        <span>Código para bipar na expedição</span>
+                                        <b className="mono">{codigoExibido}</b>
+                                    </div>
+                                )}
+                                {!ehEscolha && faixaCaixas && (
                                     <div className="conta-linha">
                                         <span>Caixas deste palete</span>
                                         <b>{faixaCaixas}</b>
@@ -817,13 +902,13 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     </b>
                                 </div>
 
-                                {divisao && numeroExibido === divisao.paletes && numeroGravado === null && (
+                                {!ehEscolha && divisao && numeroExibido === divisao.paletes && numeroGravado === null && (
                                     <p className="conta-veredito ok">
                                         Último palete da OP: {divisao.caixasUltimoPalete} caixa(s)
                                         {divisao.sobra > 0 && `, uma delas com ${inteiro(divisao.sobra)}`}.
                                     </p>
                                 )}
-                                {paletesDaOP !== null && numeroExibido > paletesDaOP && (
+                                {!ehEscolha && paletesDaOP !== null && numeroExibido > paletesDaOP && (
                                     <p className="conta-veredito neutro">
                                         Passou dos {paletesDaOP} paletes previstos pela OP. O total da etiqueta acompanha o número.
                                     </p>
@@ -845,7 +930,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     </button>
                                 )}
                                 <small className="conta-ajuda">
-                                    Imprimir conta o palete como enviado para a expedição. Reimprimir esta etiqueta não conta de novo.
+                                    {ehEscolha
+                                        ? 'Palete de escolha fica fora da contagem da expedição. Reimprimir não conta de novo.'
+                                        : 'Imprimir conta o palete como enviado para a expedição; a expedição bipa o código para confirmar. Reimprimir não conta de novo.'}
                                 </small>
                             </div>
                         )}
@@ -990,9 +1077,16 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                 {labelType === 'pallet' ? 'Controle de Paletização' : 'Identificação Geral'}
                             </span>
                         </div>
-                        <div className="qr-placeholder">
-                            <QrCode size={40} strokeWidth={2.5} />
-                        </div>
+                        {/* QR de verdade no palete que vai para a expedicao: a
+                            camera abre a Bipagem com o codigo. Escolha nao vai
+                            para la, entao nao leva codigo. */}
+                        {codigos && !ehEscolha ? (
+                            <div className="qr-palete" dangerouslySetInnerHTML={{ __html: codigos.qr }} />
+                        ) : (
+                            <div className="qr-placeholder">
+                                <QrCode size={40} strokeWidth={2.5} />
+                            </div>
+                        )}
                     </div>
 
                     <div className="label-content">
@@ -1066,7 +1160,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         {labelType === 'pallet' && (
                             <div style={{ display: 'flex', gap: '25px' }}>
                                 <div className="label-field" style={{ flex: 1 }}>
-                                    <label>OPERADOR</label>
+                                    <label>EMISSOR</label>
                                     <div className="value">{labelData.especifico.operador || '---'}</div>
                                 </div>
                                 <div className="label-field" style={{ flex: 1 }}>
@@ -1081,10 +1175,23 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             <div className="value" style={{ fontSize: '3.4rem' }}>{volume}</div>
                             {/* Quais caixas (numeracao da etiqueta de caixa) estao
                                 neste palete: liga a caixa ao palete. */}
-                            {numeracaoAutomatica && faixaCaixas && (
+                            {numeracaoAutomatica && !ehEscolha && faixaCaixas && (
                                 <div className="value" style={{ fontSize: '1.6rem' }}>CAIXAS {faixaCaixas.toUpperCase()}</div>
                             )}
                         </div>
+
+                        {/* Escolha: aviso grande para ninguem mandar para a expedicao. */}
+                        {ehEscolha && (
+                            <div className="faixa-escolha">ESCOLHA · NÃO EXPEDIR</div>
+                        )}
+
+                        {/* Codigo que a expedicao bipa, em barras e escrito. */}
+                        {codigos && !ehEscolha && (
+                            <div className="barras-palete">
+                                <div dangerouslySetInnerHTML={{ __html: codigos.barras }} />
+                                <span>{codigos.codigo}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>

@@ -212,11 +212,13 @@ export interface PaletesExpedidos {
     pecas: number;
     /** Ultima caixa ja posta em palete (faixa de caixas das etiquetas). 0 = nenhuma. */
     ultimaCaixa: number;
+    /** Maior numero de palete de escolha (E1, E2...). */
+    ultimaEscolha: number;
 }
 
 export const buscarExpedidos = async (op: string): Promise<PaletesExpedidos> => {
     const chave = op.trim().toUpperCase();
-    const vazio: PaletesExpedidos = { ultimo: 0, quantidade: 0, pecas: 0, ultimaCaixa: 0 };
+    const vazio: PaletesExpedidos = { ultimo: 0, quantidade: 0, pecas: 0, ultimaCaixa: 0, ultimaEscolha: 0 };
     if (!chave) return vazio;
 
     const { data, error } = await supabase
@@ -226,11 +228,15 @@ export const buscarExpedidos = async (op: string): Promise<PaletesExpedidos> => 
         .eq('op', chave);
     if (error) throw error;
 
-    return (data || []).reduce((acc: PaletesExpedidos, linha: { quantidade: string | null; info_extra: { paleteNumero?: number; caixaFim?: number } | null }) => {
+    return (data || []).reduce((acc: PaletesExpedidos, linha: { quantidade: string | null; info_extra: { paleteNumero?: number; caixaFim?: number; escolhaNumero?: number } | null }) => {
+        // Palete de escolha: so a numeracao dele, nao conta como expedido.
+        const escolha = Number(linha.info_extra?.escolhaNumero);
+        if (Number.isFinite(escolha) && escolha > 0) return { ...acc, ultimaEscolha: Math.max(acc.ultimaEscolha, escolha) };
         const numero = Number(linha.info_extra?.paleteNumero);
         // Etiqueta de antes do piloto nao tem numero: nao entra na contagem.
         if (!Number.isFinite(numero) || numero <= 0) return acc;
         return {
+            ...acc,
             ultimo: Math.max(acc.ultimo, numero),
             quantidade: acc.quantidade + 1,
             pecas: acc.pecas + (Number(linha.quantidade) || 0),
