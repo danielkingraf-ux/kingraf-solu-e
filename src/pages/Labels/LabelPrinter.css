@@ -937,3 +937,27 @@
 }
 
 .paletes-op .mono { font-family: 'Courier New', monospace; letter-spacing: 1px; }
+
+/* ---- Etiqueta presa na A4 ----
+   A folha tem altura fixa e nada sai dela: o rodape (codigo de barras ou
+   faixa de escolha) fica no fim, e a area do meio (.label-encaixe) tem a
+   altura que sobra. Se o conteudo passar dela, LabelPrinter.tsx reduz o
+   conteudo inteiro para caber. Mesmo tamanho na tela e no papel: o
+   .a4-page-preview do BoxLabel.css punha min-height 297mm na tela e
+   'auto' na impressao, e a conta da tela nao valia no papel. */
+.label-mockup.a4-page-preview {
+    height: 295mm;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.label-encaixe {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.label-mockup .barras-palete,
+.label-mockup .faixa-escolha {
+    flex-shrink: 0;
+}

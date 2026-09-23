@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Printer, X, LayoutTemplate, QrCode, Layers, Info, Search, Edit2, Package, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
@@ -131,6 +131,41 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         ? null
         : labelData.especifico.codigoPalete || codigoDoPalete(labelData.op, numeroExibido);
     const [codigos, setCodigos] = useState<CodigosDesenhados | null>(null);
+
+    // A etiqueta e uma folha A4 so. O rodape (codigo de barras, faixa de
+    // escolha) fica preso no fim; se o que vem acima nao couber no espaco que
+    // sobra, ele e reduzido por inteiro, em vez de empurrar o codigo para fora
+    // do papel. Roda a cada render: qualquer campo pode mudar a altura.
+    const encaixeRef = useRef<HTMLDivElement>(null);
+    const conteudoRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const area = encaixeRef.current;
+        const conteudo = conteudoRef.current;
+        if (!area || !conteudo) return;
+        conteudo.style.transform = '';
+        conteudo.style.width = '';
+        // 2% de folga: a impressora arredonda diferente da tela.
+        const disponivel = area.clientHeight * 0.98;
+        if (disponivel <= 0 || conteudo.scrollHeight <= disponivel) return;
+        // O conteudo fica mais largo antes de reduzir (para ocupar a largura
+        // toda depois), e mais largo ele quebra em menos linhas: a altura
+        // muda com a escala. Por isso busca a maior escala que cabe, em vez
+        // de uma conta so, que reduzia demais e deixava buraco em cima do
+        // codigo de barras.
+        const cabe = (escala: number) => {
+            conteudo.style.width = `${100 / escala}%`;
+            return conteudo.scrollHeight * escala <= disponivel;
+        };
+        let menor = 0.3;
+        let maior = 1;
+        for (let i = 0; i < 10; i++) {
+            const meio = (menor + maior) / 2;
+            if (cabe(meio)) menor = meio; else maior = meio;
+        }
+        cabe(menor);
+        conteudo.style.transformOrigin = 'top left';
+        conteudo.style.transform = `scale(${menor})`;
+    });
     useEffect(() => {
         if (!codigoExibido) { setCodigos(null); return; }
         let vivo = true;
@@ -1089,7 +1124,11 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         )}
                     </div>
 
-                    <div className="label-content">
+                    {/* Area que sobra entre o cabecalho e o rodape. Se o
+                        conteudo nao couber (produto longo, muitas linhas), ele
+                        e reduzido por inteiro para caber na A4. */}
+                    <div className="label-encaixe" ref={encaixeRef}>
+                    <div className="label-content" ref={conteudoRef}>
                         {labelType === 'info' ? (
                             <>
                                 <div className="label-field large">
@@ -1180,19 +1219,20 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             )}
                         </div>
 
-                        {/* Escolha: aviso grande para ninguem mandar para a expedicao. */}
-                        {ehEscolha && (
-                            <div className="faixa-escolha">ESCOLHA · NÃO EXPEDIR</div>
-                        )}
-
-                        {/* Codigo que a expedicao bipa, em barras e escrito. */}
-                        {codigos && !ehEscolha && (
-                            <div className="barras-palete">
-                                <div dangerouslySetInnerHTML={{ __html: codigos.barras }} />
-                                <span>{codigos.codigo}</span>
-                            </div>
-                        )}
                     </div>
+                    </div>
+
+                    {/* Rodape preso no fim da folha: o que esta acima encolhe
+                        para caber, isto aqui nunca sai do papel. */}
+                    {ehEscolha && (
+                        <div className="faixa-escolha">ESCOLHA · NÃO EXPEDIR</div>
+                    )}
+                    {codigos && !ehEscolha && (
+                        <div className="barras-palete">
+                            <div dangerouslySetInnerHTML={{ __html: codigos.barras }} />
+                            <span>{codigos.codigo}</span>
+                        </div>
+                    )}
                 </div>
             </main>
         </div >
