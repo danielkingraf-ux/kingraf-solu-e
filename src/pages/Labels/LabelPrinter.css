@@ -768,6 +768,26 @@
     color: #FCA5A5;
 }
 
+/* 15.000 / 1.600 = 9 caixas cheias + 1 caixa com 600 */
+.conta-caixas {
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.conta-caixas b { color: #FFF; }
+.conta-caixas b.sobra { color: var(--kingraf-orange-light); }
+
+.conta-caixas span {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.75rem;
+}
+
 /* ---- Numeracao do palete na OP ---- */
 .paletes-op {
     margin: 6px 0 1.5rem;
@@ -785,21 +805,6 @@
     color: #FFF;
     font-variant-numeric: tabular-nums;
     margin-bottom: 12px;
-}
-
-.paletes-select {
-    width: 100%;
-    padding: 0.8rem 1rem;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    color: #FFF;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.paletes-select option {
-    background-color: var(--bg-sidebar);
 }
 
 .btn-usar-total {

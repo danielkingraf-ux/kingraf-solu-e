@@ -159,3 +159,87 @@ export const salvarPlano = async (op: string, plano: PlanoOP): Promise<void> => 
         }, { onConflict: 'op' });
     if (error) throw error;
 };
+
+/*
+ * ---- Caixas da OP ----
+ * 15.000 pecas a 1.600 por caixa = 9 caixas cheias e uma 10a caixa com 600.
+ * A caixa incompleta vai no ultimo palete.
+ */
+export interface DivisaoCaixas {
+    caixasCheias: number;
+    /** Pecas da caixa incompleta. 0 = divisao exata. */
+    sobra: number;
+    /** Cheias mais a incompleta, se houver. */
+    caixasTotais: number;
+    paletes: number;
+    /** Caixas que vao no ultimo palete (contando a incompleta). */
+    caixasUltimoPalete: number;
+}
+
+export const dividirEmCaixas = (plano: PlanoOP): DivisaoCaixas | null => {
+    const pecas = num(plano.quantidadeOP);
+    const porCaixa = num(plano.quantidadePorCaixa);
+    const porPalete = num(plano.caixasPorPallet);
+    if (pecas === null || porCaixa === null || porPalete === null) return null;
+
+    const caixasCheias = Math.floor(pecas / porCaixa);
+    const sobra = pecas - caixasCheias * porCaixa;
+    const caixasTotais = caixasCheias + (sobra > 0 ? 1 : 0);
+    const paletes = Math.ceil(caixasTotais / porPalete);
+    return {
+        caixasCheias,
+        sobra,
+        caixasTotais,
+        paletes,
+        caixasUltimoPalete: caixasTotais - (paletes - 1) * porPalete
+    };
+};
+
+/*
+ * ---- Paletes expedidos ----
+ * Piloto colagem -> expedicao (2026-09-24): imprimir a etiqueta de palete
+ * conta como palete que saiu da colagem e chegou na expedicao. O numero do
+ * palete ("3" de "3/10") e a sequencia das etiquetas de palete da OP, gravada
+ * em info_extra.paleteNumero. Um indice unico no banco impede duas etiquetas
+ * com o mesmo numero na mesma OP.
+ * Ver supabase/migrations/20260924_piloto_expedicao.sql
+ */
+
+export interface PaletesExpedidos {
+    /** Maior numero ja impresso. O proximo palete e ultimo + 1. */
+    ultimo: number;
+    quantidade: number;
+    pecas: number;
+}
+
+export const buscarExpedidos = async (op: string): Promise<PaletesExpedidos> => {
+    const chave = op.trim().toUpperCase();
+    const vazio: PaletesExpedidos = { ultimo: 0, quantidade: 0, pecas: 0 };
+    if (!chave) return vazio;
+
+    const { data, error } = await supabase
+        .from('prod_etiquetas_historico')
+        .select('quantidade, info_extra')
+        .eq('tipo', 'pallet')
+        .eq('op', chave);
+    if (error) throw error;
+
+    return (data || []).reduce((acc: PaletesExpedidos, linha: { quantidade: string | null; info_extra: { paleteNumero?: number } | null }) => {
+        const numero = Number(linha.info_extra?.paleteNumero);
+        // Etiqueta de antes do piloto nao tem numero: nao entra na contagem.
+        if (!Number.isFinite(numero) || numero <= 0) return acc;
+        return {
+            ultimo: Math.max(acc.ultimo, numero),
+            quantidade: acc.quantidade + 1,
+            pecas: acc.pecas + (Number(linha.quantidade) || 0)
+        };
+    }, vazio);
+};
+
+/**
+ * O "x/y" da etiqueta. O total e o que a OP preve; se sair mais palete que
+ * isso, o total acompanha o numero (11/11, nunca 11/10). Sem a conta da OP,
+ * sai so o numero.
+ */
+export const volumeDoPalete = (numero: number, previstos: number | null): string =>
+    previstos === null ? String(numero) : `${numero}/${Math.max(numero, previstos)}`;

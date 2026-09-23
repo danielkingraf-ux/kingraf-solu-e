@@ -11,9 +11,10 @@ import './Painel.css';
 
 /**
  * Painel por OP. Tudo vem de uma chamada so (rast_painel_ops): paletes por
- * setor no rastreio, o que a expedicao ja recebeu, caixas e etiquetas de
- * palete emitidas e as liberacoes da supervisao.
- * Ver supabase/migrations/20260924_painel_liberacao.sql
+ * setor no rastreio, caixas e etiquetas de palete emitidas e as liberacoes
+ * da supervisao. No piloto, etiqueta de palete impressa = enviado para a
+ * expedicao; a bipagem da expedicao no rastreio aparece a parte.
+ * Ver supabase/migrations/20260924_painel_liberacao.sql e 20260924_piloto_expedicao.sql
  */
 
 interface SetorPaletes {
@@ -38,8 +39,10 @@ interface LinhaPainel {
     qtd_por_caixa: number | null;
     caixas_por_pallet: number | null;
     setores: SetorPaletes[];
+    // Piloto: etiquetas de palete impressas = sairam da colagem para a expedicao.
     paletes_colagem: number;
     pecas_colagem: number;
+    // Bipagem da expedicao no rastreio (palete finalizado).
     paletes_expedicao: number;
     pecas_expedicao: number;
     paletes_em_aberto: number;
@@ -70,9 +73,9 @@ const analisar = (l: LinhaPainel) => {
 
     const acimaPaletes = paletesPrevistos !== null && l.paletes_colagem > (limite(paletesPrevistos) as number);
     const acimaCaixas = caixasPrevistas !== null && l.caixas_emitidas > (limite(caixasPrevistas) as number);
-    const expedido = l.qtd_op ? l.pecas_expedicao / l.qtd_op : null;
+    const expedido = l.qtd_op ? l.pecas_colagem / l.qtd_op : null;
     // Abaixo so importa na hora de encerrar: qualquer quantidade a menos.
-    const abaixo = (l.qtd_op !== null && l.pecas_expedicao < l.qtd_op)
+    const abaixo = (l.qtd_op !== null && l.pecas_colagem < l.qtd_op)
         || (caixasPrevistas !== null && l.caixas_emitidas < caixasPrevistas);
 
     const situacao: Situacao = l.encerrada_em ? 'encerrada'
@@ -184,11 +187,11 @@ const Painel: React.FC = () => {
                 tipo: 'encerrar_op',
                 op: l.op,
                 previsto: l.qtd_op,
-                emitido: l.pecas_expedicao,
+                emitido: l.pecas_colagem,
                 unidade: 'unidades',
                 referencia: a.caixasPrevistas !== null
                     ? `caixas ${l.caixas_emitidas} de ${a.caixasPrevistas}` : undefined,
-                titulo: `A expedição recebeu ${formatarQtd(l.pecas_expedicao)} de ${formatarQtd(l.qtd_op)} unidades`
+                titulo: `Foram para a expedição ${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
                     + (a.caixasPrevistas !== null ? ` e saíram ${l.caixas_emitidas} de ${a.caixasPrevistas} caixas` : '')
                     + '. Encerrar abaixo do previsto precisa da supervisão.',
             });
@@ -239,7 +242,8 @@ const Painel: React.FC = () => {
     const kpi = {
         ops: abertas.length,
         noChao: abertas.reduce((s, { l }) => s + l.paletes_em_aberto, 0),
-        expedidos: abertas.reduce((s, { l }) => s + l.paletes_expedicao, 0),
+        expedidos: abertas.reduce((s, { l }) => s + l.paletes_colagem, 0),
+        bipados: abertas.reduce((s, { l }) => s + l.paletes_expedicao, 0),
         acima: abertas.filter(({ a }) => a.situacao === 'acima').length,
         liberacoes: abertas.reduce((s, { l }) => s + l.liberacoes, 0),
     };
@@ -253,7 +257,7 @@ const Painel: React.FC = () => {
             <div className="painel-kpis">
                 <div className="painel-kpi"><span>OPs abertas</span><b>{kpi.ops}</b></div>
                 <div className="painel-kpi"><span>Paletes no chão</span><b>{kpi.noChao}</b><small>aguardando ou em terceiros</small></div>
-                <div className="painel-kpi"><span>Paletes na expedição</span><b>{kpi.expedidos}</b><small>das OPs abertas</small></div>
+                <div className="painel-kpi"><span>Paletes enviados à expedição</span><b>{kpi.expedidos}</b><small>{kpi.bipados} já bipados lá</small></div>
                 <div className={`painel-kpi ${kpi.acima ? 'perigo' : ''}`}>
                     <span>OPs acima do previsto</span><b>{kpi.acima}</b>
                     <small>mais de {pct(TOLERANCIA)} acima</small>
@@ -305,14 +309,14 @@ const Painel: React.FC = () => {
 
                             <div className="painel-numeros">
                                 <div>
-                                    <span>Paletes da colagem</span>
+                                    <span>Enviados à expedição</span>
                                     <b className={a.acimaPaletes ? 'perigo' : ''}>
                                         {l.paletes_colagem}
                                         <em>{a.paletesPrevistos !== null ? ` / ${a.paletesPrevistos}` : ''}</em>
                                     </b>
                                 </div>
                                 <div>
-                                    <span><Truck size={12} /> Na expedição</span>
+                                    <span><Truck size={12} /> Bipados na expedição</span>
                                     <b>{l.paletes_expedicao}</b>
                                 </div>
                                 <div>
@@ -328,7 +332,7 @@ const Painel: React.FC = () => {
                                 valor={a.expedido}
                                 rotulo="Expedido"
                                 detalhe={l.qtd_op
-                                    ? `${formatarQtd(l.pecas_expedicao)} de ${formatarQtd(l.qtd_op)} unidades`
+                                    ? `${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
                                     : 'OP sem quantidade no XML'}
                             />
 
