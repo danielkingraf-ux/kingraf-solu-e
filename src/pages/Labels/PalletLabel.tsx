@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Printer, X, Copy, Save, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { buscarDadosOP, obterLoteDaOP } from './lotesLaudos';
+import {
+    calcular, buscarPlano, salvarPlano, inteiro, quebrado, paletesInteiros,
+    type PlanoOP
+} from './planoPalete';
 import './PalletLabel.css';
 
 interface PalletLabelProps {
@@ -14,6 +18,12 @@ interface LabelData {
     lote: string;
     quantidadePorCaixa: string;
     caixasPorPallet: string;
+    /** Quanto a OP pede, em pecas. So entra na conta — nao sai impresso. */
+    quantidadeOP: string;
+    /** Folhas passadas no corte e vinco. */
+    folhasVinco: string;
+    /** Pecas por folha (as bocas da faca). */
+    bocas: string;
     op: string;
     operadorMaquina: string;
     turno: string;
@@ -28,12 +38,18 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
     // O lote e o mesmo da OP em qualquer etiqueta: vem do banco, ver lotesLaudos.ts
     const [opBusy, setOpBusy] = useState(false);
     const [opErro, setOpErro] = useState<string | null>(null);
+    // Saida de emergencia: destrava o lote para digitar a mao (OP antiga,
+    // numero vindo de fora, acerto de erro). Ligado, o sistema nao aloca nada.
+    const [manual, setManual] = useState(false);
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
         lote: '',
         quantidadePorCaixa: '',
         caixasPorPallet: '',
+        quantidadeOP: '',
+        folhasVinco: '',
+        bocas: '',
         op: '',
         operadorMaquina: '',
         turno: '',
@@ -59,6 +75,25 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
     const totalQuantity = (parseFloat(labelData.quantidadePorCaixa) || 0) * (parseInt(labelData.caixasPorPallet) || 0);
 
+    // O que a OP pede x o que o vinco rodou. Ver planoPalete.ts.
+    const plano: PlanoOP = {
+        quantidadeOP: labelData.quantidadeOP,
+        folhasVinco: labelData.folhasVinco,
+        bocas: labelData.bocas,
+        quantidadePorCaixa: labelData.quantidadePorCaixa,
+        caixasPorPallet: labelData.caixasPorPallet
+    };
+    const conta = calcular(plano);
+    const paletesDaOP = paletesInteiros(conta.op.paletes);
+
+    // Joga os paletes previstos no "x de y" da etiqueta. E um botao, nunca
+    // automatico: quem decide quantos paletes a OP vai render e o operador,
+    // olhando a conta — a tela so faz a divisao.
+    const usarTotalPrevisto = () => {
+        if (paletesDaOP === null) return;
+        setPalletInfo(prev => ({ ...prev, total: paletesDaOP }));
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'hora' || name === 'data') {
@@ -82,16 +117,49 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
             // explicito porque todos os parametros sao string: omitir faria o
             // cliente entrar no lugar do modelo sem o compilador reclamar.
             const dados = await buscarDadosOP(op, '');
+
+            // No manual so aproveitamos cliente e produto. obterLoteDaOP ALOCA
+            // um lote novo no banco, e queimar numero de uma OP digitada a mao
+            // e o que o modo manual existe para evitar.
+            if (manual) {
+                const so = await buscarPlano(op);
+                setLabelData(prev => ({
+                    ...prev,
+                    op,
+                    cliente: prev.cliente || dados?.cliente || '',
+                    produto: prev.produto || dados?.produto || '',
+                    ...(so ? {
+                        quantidadeOP: prev.quantidadeOP || so.quantidadeOP,
+                        folhasVinco: prev.folhasVinco || so.folhasVinco,
+                        bocas: prev.bocas || so.bocas,
+                        quantidadePorCaixa: prev.quantidadePorCaixa || so.quantidadePorCaixa,
+                        caixasPorPallet: prev.caixasPorPallet || so.caixasPorPallet
+                    } : {})
+                }));
+                return;
+            }
+
             const lote = dados
                 ? dados.lote
                 : await obterLoteDaOP(op, '', false, labelData.cliente, labelData.produto);
+
+            const guardado = await buscarPlano(op);
 
             setLabelData(prev => ({
                 ...prev,
                 op,
                 lote: String(lote),
                 cliente: prev.cliente || dados?.cliente || '',
-                produto: prev.produto || dados?.produto || ''
+                produto: prev.produto || dados?.produto || '',
+                // O plano e da OP inteira: o 2o palete ja abre preenchido. O
+                // que o operador digitou nesta tela vence o que esta guardado.
+                ...(guardado ? {
+                    quantidadeOP: prev.quantidadeOP || guardado.quantidadeOP,
+                    folhasVinco: prev.folhasVinco || guardado.folhasVinco,
+                    bocas: prev.bocas || guardado.bocas,
+                    quantidadePorCaixa: prev.quantidadePorCaixa || guardado.quantidadePorCaixa,
+                    caixasPorPallet: prev.caixasPorPallet || guardado.caixasPorPallet
+                } : {})
             }));
         } catch (error) {
             console.error('Erro ao carregar lote da OP:', error);
@@ -105,6 +173,23 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
         }
     };
 
+    // Liga e desliga a digitacao manual do lote. Ao desligar, o banco volta a
+    // mandar: recarrega o lote da OP e descarta o que foi digitado.
+    const handleTrocarManual = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const ligado = e.target.checked;
+        if (ligado && !confirm(
+            'Digitar o lote a mao?\n\n' +
+            'O sistema para de gerar e de conferir esse numero nesta etiqueta. ' +
+            'O que voce digitar e o que sai impresso e fica no arquivo.\n\n' +
+            'Use para OP antiga, numero vindo de fora ou acerto de erro.'
+        )) {
+            return;
+        }
+        setManual(ligado);
+        setOpErro(null);
+        if (!ligado) handleOPBlur();
+    };
+
     const handlePrint = async () => {
         const saved = await handleSave();
         if (!saved) return;
@@ -113,6 +198,18 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
 
     const handleSave = async (): Promise<boolean> => {
         try {
+            // O plano e da OP, nao desta etiqueta: guardar aqui faz o proximo
+            // palete da mesma OP abrir com tudo preenchido. Se falhar, a
+            // etiqueta ainda tem que salvar — o plano e conveniencia, nao o
+            // registro que importa.
+            if (labelData.op) {
+                try {
+                    await salvarPlano(labelData.op, plano);
+                } catch (erro) {
+                    console.error('Nao foi possivel guardar o plano da OP:', erro);
+                }
+            }
+
             const dataToSave = {
                 tipo: 'pallet',
                 op: labelData.op,
@@ -128,7 +225,11 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                     turno: labelData.turno,
                     quantidadePorCaixa: labelData.quantidadePorCaixa,
                     caixasPorPallet: labelData.caixasPorPallet,
-                    hora: labelData.hora
+                    hora: labelData.hora,
+                    // Retrato da conta na hora em que este palete saiu.
+                    quantidadeOP: labelData.quantidadeOP,
+                    folhasVinco: labelData.folhasVinco,
+                    bocas: labelData.bocas
                 }
             };
 
@@ -212,12 +313,26 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                                 <input
                                     name="lote"
                                     value={labelData.lote}
-                                    readOnly
-                                    className="campo-gerado"
-                                    placeholder="Gerado pela OP"
-                                    title="O lote e gerado pelo sistema e fica preso a esta OP"
+                                    onChange={handleChange}
+                                    readOnly={!manual}
+                                    className={manual ? 'campo-manual' : 'campo-gerado'}
+                                    placeholder={manual ? 'Digite o lote' : 'Gerado pela OP'}
+                                    title={manual
+                                        ? 'Modo manual: este numero e o que voce digitar'
+                                        : 'O lote e gerado pelo sistema e fica preso a esta OP'}
                                 />
                             </div>
+                        </div>
+                        <div className="form-group">
+                            <label className="check-linha">
+                                <input type="checkbox" checked={manual} onChange={handleTrocarManual} />
+                                Digitar o lote à mão
+                            </label>
+                            <small className={manual ? 'campo-aviso' : 'campo-ajuda'}>
+                                {manual
+                                    ? 'Ligado: o sistema não gera nem confere o lote. O que você digitar é o que sai impresso.'
+                                    : 'Para OP antiga, número vindo de fora ou acerto de erro.'}
+                            </small>
                         </div>
                         {opErro && <p className="campo-erro">{opErro}</p>}
                     </div>
@@ -249,6 +364,71 @@ const PalletLabel: React.FC<PalletLabelProps> = ({ onBack }) => {
                                 </select>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="form-section">
+                        <h3 className="section-title">Conta da OP</h3>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Quantidade da OP</label>
+                                <input name="quantidadeOP" value={labelData.quantidadeOP} onChange={handleChange} placeholder="Ex: 500000" inputMode="numeric" />
+                            </div>
+                            <div className="form-group">
+                                <label>Bocas</label>
+                                <input name="bocas" value={labelData.bocas} onChange={handleChange} placeholder="Peças por folha" inputMode="numeric" />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Folhas rodadas no corte e vinco</label>
+                            <input name="folhasVinco" value={labelData.folhasVinco} onChange={handleChange} placeholder="Ex: 1750" inputMode="numeric" />
+                            <small className="campo-ajuda">
+                                Folhas × bocas = peças que existem de verdade no chão.
+                            </small>
+                        </div>
+
+                        <div className="conta-tabela">
+                            <div className="conta-col">
+                                <div className="conta-cabeca">A OP PEDE</div>
+                                <div className="conta-linha"><span>Peças</span><b>{inteiro(conta.op.pecas)}</b></div>
+                                <div className="conta-linha"><span>Caixas</span><b>{quebrado(conta.op.caixas)}</b></div>
+                                <div className="conta-linha destaque"><span>Paletes</span><b>{quebrado(conta.op.paletes)}</b></div>
+                            </div>
+                            <div className="conta-col">
+                                <div className="conta-cabeca">O VINCO RODOU</div>
+                                <div className="conta-linha"><span>Peças</span><b>{inteiro(conta.vinco.pecas)}</b></div>
+                                <div className="conta-linha"><span>Caixas</span><b>{quebrado(conta.vinco.caixas)}</b></div>
+                                <div className="conta-linha destaque"><span>Paletes</span><b>{quebrado(conta.vinco.paletes)}</b></div>
+                            </div>
+                        </div>
+
+                        {conta.fecha === null ? (
+                            <p className="conta-veredito neutro">
+                                Preencha a quantidade da OP, as bocas e as folhas do vinco para a conta sair.
+                            </p>
+                        ) : conta.fecha ? (
+                            <p className="conta-veredito ok">
+                                Sobra de {inteiro(conta.diferenca)} peças — o vinco passou da OP.
+                            </p>
+                        ) : (
+                            <p className="conta-veredito falta">
+                                {conta.diferenca === 0
+                                    ? 'O vinco empatou com a OP. Empatar não fecha: entre o vinco e a expedição sempre se perde peça.'
+                                    : `Faltam ${inteiro(conta.diferenca === null ? null : -conta.diferenca)} peças.`}
+                                {conta.folhasParaFechar !== null &&
+                                    ` Só para empatar com a OP o vinco precisa de ${inteiro(conta.folhasParaFechar)} folhas — e tem que rodar mais que isso.`}
+                            </p>
+                        )}
+
+                        {paletesDaOP !== null && (
+                            <button type="button" className="btn-usar-total" onClick={usarTotalPrevisto}>
+                                Usar {paletesDaOP} no total de paletes
+                            </button>
+                        )}
+                        <small className="campo-ajuda">
+                            Esta conta não sai impressa: serve para conferir e para preencher o total de paletes.
+                            {conta.op.paletes !== null && paletesDaOP !== null &&
+                                ` ${quebrado(conta.op.paletes)} significa ${paletesDaOP} paletes, com o último incompleto.`}
+                        </small>
                     </div>
 
                     <div className="form-section">

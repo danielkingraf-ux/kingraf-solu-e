@@ -1,0 +1,163 @@
+/* Popup da liberacao da supervisao. Prefixo lib-: aparece por cima das telas
+   de etiqueta (fundo escuro) e do rastreio (fundo claro), entao tem cores proprias. */
+
+.lib-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.lib-caixa {
+    width: 100%;
+    max-width: 440px;
+    background: #FFFFFF;
+    color: #1E293B;
+    border-radius: 14px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    font-family: 'Sora', sans-serif;
+}
+
+.lib-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--kingraf-orange);
+}
+
+.lib-topo h3 {
+    flex: 1;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1E293B;
+}
+
+.lib-fechar {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+    background: #FFF;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.lib-texto {
+    margin: 4px 0 6px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.lib-numeros {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.lib-numeros div {
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lib-numeros span {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+}
+
+.lib-numeros b {
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.lib-numeros .acima { background: #FEF2F2; border-color: #FCA5A5; }
+.lib-numeros .acima b { color: #B91C1C; }
+.lib-numeros .abaixo { background: #FFFBEB; border-color: #FCD34D; }
+.lib-numeros .abaixo b { color: #92400E; }
+
+.lib-ajuda {
+    font-size: 0.75rem;
+    color: #64748B;
+    margin-bottom: 6px;
+}
+
+.lib-caixa label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1E293B;
+    margin-top: 4px;
+}
+
+.lib-caixa input {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #1E293B;
+    background: #FFF;
+}
+
+.lib-caixa input:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+    box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.15);
+}
+
+.lib-erro {
+    margin: 4px 0 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #FEE2E2;
+    color: #7F1D1D;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.lib-botoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.lib-btn {
+    min-height: 44px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid #CBD5E1;
+    background: #FFF;
+    color: #1E293B;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.lib-btn.primario {
+    background: var(--kingraf-orange);
+    border-color: var(--kingraf-orange);
+    color: #FFF;
+}
+
+.lib-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

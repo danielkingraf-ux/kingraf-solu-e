@@ -2,7 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { Printer, X, Copy, Save, Search, Archive, Plus, Loader2, Trash2, Eraser, ListChecks, Download } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { buscarDadosOP, obterLoteDaOP, gerarNovoLaudo, anoDoLaudo, formatarLaudo, normalizarOP, normalizarModelo, type Laudo, type LinhaConferencia, buscarConferencia } from './lotesLaudos';
+import { buscarDadosOP as buscarOPNoRastreio } from './opRastreio';
+import { buscarPlano } from './planoPalete';
+import { acimaDoPrevisto, useLiberacao } from '../Rastreio/liberacao';
 import './BoxLabel.css';
+
+/**
+ * Caixas que a OP preve para este modelo: quantidade da OP / quantidade por
+ * caixa, arredondado para cima. A quantidade vem do XML no rastreio (o modelo
+ * cujo codigo bate com o KING; senao o unico modelo; senao a soma) e, fora do
+ * rastreio, da conta da OP guardada pela etiqueta de palete. null = sem como saber.
+ */
+const caixasPrevistas = async (op: string, modelo: string, porCaixa: string): Promise<number | null> => {
+    const unidades = Number(porCaixa.replace(/\./g, '').replace(',', '.'));
+    if (!Number.isFinite(unidades) || unidades <= 0) return null;
+
+    let qtdOP: number | null = null;
+    const rastreio = await buscarOPNoRastreio(op);
+    if (rastreio) {
+        const king = modelo.trim().toUpperCase();
+        const doModelo = king ? rastreio.modelos.find(m => m.descricao.toUpperCase().includes(king)) : undefined;
+        qtdOP = doModelo?.quantidade
+            ?? (rastreio.modelos.length === 1 ? rastreio.modelos[0].quantidade : null)
+            ?? rastreio.quantidadeTotal;
+    } else {
+        const plano = await buscarPlano(op);
+        const n = plano ? Number(plano.quantidadeOP) : NaN;
+        qtdOP = Number.isFinite(n) && n > 0 ? n : null;
+    }
+    return qtdOP === null ? null : Math.ceil(qtdOP / unidades);
+};
 
 interface BoxLabelProps {
     onBack: () => void;
@@ -53,8 +82,14 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
     // Lote e laudo vem do banco, nunca digitados: ver lotesLaudos.ts
     const [laudos, setLaudos] = useState<Laudo[]>([]);
     const [laudoId, setLaudoId] = useState<string | null>(null);
+    // Saida de emergencia: destrava lote e laudo para digitar a mao. Serve
+    // para etiqueta de OP antiga, numero vindo de fora ou acerto de erro.
+    // Ligado, o sistema nao aloca nem sobrescreve: o que for digitado e o que
+    // vai para a etiqueta e para o arquivo.
+    const [manual, setManual] = useState(false);
     const [opBusy, setOpBusy] = useState(false);
     const [opErro, setOpErro] = useState<string | null>(null);
+    const { modal: modalLiberacao, pedirLiberacao } = useLiberacao();
     const [labelData, setLabelData] = useState<LabelData>({
         cliente: '',
         produto: '',
@@ -114,9 +149,13 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
 
         if (!op || !modelo) {
             // Sem o par completo nao da para saber a qual lote isto pertence.
-            setLaudos([]);
-            setLaudoId(null);
-            setLabelData(prev => ({ ...prev, lote: '', laudo: '', laudoAno: '' }));
+            // No modo manual os numeros sao do operador: limpar seria apagar o
+            // que ele acabou de digitar.
+            if (!manual) {
+                setLaudos([]);
+                setLaudoId(null);
+                setLabelData(prev => ({ ...prev, lote: '', laudo: '', laudoAno: '' }));
+            }
             return;
         }
 
@@ -124,6 +163,22 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         setOpErro(null);
         try {
             const dados = await buscarDadosOP(op, modelo, sobra);
+
+            // No modo manual so aproveitamos cliente e produto. Nada de
+            // obterLoteDaOP: ele ALOCA um lote novo no banco, e queimar numero
+            // de uma OP que o operador esta digitando a mao e exatamente o que
+            // o modo manual existe para evitar.
+            if (manual) {
+                setLabelData(prev => ({
+                    ...prev,
+                    opOf: op,
+                    numeroInterno: modelo,
+                    cliente: prev.cliente || dados?.cliente || '',
+                    produto: prev.produto || dados?.produto || ''
+                }));
+                return;
+            }
+
             const lote = dados
                 ? dados.lote
                 : await obterLoteDaOP(op, modelo, sobra, labelData.cliente, labelData.produto);
@@ -205,6 +260,27 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         }
     };
 
+    // Liga e desliga a digitacao manual. Ao desligar, o banco volta a mandar:
+    // recarrega o par OP+modelo e descarta o que tinha sido digitado.
+    const handleTrocarManual = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const ligado = e.target.checked;
+        if (ligado && !confirm(
+            'Digitar lote e laudo a mao?\n\n' +
+            'O sistema para de gerar e de conferir esses dois numeros nesta ' +
+            'etiqueta. O que voce digitar e o que sai impresso e fica no ' +
+            'arquivo.\n\n' +
+            'Use para OP antiga, numero vindo de fora ou acerto de erro.'
+        )) {
+            return;
+        }
+        setManual(ligado);
+        setOpErro(null);
+        if (!ligado) {
+            // Volta ao automatico: o que vale e o numero do banco.
+            carregarParOpModelo();
+        }
+    };
+
     // Troca a entrega selecionada (reimpressao) sem gerar numero novo.
     const handleSelecionarLaudo = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
@@ -276,18 +352,24 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
             return false;
         }
         if (!labelData.lote) {
-            alert('Este par OP + modelo ainda nao tem lote. Preencha a OP e o KING e saia do campo.');
+            alert(manual
+                ? 'Digite o numero do lote.'
+                : 'Este par OP + modelo ainda nao tem lote. Preencha a OP e o KING e saia do campo.');
             return false;
         }
-        if (labelData.sobra && !labelData.laudo) {
+        if (!manual && labelData.sobra && !labelData.laudo) {
             alert('Este modelo ainda nao tem a 1a entrega, e a sobra imprime o laudo dela.\n\nDesmarque "Sobra", gere a 1a entrega, e volte.');
             return false;
         }
         if (!labelData.laudo) {
-            alert('Este modelo ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
+            alert(manual
+                ? 'Digite o numero do laudo.'
+                : 'Este modelo ainda nao tem laudo. Clique em "Nova entrega" para gerar o laudo desta remessa.');
             return false;
         }
-        const insertData = montarPayload(labelData, range, laudoId);
+        // No manual o numero nao veio de uma entrega do banco: nao amarra a
+        // etiqueta a um laudo que pode nem ser esse.
+        const insertData = montarPayload(labelData, range, manual ? null : laudoId);
         const assinatura = JSON.stringify(insertData);
 
         // Ja arquivada e nada mudou: nao toca no banco.
@@ -296,6 +378,30 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                 alert('Nada mudou desde o ultimo arquivamento.');
             }
             return true;
+        }
+
+        // Caixa acima das previstas pela OP + 10%: so com supervisor. So chega
+        // aqui o que vai ser arquivado; reimpressao identica ja saiu acima.
+        const ultimaCaixa = Math.max(range.start, range.end);
+        try {
+            const op = normalizarOP(labelData.opOf);
+            const previstas = await caixasPrevistas(op, labelData.numeroInterno, labelData.quantidade);
+            if (acimaDoPrevisto(previstas, ultimaCaixa)) {
+                const liberado = await pedirLiberacao({
+                    tipo: 'caixa_etiqueta',
+                    op,
+                    previsto: previstas,
+                    emitido: ultimaCaixa,
+                    unidade: 'caixas',
+                    referencia: `${labelData.numeroInterno || 'sem KING'} · caixas ${Math.min(range.start, range.end)} a ${ultimaCaixa}`,
+                    titulo: `A etiqueta vai até a caixa ${ultimaCaixa}, e a OP prevê ${previstas} caixas. Passou mais de 10% do previsto.`
+                });
+                if (!liberado) return false;
+            }
+        } catch (erro) {
+            // Sem como calcular o previsto (rede, OP estranha): nao trava a
+            // expedicao por isso. Fica no console para a TI.
+            console.error('Nao foi possivel conferir as caixas previstas:', erro);
         }
 
         try {
@@ -376,6 +482,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
         });
         setLaudos([]);
         setLaudoId(null);
+        // O manual e excecao, nao regra: cada etiqueta nova comeca no automatico.
+        setManual(false);
         setValidityMonths('');
         setOpErro(null);
         setRange({ start: 1, end: 8, total: 8 });
@@ -562,6 +670,7 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
 
     return (
         <div className="box-label-container">
+            {modalLiberacao}
             <aside className="box-label-sidebar">
                 <div className="sidebar-header">
                     <button className="back-btn-icon" onClick={onBack} title="Voltar">
@@ -652,12 +761,31 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                     <input
                                         name="lote"
                                         value={labelData.lote}
-                                        readOnly
-                                        className="campo-gerado"
-                                        placeholder="Gerado por OP + modelo"
-                                        title="O lote e gerado pelo sistema e fica preso ao par OP + modelo"
+                                        onChange={handleChange}
+                                        readOnly={!manual}
+                                        className={manual ? 'campo-manual' : 'campo-gerado'}
+                                        placeholder={manual ? 'Digite o lote' : 'Gerado por OP + modelo'}
+                                        title={manual
+                                            ? 'Modo manual: este numero e o que voce digitar'
+                                            : 'O lote e gerado pelo sistema e fica preso ao par OP + modelo'}
                                     />
                                 </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="check-linha">
+                                    <input
+                                        type="checkbox"
+                                        checked={manual}
+                                        onChange={handleTrocarManual}
+                                    />
+                                    Digitar lote e laudo à mão
+                                </label>
+                                <small className={manual ? 'campo-aviso' : 'campo-ajuda'}>
+                                    {manual
+                                        ? 'Ligado: o sistema não gera nem confere esses dois números. O que você digitar é o que sai impresso e fica no arquivo.'
+                                        : 'Para OP antiga, número vindo de fora ou acerto de erro. Desligado, o sistema gera e controla os números.'}
+                                </small>
                             </div>
 
                             <div className="form-group">
@@ -704,7 +832,33 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                             <h3 className="section-title">Datas e Controle</h3>
 
                             <div className="form-group">
-                                <label>Laudo (entrega)</label>
+                                <label>Laudo {manual ? '' : '(entrega)'}</label>
+                                {manual ? (
+                                    <>
+                                        <div className="laudo-row">
+                                            <input
+                                                name="laudo"
+                                                value={labelData.laudo}
+                                                onChange={handleChange}
+                                                className="campo-manual"
+                                                placeholder="Nº do laudo"
+                                            />
+                                            <input
+                                                name="laudoAno"
+                                                value={labelData.laudoAno}
+                                                onChange={handleChange}
+                                                className="campo-manual campo-ano"
+                                                placeholder="Ano"
+                                                maxLength={4}
+                                            />
+                                        </div>
+                                        <small className="campo-aviso">
+                                            Sai impresso como {formatarLaudo(labelData.laudo || '0000', labelData.laudoAno) || '0000/ano-0'}.
+                                            O ano é separado porque a etiqueta imprime laudo/ano-0.
+                                        </small>
+                                    </>
+                                ) : (
+                                <>
                                 <div className="laudo-row">
                                     <select
                                         className="registry-select"
@@ -737,6 +891,8 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                                         ? 'Sobra: o laudo é sempre o da 1ª entrega, e não muda.'
                                         : 'Reimpressão: escolha a entrega existente. O botão só para remessa nova.'}
                                 </small>
+                                </>
+                                )}
                             </div>
 
                             <div className="form-row">

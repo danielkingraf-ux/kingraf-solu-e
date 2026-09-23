@@ -1,0 +1,385 @@
+/* Painel por OP. Prefixo painel-, dentro do .rast-page do rastreio. */
+
+.rast-page.painel { max-width: 1480px; }
+
+/* ---------- indicadores do topo ---------- */
+
+.painel-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+}
+
+.painel-kpi {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.painel-kpi span {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.painel-kpi b {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--text-primary);
+}
+
+.painel-kpi small { font-size: var(--text-xs); color: var(--text-muted); }
+
+.painel-kpi.perigo { border-color: #FCA5A5; background: #FEF2F2; }
+.painel-kpi.perigo b { color: #B91C1C; }
+
+/* ---------- filtros ---------- */
+
+.painel-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.painel-abas {
+    display: inline-flex;
+    background: #E2E8F0;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+
+.painel-abas button {
+    border: none;
+    background: transparent;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.painel-abas button.ativa {
+    background: #FFF;
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.painel-busca {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #FFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: var(--text-muted);
+}
+
+.painel-busca input {
+    flex: 1;
+    border: none;
+    outline: none;
+    min-height: 40px;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    background: transparent;
+}
+
+/* ---------- cartoes das OPs ---------- */
+
+.painel-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: var(--space-4);
+    align-items: start;
+}
+
+@media (max-width: 480px) {
+    .painel-grade { grid-template-columns: 1fr; }
+}
+
+.painel-op {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-top: 4px solid var(--kingraf-orange);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* A faixa de cima diz a situacao antes de ler qualquer numero. */
+.painel-op.acima { border-top-color: var(--danger); }
+.painel-op.pronta { border-top-color: var(--success); }
+.painel-op.encerrada { border-top-color: #94A3B8; opacity: 0.85; }
+.painel-op.expandida { grid-column: 1 / -1; }
+
+.painel-op-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.painel-op-topo h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.painel-op-topo p {
+    margin: 2px 0 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.painel-situacao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.painel-situacao.producao { background: var(--info-light); color: #1E40AF; }
+.painel-situacao.acima { background: var(--danger-light); color: #991B1B; }
+.painel-situacao.pronta { background: var(--success-light); color: #065F46; }
+.painel-situacao.encerrada { background: #E2E8F0; color: #475569; }
+
+.painel-produto {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.painel-numeros {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.painel-numeros div {
+    background: #F1F5F9;
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.painel-numeros span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+}
+
+.painel-numeros b {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.painel-numeros b em {
+    font-style: normal;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.painel-numeros b.perigo { color: #B91C1C; }
+
+/* ---------- medidor ---------- */
+
+.painel-medidor { display: flex; flex-direction: column; gap: 4px; }
+
+.painel-medidor-topo {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.painel-medidor-topo b { color: var(--text-primary); font-size: var(--text-sm); }
+
+.painel-medidor small { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* O trilho e um tom claro da mesma cor do preenchimento, para o estado se ler
+   na barra inteira. */
+.painel-trilho {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    background: #FFE4D1;
+    overflow: hidden;
+}
+
+.painel-preenchido {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--kingraf-orange);
+    transition: width 300ms ease;
+}
+
+/* 100% fica em 1/1,2 da barra: a escala vai ate 120% para a sobra aparecer. */
+.painel-marca-100 {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(100% / 1.2);
+    width: 2px;
+    background: var(--bg-card);
+}
+
+.painel-medidor.ok .painel-trilho { background: var(--success-light); }
+.painel-medidor.ok .painel-preenchido { background: var(--success); }
+.painel-medidor.alerta .painel-trilho { background: var(--warning-light); }
+.painel-medidor.alerta .painel-preenchido { background: var(--warning); }
+.painel-medidor.perigo .painel-trilho { background: var(--danger-light); }
+.painel-medidor.perigo .painel-preenchido { background: var(--danger); }
+.painel-medidor.vazio .painel-trilho { background: #E2E8F0; }
+
+/* ---------- caminho por setor ---------- */
+
+.painel-fluxo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.painel-setor {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 56px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #FFF;
+}
+
+.painel-setor span {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.painel-setor b { font-size: 1.05rem; color: var(--text-primary); }
+
+.painel-setor small {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #1E40AF;
+    white-space: nowrap;
+}
+
+/* ---------- rodape e detalhe ---------- */
+
+.painel-op-rodape {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+.painel-op-rodape .rast-btn { margin-left: auto; }
+.painel-op-rodape .atrasada { color: #B91C1C; font-weight: 700; }
+
+.painel-lib {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    color: #92400E;
+}
+
+.painel-detalhe {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.painel-detalhe h4 {
+    margin: 6px 0 0;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.painel-detalhe-linha {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.painel-detalhe-linha b { color: var(--text-primary); }
+
+.painel-libs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.painel-libs li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.painel-libs li span { color: var(--text-secondary); font-size: var(--text-xs); }
+
+.painel-acoes {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}

@@ -484,6 +484,140 @@
     cursor: not-allowed;
 }
 
+/* Destravado para digitacao: cor diferente para ninguem confundir um numero
+   digitado a mao com um numero que o sistema garantiu. */
+.campo-manual {
+    border-color: rgba(250, 204, 21, 0.55) !important;
+    background: rgba(250, 204, 21, 0.08);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+/* Checkbox com o texto na mesma linha, alvo de toque generoso. */
+.pallet-label-sidebar .check-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.pallet-label-sidebar .check-linha input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    accent-color: #F97316;
+}
+
+.campo-ajuda {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.68rem;
+    opacity: 0.6;
+    line-height: 1.4;
+}
+
+.campo-aviso {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.68rem;
+    line-height: 1.4;
+    color: #FACC15;
+}
+
+/* ---- Conta da OP: o que a OP pede x o que o vinco rodou ---- */
+.conta-tabela {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.conta-col {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.conta-cabeca {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    opacity: 0.55;
+    margin-bottom: 6px;
+}
+
+.conta-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.72rem;
+    padding: 2px 0;
+}
+
+.conta-linha span { opacity: 0.6; }
+
+.conta-linha b {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+/* O numero de paletes e o que o operador veio buscar aqui. */
+.conta-linha.destaque {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.conta-linha.destaque b {
+    font-size: 1rem;
+    color: #F97316;
+}
+
+.conta-veredito {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    line-height: 1.45;
+}
+
+.conta-veredito.neutro {
+    background: rgba(255, 255, 255, 0.04);
+    opacity: 0.6;
+}
+
+.conta-veredito.ok {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    color: #4ADE80;
+}
+
+/* Vinco que nao passou da OP e o erro que esta tela existe para pegar. */
+.conta-veredito.falta {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    color: #FCA5A5;
+}
+
+.btn-usar-total {
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 10px;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-radius: 8px;
+    background: rgba(249, 115, 22, 0.12);
+    color: #F97316;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-usar-total:hover {
+    background: rgba(249, 115, 22, 0.2);
+}
+
 .campo-erro {
     margin: 8px 0 0;
     font-size: 0.72rem;
@@ -495,5 +629,10 @@
 }
 
 @media print {
-    .campo-erro { display: none; }
+    .campo-ajuda,
+    .campo-aviso,
+    .campo-erro,
+    .conta-tabela,
+    .conta-veredito,
+    .btn-usar-total { display: none; }
 }

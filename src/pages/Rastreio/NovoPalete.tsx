@@ -4,9 +4,10 @@ import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import type { Etapa, Maquina, Op, OpResumo, Palete, Produto, Setor } from './api';
 import {
-    buscarOp, formatarDataHora, formatarQtd, lerMatricula, listarMaquinas, listarOps, listarSetores,
+    buscarOp, fechamentoOp, formatarDataHora, formatarQtd, lerMatricula, listarMaquinas, listarOps, listarSetores,
     mensagemErro, nomeDestino, proximaEtapa, salvarMatricula,
 } from './api';
+import { acimaDoPrevisto, useLiberacao } from './liberacao';
 import { imprimirFichas } from './ficha';
 import './Rastreio.css';
 
@@ -34,6 +35,7 @@ const NovoPalete: React.FC = () => {
     const [ops, setOps] = useState<OpResumo[]>([]);
     const [filtro, setFiltro] = useState('');
     const [maquinas, setMaquinas] = useState<Maquina[]>([]);
+    const { modal: modalLiberacao, pedirLiberacao } = useLiberacao();
 
     useEffect(() => {
         listarSetores().then(setSetores).catch(e => setErro(mensagemErro(e)));
@@ -104,6 +106,25 @@ const NovoPalete: React.FC = () => {
         setSalvando(true);
         setErro(null);
         try {
+            // O que o setor ja soltou desta OP mais este lancamento, contra o
+            // planejado da etapa no XML. Passou de 10%: so com supervisor.
+            const linha = op && etapa.setor_id !== null
+                ? (await fechamentoOp(op.numero_op)).find(l => l.setor_id === etapa.setor_id)
+                : undefined;
+            const acumulado = (linha?.saida ?? 0) + total;
+            if (op && linha && acimaDoPrevisto(linha.planejado, acumulado)) {
+                const liberado = await pedirLiberacao({
+                    tipo: 'palete_rastreio',
+                    op: String(op.numero_op),
+                    previsto: linha.planejado,
+                    emitido: acumulado,
+                    unidade: unidade,
+                    referencia: `${linha.setor}: ${validas.length} palete(s), ${formatarQtd(total)} ${unidade}`,
+                    titulo: `${linha.setor} já soltou ${formatarQtd(linha.saida)} e este lançamento leva a ${formatarQtd(acumulado)}. O planejado da etapa é ${formatarQtd(linha.planejado)}: passou mais de 10%.`
+                });
+                if (!liberado) return;
+            }
+
             const { data, error } = await supabase.rpc('rast_criar_paletes', {
                 p_etapa_id: etapa.id,
                 p_matricula: matricula.trim(),
@@ -154,6 +175,7 @@ const NovoPalete: React.FC = () => {
 
     return (
         <div className="rast-page">
+            {modalLiberacao}
             <div className="rast-card">
                 <h2>Escolher a OP</h2>
                 <form className="rast-linha" onSubmit={buscar} style={{ marginBottom: 20 }}>

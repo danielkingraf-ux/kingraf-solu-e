@@ -150,6 +150,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onExit, onNaviga
         { id: 'rast-manual', label: 'Manual', icon: <BookOpen size={20} />, group: 'Sistema' },
         // Administracao: so aparece para conta de administrador.
         ...(admin ? [
+          { id: 'rast-painel', label: 'Painel por OP', icon: <LayoutDashboard size={20} />, group: 'Gerenciamento' },
           { id: 'rast-importar', label: 'Importar OP', icon: <FileUp size={20} />, group: 'Gerenciamento' },
           { id: 'rast-operadores', label: 'Operadores e setores', icon: <Users size={20} />, group: 'Configurações' },
         ] : []),
