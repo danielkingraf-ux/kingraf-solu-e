@@ -788,6 +788,31 @@
     font-size: 0.75rem;
 }
 
+/* "Este palete esta cheio" do 1o palete da OP */
+.check-cheio {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: -0.5rem 0 1.5rem;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.check-cheio input {
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    accent-color: var(--kingraf-orange);
+    flex-shrink: 0;
+}
+
+.check-cheio b { color: #FFF; }
+
 /* ---- Numeracao do palete na OP ---- */
 .paletes-op {
     margin: 6px 0 1.5rem;

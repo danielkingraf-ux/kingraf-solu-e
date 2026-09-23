@@ -399,9 +399,11 @@ const BoxLabel: React.FC<BoxLabelProps> = ({ onBack, initialItem }) => {
                 if (!liberado) return false;
             }
         } catch (erro) {
-            // Sem como calcular o previsto (rede, OP estranha): nao trava a
-            // expedicao por isso. Fica no console para a TI.
+            // Sem conferir o previsto nao imprime: passar direto aqui era o
+            // furo por onde uma emissao a mais saia sem supervisor.
             console.error('Nao foi possivel conferir as caixas previstas:', erro);
+            alert('Não foi possível conferir as caixas previstas desta OP (falha de conexão). Nada foi arquivado nem impresso; tente de novo.');
+            return false;
         }
 
         try {

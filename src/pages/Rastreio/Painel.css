@@ -383,3 +383,61 @@
     align-items: center;
     gap: 10px;
 }
+
+/* ---------- espera de bipagem na expedicao ---------- */
+
+.painel-espera {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #F1F5F9;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.painel-espera.alerta {
+    background: var(--warning-light);
+    color: #92400E;
+}
+
+.painel-kpi.alerta { border-color: #FCD34D; background: var(--warning-light); }
+.painel-kpi.alerta b { color: #92400E; }
+
+/* ---------- modo TV ----------
+   Tela cheia no chao de fabrica: lido de longe, entao tudo maior e so o
+   que importa. O fundo precisa ser pintado, porque em tela cheia o elemento
+   perde o fundo da pagina. */
+
+.rast-page.painel.tv {
+    max-width: none;
+    background: var(--bg-main);
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.painel.tv .painel-kpi b { font-size: 3rem; }
+.painel.tv .painel-kpi span { font-size: var(--text-sm); }
+
+.painel.tv .painel-grade { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
+
+.painel.tv .painel-op-topo h3 { font-size: 1.8rem; }
+.painel.tv .painel-produto { font-size: 1rem; }
+.painel.tv .painel-numeros b { font-size: 2.2rem; }
+.painel.tv .painel-numeros span { font-size: 0.8rem; }
+.painel.tv .painel-trilho { height: 16px; }
+.painel.tv .painel-medidor-topo b { font-size: 1.2rem; }
+.painel.tv .painel-espera { font-size: var(--text-sm); }
+
+.painel-tv-hora {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}

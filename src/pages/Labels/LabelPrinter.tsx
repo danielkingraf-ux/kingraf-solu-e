@@ -12,6 +12,9 @@ import {
 import { buscarDadosOP, type DadosOP } from './opRastreio';
 import { acimaDoPrevisto, useLiberacao } from '../Rastreio/liberacao';
 
+/** Etiquetas carregadas por vez na Biblioteca. */
+const LIMITE_BIBLIOTECA = 200;
+
 interface LabelPrinterProps {
     onBack: () => void;
 }
@@ -54,10 +57,18 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             bocas: '',
             // Numero deste palete na OP, dado na impressao. Vazio = ainda nao
             // impresso (ou etiqueta de antes do piloto).
-            paleteNumero: ''
+            paleteNumero: '',
+            // Faixa das caixas (numeracao da etiqueta de caixa) que vao neste
+            // palete. Dada na impressao, continuando do palete anterior.
+            caixaInicio: '',
+            caixaFim: ''
         }
     });
     const [planoErro, setPlanoErro] = useState<string | null>(null);
+    // So se sabe quantas caixas cabem no palete depois do 1o montado. Se ele
+    // saiu cheio, as caixas dele viram o padrao da OP; se nao (OP pequena,
+    // sobra), o operador informa o palete cheio na conta.
+    const [primeiroCheio, setPrimeiroCheio] = useState(true);
     const { modal: modalLiberacao, pedirLiberacao } = useLiberacao();
 
     const inteiroDe = (v: string) => parseInt(String(v).replace(/\./g, ''), 10) || 0;
@@ -79,7 +90,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         folhasVinco: labelData.especifico.folhasVinco,
         bocas: labelData.especifico.bocas,
         quantidadePorCaixa: labelData.especifico.qtdPorCaixa,
-        caixasPorPallet: labelData.especifico.caixasPorPalete || labelData.especifico.qtdCaixas
+        caixasPorPallet: labelData.especifico.caixasPorPalete || (primeiroCheio ? labelData.especifico.qtdCaixas : '')
     };
     const conta = calcular(plano);
     const divisao = dividirEmCaixas(plano);
@@ -100,6 +111,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const volume = numeracaoAutomatica
         ? volumeDoPalete(numeroExibido, paletesDaOP)
         : labelData.boxNumber;
+
+    // Caixas deste palete na numeracao das etiquetas de caixa (ex.: 11 a 14).
+    const caixaInicioExibida = inteiroDe(labelData.especifico.caixaInicio)
+        || (expedidos ? expedidos.ultimaCaixa + 1 : 1);
+    const caixaFimExibida = caixaInicioExibida + inteiroDe(labelData.especifico.qtdCaixas) - 1;
+    const faixaCaixas = inteiroDe(labelData.especifico.qtdCaixas) > 0
+        ? (caixaFimExibida > caixaInicioExibida ? `${caixaInicioExibida} a ${caixaFimExibida}` : String(caixaInicioExibida))
+        : null;
 
     const setEspecifico = (campos: Partial<typeof labelData.especifico>) =>
         setLabelData(prev => ({ ...prev, especifico: { ...prev.especifico, ...campos } }));
@@ -205,23 +224,41 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         setEspecifico({
             paleteNumero: '',
             qtdCaixas: labelData.especifico.caixasPorPalete || labelData.especifico.qtdCaixas,
-            ultimaCaixa: ''
+            ultimaCaixa: '',
+            caixaInicio: '',
+            caixaFim: ''
         });
         atualizarExpedidos(labelData.op);
     };
 
+    // A busca e no banco, so da aba aberta e no maximo LIMITE_BIBLIOTECA
+    // linhas: carregar tudo esbarrava no teto de 1.000 linhas do Supabase e
+    // as etiquetas antigas sumiam da lista sem aviso.
     const fetchHistory = async () => {
         try {
             setLoading(true);
+            // Virgula e parenteses quebram o filtro "or" do PostgREST.
+            const termo = searchTerm.trim().replace(/[,()]/g, ' ');
+            const vazio = Promise.resolve({ data: [], error: null });
+
+            let historico = supabase
+                .from('prod_etiquetas_historico')
+                .select('*')
+                .eq('tipo', libraryTab)
+                .order('created_at', { ascending: false })
+                .limit(LIMITE_BIBLIOTECA);
+            if (termo) historico = historico.or(`op.ilike.%${termo}%,cliente.ilike.%${termo}%,info_extra->>destino.ilike.%${termo}%`);
+
+            let caixas = supabase
+                .from('prod_etiquetas_caixa')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(LIMITE_BIBLIOTECA);
+            if (termo) caixas = caixas.or(`op.ilike.%${termo}%,cliente.ilike.%${termo}%`);
+
             const [historicoResult, caixaResult] = await Promise.all([
-                supabase
-                    .from('prod_etiquetas_historico')
-                    .select('*')
-                    .order('created_at', { ascending: false }),
-                supabase
-                    .from('prod_etiquetas_caixa')
-                    .select('*')
-                    .order('created_at', { ascending: false })
+                libraryTab === 'caixa' ? vazio : historico,
+                libraryTab === 'caixa' ? caixas : vazio
             ]);
 
             if (historicoResult.error) throw historicoResult.error;
@@ -272,7 +309,8 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         if (activeTab === 'library') {
             fetchHistory();
         }
-    }, [activeTab]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, libraryTab]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -306,15 +344,21 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         // Etiqueta de palete nova = um palete a mais que saiu da colagem.
         // Reimprimir a mesma etiqueta nao conta de novo.
         const novoPalete = !savedId && numeracaoAutomatica;
+        const caixasDoPalete = inteiroDe(labelData.especifico.qtdCaixas);
 
-        // O numero da tela pode estar velho (outra estacao imprimiu no meio):
-        // vale o que o banco disser agora.
+        // Numero do palete e faixa de caixas: a tela pode estar velha (outra
+        // estacao imprimiu no meio), vale o que o banco disser agora.
         let numero: number | null = numeroGravado;
+        let caixaInicio = inteiroDe(labelData.especifico.caixaInicio);
+        const lerDoBanco = async () => {
+            const atual = await buscarExpedidos(op);
+            setExpedidos(atual);
+            numero = atual.ultimo + 1;
+            caixaInicio = atual.ultimaCaixa + 1;
+        };
         if (novoPalete) {
             try {
-                const atual = await buscarExpedidos(op);
-                setExpedidos(atual);
-                numero = atual.ultimo + 1;
+                await lerDoBanco();
             } catch (erro) {
                 console.error('Nao foi possivel ler os paletes da OP:', erro);
                 alert('Não foi possível ler os paletes desta OP. Nada foi impresso; tente de novo.');
@@ -337,6 +381,20 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             if (!liberacaoId) return;
         }
 
+        // A conta da OP vai para o banco ANTES da etiqueta: e com ela que o
+        // banco confere os 10% (gatilho prod_trava_etiqueta_palete). O 1o
+        // palete cheio ja vira o padrao de caixas por palete.
+        const planoAGravar: PlanoOP = primeiroCheio && !labelData.especifico.caixasPorPalete
+            ? { ...plano, caixasPorPallet: labelData.especifico.qtdCaixas }
+            : plano;
+        if (labelType === 'pallet') {
+            try {
+                await salvarPlano(op, planoAGravar);
+            } catch (erro) {
+                console.error('Nao foi possivel guardar o plano da OP:', erro);
+            }
+        }
+
         const quantidade = labelType === 'pallet'
             ? String(totalPallet())
             : null;
@@ -352,6 +410,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             info_extra: {
                 ...labelData.especifico,
                 ...(numeracaoAutomatica && n !== null ? { paleteNumero: n } : {}),
+                // Quais caixas vao neste palete (ex.: 11 a 14).
+                ...(numeracaoAutomatica && caixasDoPalete > 0 && caixaInicio > 0
+                    ? { caixaInicio, caixaFim: caixaInicio + caixasDoPalete - 1 } : {}),
                 ...(liberacaoId ? { liberacaoId } : {})
             }
         });
@@ -373,7 +434,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 // 23505: outra estacao gravou este numero no meio. Pega o
                 // proximo e tenta uma vez mais.
                 if (result.error?.code === '23505' && novoPalete) {
-                    numero = (await buscarExpedidos(op)).ultimo + 1;
+                    await lerDoBanco();
                     result = await supabase
                         .from('prod_etiquetas_historico')
                         .insert([montarPayload(numero)])
@@ -391,6 +452,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
             // flushSync: a etiqueta precisa estar com o numero certo na tela
             // antes do window.print() tirar a foto dela.
+            const gravado = montarPayload(numero).info_extra;
             flushSync(() => {
                 setSavedId(etiquetaId);
                 setLabelData(prev => ({
@@ -398,23 +460,15 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                     op,
                     especifico: {
                         ...prev.especifico,
-                        paleteNumero: numeracaoAutomatica && numero !== null ? String(numero) : prev.especifico.paleteNumero
+                        paleteNumero: numeracaoAutomatica && numero !== null ? String(numero) : prev.especifico.paleteNumero,
+                        caixaInicio: 'caixaInicio' in gravado ? String(gravado.caixaInicio) : prev.especifico.caixaInicio,
+                        caixaFim: 'caixaFim' in gravado ? String(gravado.caixaFim) : prev.especifico.caixaFim,
+                        caixasPorPalete: String(planoAGravar.caixasPorPallet || '')
                     }
                 }));
             });
 
-            // 2. Guardar o plano da OP para o proximo palete ja vir
-            //    preenchido. E conveniencia: se falhar, a etiqueta ja esta
-            //    salva e a impressao segue.
-            if (labelType === 'pallet') {
-                try {
-                    await salvarPlano(op, plano);
-                } catch (erro) {
-                    console.error('Nao foi possivel guardar o plano da OP:', erro);
-                }
-            }
-
-            // 3. Abrir dialogo de impressao do sistema
+            // 2. Abrir dialogo de impressao do sistema
             window.print();
             if (novoPalete) atualizarExpedidos(op);
         } catch (err: any) {
@@ -422,6 +476,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             alert(`Erro ao salvar a etiqueta: ${err?.message || 'Erro desconhecido'}`);
         }
     };
+
 
     const loadFromHistory = (item: any, forEdit = false) => {
         setLabelType(item.tipo);
@@ -436,12 +491,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             // controlado por nao-controlado no meio do caminho.
             especifico: {
                 lote: '', destino: '', obs: '', operador: '',
-                qtdCaixas: '', qtdPorCaixa: '', ultimaCaixa: '',
+                qtdCaixas: '', qtdPorCaixa: '', ultimaCaixa: '', caixaInicio: '', caixaFim: '',
                 quantidadeOP: '', caixasPorPalete: '', folhasVinco: '', bocas: '',
                 ...(item.info_extra || {}),
                 // Usar como modelo e palete NOVO: nao herda o numero nem a
                 // liberacao da etiqueta de origem.
-                ...(forEdit ? {} : { liberacaoId: undefined }),
+                ...(forEdit ? {} : { liberacaoId: undefined, caixaInicio: '', caixaFim: '' }),
                 paleteNumero: forEdit && item.info_extra?.paleteNumero ? String(item.info_extra.paleteNumero) : ''
             }
         });
@@ -613,6 +668,17 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                         <input type="number" name="ultimaCaixa" value={labelData.especifico.ultimaCaixa} onChange={handleChange} placeholder="Unidades (se houver)" />
                                     </div>
                                 </div>
+                                {/* 1o palete da OP: ainda nao existe padrao de caixas por
+                                    palete. Cheio, ele vira o padrao; incompleto, nao. */}
+                                {numeracaoAutomatica && !labelData.especifico.caixasPorPalete && (
+                                    <label className="check-cheio animate-fade-in-up delay-450">
+                                        <input type="checkbox" checked={primeiroCheio} onChange={e => setPrimeiroCheio(e.target.checked)} />
+                                        <span>
+                                            <b>Este palete está cheio.</b> As caixas dele viram o padrão da OP.
+                                            {!primeiroCheio && ' Informe as caixas do palete cheio em "Caixas por palete", na Conta da OP.'}
+                                        </span>
+                                    </label>
+                                )}
                                 <div className="form-group animate-fade-in-up delay-480" style={{ background: 'rgba(255, 92, 0, 0.1)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
                                     <label style={{ color: 'var(--kingraf-orange)' }}>Total no Pallet</label>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFF' }}>{totalPallet()} unidades</div>
@@ -634,7 +700,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                         </div>
                                         <div className="form-group">
                                             <label>Caixas por palete</label>
-                                            <input name="caixasPorPalete" inputMode="numeric" value={labelData.especifico.caixasPorPalete} onChange={handleChange} placeholder="Palete cheio" />
+                                            <input name="caixasPorPalete" inputMode="numeric" value={labelData.especifico.caixasPorPalete} onChange={handleChange} placeholder="Sai do 1º palete" />
                                         </div>
                                         <div className="form-group">
                                             <label>Bocas</label>
@@ -725,6 +791,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     {labelData.op ? ` · OP ${labelData.op.trim().toUpperCase()}` : ''}
                                 </div>
                                 <div className="paletes-numero">{volume}</div>
+                                {faixaCaixas && (
+                                    <div className="conta-linha">
+                                        <span>Caixas deste palete</span>
+                                        <b>{faixaCaixas}</b>
+                                    </div>
+                                )}
 
                                 <div className="conta-linha">
                                     <span>Já foram para a expedição</span>
@@ -754,7 +826,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                 )}
                                 {paletesDaOP === null && (
                                     <small className="conta-ajuda">
-                                        Preencha a conta da OP para a etiqueta sair com o total (ex.: 3/10).
+                                        Para a etiqueta sair com o total (ex.: 1/10), preencha a quantidade da OP, a quantidade por caixa e as caixas deste palete. No 1º palete, conte as caixas depois de montado: esse número vira o padrão da OP.
                                     </small>
                                 )}
                                 {dadosOP && dadosOP.modelos.length > 1 && (
@@ -820,10 +892,15 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                     placeholder="Buscar por OP, cliente ou destino..."
                                     onKeyDown={(e) => e.key === 'Enter' && fetchHistory()}
                                 />
-                                <button className="search-btn" onClick={fetchHistory} title="Atualizar lista">
+                                <button className="search-btn" onClick={fetchHistory} title="Buscar">
                                     <Search size={18} />
                                 </button>
                             </div>
+                            {!loading && history.length >= LIMITE_BIBLIOTECA && (
+                                <small className="conta-ajuda">
+                                    Mostrando as {LIMITE_BIBLIOTECA} mais recentes. Para achar uma antiga, busque pela OP e aperte Enter.
+                                </small>
+                            )}
                         </div>
 
                         <div className="archive-list">
@@ -998,6 +1075,11 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         <div className="label-field" style={{ flex: 1 }}>
                             <label>VOLUME / SEQUÊNCIA</label>
                             <div className="value" style={{ fontSize: '3.4rem' }}>{volume}</div>
+                            {/* Quais caixas (numeracao da etiqueta de caixa) estao
+                                neste palete: liga a caixa ao palete. */}
+                            {numeracaoAutomatica && faixaCaixas && (
+                                <div className="value" style={{ fontSize: '1.6rem' }}>CAIXAS {faixaCaixas.toUpperCase()}</div>
+                            )}
                         </div>
                     </div>
                 </div>

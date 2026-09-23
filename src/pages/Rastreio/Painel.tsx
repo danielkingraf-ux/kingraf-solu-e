@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Lock, LockOpen, RefreshCw, Search, ShieldCheck, Truck,
+    AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock, Lock, LockOpen, Maximize2, Minimize2, RefreshCw, Search, ShieldCheck, Truck,
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
@@ -50,6 +50,9 @@ interface LinhaPainel {
     etiquetas_palete: number;
     liberacoes: number;
     encerrada_em: string | null;
+    // Enviados que a expedicao ainda nao bipou e desde quando o mais antigo espera.
+    aguardando_bipagem: number;
+    aguardando_desde: string | null;
 }
 
 interface Liberacao {
@@ -75,15 +78,21 @@ const analisar = (l: LinhaPainel) => {
     const acimaCaixas = caixasPrevistas !== null && l.caixas_emitidas > (limite(caixasPrevistas) as number);
     const expedido = l.qtd_op ? l.pecas_colagem / l.qtd_op : null;
     // Abaixo so importa na hora de encerrar: qualquer quantidade a menos.
+    // Caixas so contam se a OP tem etiqueta de caixa: no piloto a colagem pode
+    // imprimir so a de palete.
     const abaixo = (l.qtd_op !== null && l.pecas_colagem < l.qtd_op)
-        || (caixasPrevistas !== null && l.caixas_emitidas < caixasPrevistas);
+        || (caixasPrevistas !== null && l.caixas_emitidas > 0 && l.caixas_emitidas < caixasPrevistas);
+    // Palete enviado e nao bipado ha muito tempo: so alerta onde a expedicao
+    // ja bipa esta OP, senao toda OP do piloto acenderia.
+    const esperaHoras = l.aguardando_desde ? (Date.now() - new Date(l.aguardando_desde).getTime()) / 3600_000 : 0;
+    const semBipagem = l.paletes_expedicao > 0 && l.aguardando_bipagem > 0 && esperaHoras >= HORAS_SEM_BIPAGEM;
 
     const situacao: Situacao = l.encerrada_em ? 'encerrada'
         : acimaPaletes || acimaCaixas ? 'acima'
             : expedido !== null && expedido >= 1 ? 'pronta'
                 : 'producao';
 
-    return { caixasPrevistas, paletesPrevistos, acimaPaletes, acimaCaixas, expedido, abaixo, situacao };
+    return { caixasPrevistas, paletesPrevistos, acimaPaletes, acimaCaixas, expedido, abaixo, situacao, esperaHoras, semBipagem };
 };
 
 const SITUACAO: Record<Situacao, { texto: string; icone: React.ReactNode }> = {
@@ -101,6 +110,9 @@ const TIPO_LIBERACAO: Record<string, string> = {
     palete_rastreio: 'Palete no rastreio',
     encerrar_op: 'Encerramento',
 };
+
+/** Horas de palete enviado sem bipagem na expedicao antes de alertar. */
+const HORAS_SEM_BIPAGEM = 4;
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
@@ -140,6 +152,10 @@ const Painel: React.FC = () => {
     const [aberta, setAberta] = useState<string | null>(null);
     const [liberacoes, setLiberacoes] = useState<Liberacao[]>([]);
     const [agindo, setAgindo] = useState(false);
+    // Modo TV: tela cheia para o chao de fabrica, so OPs abertas, sem botoes
+    // de acao, atualizando sozinho a cada minuto.
+    const [tv, setTv] = useState(false);
+    const paginaRef = useRef<HTMLDivElement>(null);
 
     const carregar = async () => {
         setCarregando(true);
@@ -189,10 +205,10 @@ const Painel: React.FC = () => {
                 previsto: l.qtd_op,
                 emitido: l.pecas_colagem,
                 unidade: 'unidades',
-                referencia: a.caixasPrevistas !== null
+                referencia: a.caixasPrevistas !== null && l.caixas_emitidas > 0
                     ? `caixas ${l.caixas_emitidas} de ${a.caixasPrevistas}` : undefined,
                 titulo: `Foram para a expedição ${formatarQtd(l.pecas_colagem)} de ${formatarQtd(l.qtd_op)} unidades`
-                    + (a.caixasPrevistas !== null ? ` e saíram ${l.caixas_emitidas} de ${a.caixasPrevistas} caixas` : '')
+                    + (a.caixasPrevistas !== null && l.caixas_emitidas > 0 ? ` e saíram ${l.caixas_emitidas} de ${a.caixasPrevistas} caixas` : '')
                     + '. Encerrar abaixo do previsto precisa da supervisão.',
             });
             if (!liberacaoId) return;
@@ -227,11 +243,33 @@ const Painel: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        if (!tv) return;
+        const t = setInterval(carregar, 60_000);
+        const aoSairDaTelaCheia = () => { if (!document.fullscreenElement) setTv(false); };
+        document.addEventListener('fullscreenchange', aoSairDaTelaCheia);
+        return () => { clearInterval(t); document.removeEventListener('fullscreenchange', aoSairDaTelaCheia); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tv]);
+
+    const alternarTv = async () => {
+        if (tv) {
+            setTv(false);
+            if (document.fullscreenElement) await document.exitFullscreen().catch(() => { });
+            return;
+        }
+        setTv(true);
+        setAberta(null);
+        // Tela cheia e opcional: alguns navegadores recusam, e o modo TV segue.
+        await paginaRef.current?.requestFullscreen?.().catch(() => { });
+    };
+
     const analisadas = useMemo(() => linhas.map(l => ({ l, a: analisar(l) })), [linhas]);
 
     const termo = busca.trim().toLowerCase();
     const visiveis = analisadas.filter(({ l, a }) => {
-        if (filtro === 'abertas' && a.situacao === 'encerrada') return false;
+        if ((tv || filtro === 'abertas') && a.situacao === 'encerrada') return false;
+        if (tv) return true;
         if (filtro === 'acima' && a.situacao !== 'acima') return false;
         if (filtro === 'encerradas' && a.situacao !== 'encerrada') return false;
         if (!termo) return true;
@@ -246,12 +284,13 @@ const Painel: React.FC = () => {
         bipados: abertas.reduce((s, { l }) => s + l.paletes_expedicao, 0),
         acima: abertas.filter(({ a }) => a.situacao === 'acima').length,
         liberacoes: abertas.reduce((s, { l }) => s + l.liberacoes, 0),
+        semBipagem: abertas.filter(({ a }) => a.semBipagem).length,
     };
 
     const hoje = new Date().toISOString().slice(0, 10);
 
     return (
-        <div className="rast-page painel">
+        <div className={`rast-page painel ${tv ? 'tv' : ''}`} ref={paginaRef}>
             {modalLiberacao}
 
             <div className="painel-kpis">
@@ -262,9 +301,23 @@ const Painel: React.FC = () => {
                     <span>OPs acima do previsto</span><b>{kpi.acima}</b>
                     <small>mais de {pct(TOLERANCIA)} acima</small>
                 </div>
+                <div className={`painel-kpi ${kpi.semBipagem ? 'alerta' : ''}`}>
+                    <span>Sem bipagem na expedição</span><b>{kpi.semBipagem}</b>
+                    <small>OPs com palete enviado há mais de {HORAS_SEM_BIPAGEM} h</small>
+                </div>
                 <div className="painel-kpi"><span>Liberações</span><b>{kpi.liberacoes}</b><small>da supervisão, nas OPs abertas</small></div>
             </div>
 
+            {tv ? (
+                <div className="painel-filtros">
+                    <span className="painel-tv-hora">
+                        <RefreshCw size={16} /> Atualiza sozinho a cada minuto
+                    </span>
+                    <button className="rast-btn pequeno" onClick={alternarTv}>
+                        <Minimize2 size={14} /> Sair do modo TV
+                    </button>
+                </div>
+            ) : (
             <div className="painel-filtros">
                 <div className="painel-abas" role="tablist">
                     {([['abertas', 'Abertas'], ['acima', 'Acima do previsto'], ['encerradas', 'Encerradas'], ['todas', 'Todas']] as [Filtro, string][]).map(([f, t]) => (
@@ -279,7 +332,11 @@ const Painel: React.FC = () => {
                 <button className="rast-btn pequeno" onClick={carregar} disabled={carregando}>
                     <RefreshCw size={14} /> {carregando ? 'Atualizando...' : 'Atualizar'}
                 </button>
+                <button className="rast-btn pequeno" onClick={alternarTv}>
+                    <Maximize2 size={14} /> Modo TV
+                </button>
             </div>
+            )}
 
             {erro && <div className="rast-aviso erro"><AlertTriangle size={18} /><span>{erro}</span></div>}
 
@@ -336,6 +393,15 @@ const Painel: React.FC = () => {
                                     : 'OP sem quantidade no XML'}
                             />
 
+                            {/* Enviado pela colagem e ainda nao bipado na expedicao. */}
+                            {l.aguardando_bipagem > 0 && l.paletes_expedicao > 0 && (
+                                <p className={`painel-espera ${a.semBipagem ? 'alerta' : ''}`}>
+                                    <Clock size={14} />
+                                    {l.aguardando_bipagem} palete(s) enviado(s) ainda sem bipagem na expedição
+                                    {a.esperaHoras >= 1 && ` · o mais antigo há ${Math.floor(a.esperaHoras)} h`}
+                                </p>
+                            )}
+
                             {/* O caminho do material: paletes que cada setor soltou,
                                 e quantos ainda estao no chao esperando o proximo. */}
                             <div className="painel-fluxo" aria-label="Paletes por setor">
@@ -358,9 +424,11 @@ const Painel: React.FC = () => {
                                 {l.liberacoes > 0 && (
                                     <span className="painel-lib"><ShieldCheck size={13} /> {l.liberacoes} liberação(ões)</span>
                                 )}
-                                <button className="rast-btn pequeno" onClick={() => abrirDetalhe(l.op)} aria-expanded={detalhe}>
-                                    {detalhe ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Detalhes
-                                </button>
+                                {!tv && (
+                                    <button className="rast-btn pequeno" onClick={() => abrirDetalhe(l.op)} aria-expanded={detalhe}>
+                                        {detalhe ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Detalhes
+                                    </button>
+                                )}
                             </footer>
 
                             {detalhe && (

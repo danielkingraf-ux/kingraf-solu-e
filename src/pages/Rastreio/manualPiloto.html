@@ -1,0 +1,175 @@
+
+  <div class="mp-topo">
+    <span class="mp-rotulo">Kingraf · Etiquetas e Rastreio</span>
+    <h1>Manual do piloto de paletes: colagem → expedição</h1>
+    <p>O que mudou nas etiquetas, como o sistema conta os paletes de cada OP e quando a supervisão precisa liberar.</p>
+    <div class="mp-carimbo"><span>Versão de 25/09/2026</span><span>Piloto só na colagem</span></div>
+  </div>
+
+  <section class="mp-secao">
+    <div class="mp-regra">
+      <span class="mp-rotulo">A regra do piloto</span>
+      <p class="mp-frase">Imprimiu a etiqueta de palete na colagem, o palete conta como enviado para a expedição.</p>
+      <p>A bipagem da expedição no rastreio continua ligada. Ela aparece separada no painel, para comparar o que saiu da colagem com o que a expedição bipou.</p>
+    </div>
+
+    <div class="mp-fluxo" aria-label="Caminho do palete no piloto">
+      <div class="mp-etapa">
+        <span class="mp-quem">Colagem</span>
+        <span class="mp-oque">Monta o palete</span>
+        <span class="mp-conta">Conta as caixas que couberam</span>
+      </div>
+      <div class="mp-seta" aria-hidden="true">→</div>
+      <div class="mp-etapa mp-chave">
+        <span class="mp-quem">Colagem</span>
+        <span class="mp-oque">Imprime a etiqueta de palete</span>
+        <span class="mp-conta">Sai o número <span class="mp-mono">3/10</span> e o palete conta como enviado</span>
+      </div>
+      <div class="mp-seta" aria-hidden="true">→</div>
+      <div class="mp-etapa">
+        <span class="mp-quem">Expedição</span>
+        <span class="mp-oque">Bipa no rastreio</span>
+        <span class="mp-conta">Continua como está; conta à parte no painel</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="mp-secao">
+    <div class="mp-cab">
+      <span class="mp-rotulo">Na colagem</span>
+      <h2>Passo a passo da etiqueta de palete</h2>
+    </div>
+    <ol class="mp-passos">
+      <li>
+        <span class="mp-t">Digite a OP e saia do campo</span>
+        <span class="mp-d">Se a OP foi importada no rastreio (XML do Metrics), vêm sozinhos: cliente, produto (quando a OP tem um modelo só), quantidade da OP e bocas. O que já estiver digitado não é apagado.</span>
+      </li>
+      <li>
+        <span class="mp-t">Monte o 1º palete e conte as caixas</span>
+        <span class="mp-d">Só depois do 1º palete montado se sabe quantas caixas cabem. Digite em <b>Caixas neste palete</b> e em <b>Qtd. por caixa</b>, e deixe marcado <b>“Este palete está cheio”</b>. Com isso a etiqueta já calcula o total de paletes da OP. Se o 1º palete saiu incompleto, desmarque e informe o palete cheio em <b>Caixas por palete</b>.</span>
+      </li>
+      <li>
+        <span class="mp-t">Imprima</span>
+        <span class="mp-d">O sistema dá o número do palete (<span class="mp-mono">1/10</span>) e grava as caixas desse 1º palete como <b>Caixas por palete</b> da OP, que vira o padrão dos próximos. A etiqueta também diz <b>quais caixas</b> vão no palete, pela numeração da etiqueta de caixa (ex.: <b>CAIXAS 1 A 4</b>); o palete seguinte continua de onde este parou.</span>
+      </li>
+      <li>
+        <span class="mp-t">Clique em “Fazer o próximo palete desta OP”</span>
+        <span class="mp-d">Tudo continua preenchido e o número passa para <span class="mp-mono">2/10</span>. Se fechar a tela, é só digitar a OP de novo: a embalagem volta preenchida.</span>
+      </li>
+      <li>
+        <span class="mp-t">No último palete, confira</span>
+        <span class="mp-d">Ele já vem com as caixas que faltam e com a <b>caixa incompleta</b> preenchida. A etiqueta impressa mostra, por exemplo, <b>1 CX COM 600</b>.</span>
+      </li>
+    </ol>
+    <div class="mp-nota mp-alerta"><b>Reimprimir não conta de novo.</b> Etiqueta rasgada: abra pela Biblioteca e imprima outra vez. O número e a contagem continuam os mesmos.</div>
+  </section>
+
+  <section class="mp-secao">
+    <div class="mp-cab">
+      <span class="mp-rotulo">A conta</span>
+      <h2>Como o sistema divide a OP em caixas e paletes</h2>
+    </div>
+    <p>Exemplo: OP de <b>15.000</b> peças, <b>1.600</b> por caixa, e o 1º palete levou <b>4 caixas</b>.</p>
+    <div class="mp-conta-caixas">
+      15.000 ÷ 1.600 = <span class="mp-res">9 caixas cheias + 1 caixa com 600</span><br>
+      10 caixas ÷ 4 por palete = <span class="mp-res">3 paletes</span> (o último leva 2 caixas, uma delas com 600)
+    </div>
+    <div class="mp-tabela-wrap">
+      <table>
+        <thead>
+          <tr><th>Etiqueta</th><th class="mp-num">Caixas</th><th>Como vai</th><th class="mp-num">Peças</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="mp-etq">1/3</span></td><td class="mp-num">4</td><td>4 × 1.600</td><td class="mp-num">6.400</td></tr>
+          <tr><td><span class="mp-etq">2/3</span></td><td class="mp-num">4</td><td>4 × 1.600</td><td class="mp-num">6.400</td></tr>
+          <tr><td><span class="mp-etq">3/3</span></td><td class="mp-num">2</td><td>1 × 1.600 + 1 caixa com 600</td><td class="mp-num">2.200</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>Total</td><td class="mp-num">10</td><td></td><td class="mp-num">15.000</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <ul class="mp-solto">
+      <li>O <b>“de 3”</b> da etiqueta é o total de paletes que a OP prevê. Se sair mais palete do que isso, o total acompanha o número: fica <span class="mp-mono">4/4</span>, nunca <span class="mp-mono">4/3</span>.</li>
+      <li>Se a conta ainda não estiver completa, a etiqueta sai só com o número (<span class="mp-mono">3</span>). Para a conta sair, precisa de quantidade da OP, quantidade por caixa e caixas por palete.</li>
+      <li>A etiqueta liga as caixas ao palete: o 2º palete de 4 caixas sai com <b>CAIXAS 5 A 8</b>. Assim, achando uma caixa, se sabe em que palete ela foi.</li>
+      <li>Duas estações imprimindo a mesma OP ao mesmo tempo nunca recebem o mesmo número: o banco não deixa, e a segunda pega o próximo.</li>
+    </ul>
+  </section>
+
+  <section class="mp-secao">
+    <div class="mp-cab">
+      <span class="mp-rotulo">Controle</span>
+      <h2>Quando a supervisão precisa liberar</h2>
+    </div>
+    <p>Até <b>10% acima</b> do previsto passa direto. Acima disso, ou encerrando a OP com qualquer quantidade a menos, abre uma janela pedindo a <b>matrícula de um supervisor</b> e o motivo.</p>
+    <div class="mp-tabela-wrap">
+      <table>
+        <thead><tr><th>Onde</th><th>Pede a matrícula quando</th><th>Exemplo</th></tr></thead>
+        <tbody>
+          <tr><td>Etiqueta de palete</td><td>O número do palete passa de 110% dos paletes previstos</td><td>Palete 12 numa OP de 10</td></tr>
+          <tr><td>Etiqueta de caixa</td><td>A última caixa passa de 110% das caixas previstas</td><td>Caixa 12 numa OP de 10 caixas</td></tr>
+          <tr><td>Novo palete no rastreio</td><td>O que o setor já soltou, mais este lançamento, passa de 110% do planejado da etapa no XML</td><td>Setor com plano de 100.000 chegando a 111.000</td></tr>
+          <tr><td>Encerrar a OP (painel)</td><td>Foi para a expedição menos que a OP, ou saiu menos caixa que o previsto</td><td>14.200 de 15.000</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="mp-solto">
+      <li>Só libera quem está cadastrado com papel <b>Supervisor</b> em Rastreio → Operadores e setores: <b>Daniel, Paulo e Susi</b>. Líder não libera.</li>
+      <li>Toda liberação fica registrada: quem liberou, previsto, emitido, motivo e horário. Aparece nos Detalhes da OP no painel.</li>
+      <li>A matrícula fica escondida enquanto é digitada, como uma senha.</li>
+      <li>O banco também confere: sem a liberação, a etiqueta ou o palete não são gravados, mesmo que alguém tente pular a janela.</li>
+      <li>Se a conexão cair na hora de conferir o previsto, a etiqueta de caixa não imprime. Tente de novo.</li>
+    </ul>
+  </section>
+
+  <section class="mp-secao">
+    <div class="mp-cab">
+      <span class="mp-rotulo">Acompanhamento</span>
+      <h2>O Painel por OP</h2>
+    </div>
+    <p>Fica em <b>Rastreio → Gerenciamento → Painel por OP</b>, só para a conta de administração. Cada OP é um cartão:</p>
+    <div class="mp-tabela-wrap">
+      <table>
+        <thead><tr><th>No cartão</th><th>De onde vem</th></tr></thead>
+        <tbody>
+          <tr><td><b>Enviados à expedição</b> · <span class="mp-mono">3 / 10</span></td><td>Etiquetas de palete impressas no piloto, contra os paletes previstos</td></tr>
+          <tr><td><b>Bipados na expedição</b></td><td>Paletes que a expedição bipou no rastreio</td></tr>
+          <tr><td><b>Caixas emitidas</b> · <span class="mp-mono">10 / 10</span></td><td>Maior número de caixa das etiquetas de caixa, contra as caixas previstas</td></tr>
+          <tr><td><b>Barra “Expedido”</b></td><td>Peças das etiquetas de palete ÷ quantidade da OP. Verde em 100%, amarela passando, vermelha acima de 110%.</td></tr>
+          <tr><td><b>Setores</b> (IMP, CV, COL…)</td><td>Paletes que cada setor criou no rastreio e quantos ainda estão no chão</td></tr>
+          <tr><td><b>Aviso de bipagem</b></td><td>Paletes enviados pela colagem que a expedição ainda não bipou. Fica amarelo quando o mais antigo espera há mais de 4 horas (só nas OPs em que a expedição já bipa).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Situação de cada OP:
+      <span class="mp-chip mp-prod">Em produção</span>
+      <span class="mp-chip mp-acima">Acima do previsto</span>
+      <span class="mp-chip mp-pronta">Pronta para encerrar</span>
+      <span class="mp-chip mp-fechada">Encerrada</span>
+    </p>
+    <p>Em <b>Detalhes</b> ficam a tabela por setor, as liberações e os botões <b>Encerrar OP</b> e <b>Reabrir</b>.</p>
+    <p>O botão <b>Modo TV</b> põe o painel em tela cheia, com letras grandes e só as OPs abertas, atualizando sozinho a cada minuto. Serve para uma TV na fábrica. Para sair, aperte Esc ou “Sair do modo TV”.</p>
+    <p>Ao encerrar, as caixas só entram na conta se a OP tiver etiqueta de caixa impressa. Se a colagem só usa a etiqueta de palete, valem as peças enviadas.</p>
+  </section>
+
+  <section class="mp-secao">
+    <div class="mp-cab">
+      <span class="mp-rotulo">Casos especiais</span>
+      <h2>O que acontece quando…</h2>
+    </div>
+    <div class="mp-tabela-wrap">
+      <table>
+        <tbody>
+          <tr><td><b>A OP não foi importada no rastreio</b></td><td>Aparece um aviso. Cliente, produto e quantidade ficam digitados. A numeração dos paletes funciona igual.</td></tr>
+          <tr><td><b>O 1º palete saiu incompleto</b></td><td>Desmarque “Este palete está cheio” antes de imprimir e informe o palete cheio em <b>Caixas por palete</b>. Se já imprimiu, corrija <b>Caixas por palete</b> na Conta da OP.</td></tr>
+          <tr><td><b>A OP tem vários modelos</b></td><td>A quantidade da OP é a soma dos modelos, porque a numeração dos paletes é da OP inteira.</td></tr>
+          <tr><td><b>Etiqueta de palete de antes do piloto</b></td><td>Não tem número, então não entra na contagem. Se reaberta, mantém o volume que foi digitado.</td></tr>
+          <tr><td><b>OP de reimpressão</b> (<span class="mp-mono">20148_01</span>)</td><td>Ainda não entra no rastreio. A etiqueta imprime normalmente, com os dados digitados. Falta um XML real de reimpressão para ajustar.</td></tr>
+          <tr><td><b>Etiqueta antiga não aparece na Biblioteca</b></td><td>A Biblioteca mostra as 200 mais recentes da aba. Digite a OP ou o cliente na busca e aperte Enter: a busca vai no banco inteiro.</td></tr>
+          <tr><td><b>Etiqueta excluída na Biblioteca</b></td><td>Sai da contagem. O próximo palete continua do maior número que ficou.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
