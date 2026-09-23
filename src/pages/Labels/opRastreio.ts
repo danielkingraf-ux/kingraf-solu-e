@@ -19,7 +19,7 @@ export interface ModeloOP {
 }
 
 export interface DadosOP {
-    numeroOp: number;
+    numeroOp: string;
     cliente: string | null;
     modelos: ModeloOP[];
     /** Soma dos modelos. */
@@ -28,10 +28,10 @@ export interface DadosOP {
     bocas: number | null;
 }
 
-/** "20418" -> 20418. OP com letra ou vazia nao existe no rastreio. */
-export const numeroDaOP = (op: string): number | null => {
-    const limpo = op.trim();
-    return /^\d+$/.test(limpo) ? Number(limpo) : null;
+/** OP como o rastreio guarda: 20418, ou 20363_01 na reimpressao. Outro formato nao existe la. */
+export const numeroDaOP = (op: string): string | null => {
+    const limpo = op.trim().toUpperCase();
+    return /^\d+(_\d+)?$/.test(limpo) ? limpo : null;
 };
 
 /** Devolve null quando a OP nao foi importada no rastreio. */

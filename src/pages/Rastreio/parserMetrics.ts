@@ -104,7 +104,7 @@ export interface ProdutoXml {
 }
 
 export interface OpXml {
-    numero_op: number | null;   // plnWS.Code: o numero que a fabrica usa
+    numero_op: string | null;   // plnWS.Code: o numero que a fabrica usa (20418, ou 20363_01 na reimpressao)
     id_wo: number | null;       // IdWO: id interno do Metrics, para conferencia
     descricao: string | null;   // cliente e produto
     cliente_id: number | null;  // IdActorCustomer: o nome nao vem no XML
@@ -333,7 +333,8 @@ export function extrair(textoXml: string): ResultadoParser {
 
     // O numero da OP e o Code do servico. O IdWO so serve de conferencia: ele
     // e outro numero, interno do Metrics, e nao e o que esta na ordem impressa.
-    const numeroOp = num(servico.Code ?? servico.ExtRef);
+    // Texto, nao numero: a reimpressao vem como Code="20363_01".
+    const numeroOp = (servico.Code ?? servico.ExtRef ?? '').trim().toUpperCase() || null;
     return {
         op: {
             numero_op: numeroOp,

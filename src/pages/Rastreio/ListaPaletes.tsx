@@ -4,7 +4,7 @@ import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import type { Etapa, OpResumo, Palete, RastroEtapa, Setor, Situacao } from './api';
 import {
-    SITUACAO_LABEL, buscarRastro, codigoCurto, formatarDataHora, formatarQtd, lerMatricula, listarOps, listarSetores,
+    SITUACAO_LABEL, buscarRastro, codigoCurto, formatarDataHora, formatarQtd, lerMatricula, limparNumeroOp, listarOps, listarSetores,
     mensagemErro, nomeDestino, salvarMatricula,
 } from './api';
 import { imprimirFichas } from './ficha';
@@ -58,7 +58,7 @@ const ListaPaletes: React.FC = () => {
         setErro(null);
         try {
             let q = supabase.from('rast_paletes').select('*').order('produzido_em', { ascending: false }).limit(300);
-            const n = parseInt(numeroOp, 10);
+            const n = limparNumeroOp(numeroOp);
             if (n) q = q.eq('numero_op', n);
             if (filtro === 'abertos') q = q.in('situacao', ['aguardando', 'em_terceiros']);
             else if (filtro !== 'todos') q = q.eq('situacao', filtro);
@@ -153,7 +153,7 @@ const ListaPaletes: React.FC = () => {
                     <div className="rast-campo estreito">
                         <label htmlFor="rast-l-op">OP</label>
                         <input id="rast-l-op" inputMode="numeric" list="rast-lista-ops" value={numeroOp} placeholder="Todas"
-                            onChange={e => setNumeroOp(e.target.value.replace(/\D/g, ''))} />
+                            onChange={e => setNumeroOp(limparNumeroOp(e.target.value))} />
                         <datalist id="rast-lista-ops">
                             {ops.map(o => (
                                 <option key={o.id} value={o.numero_op}>

@@ -4,7 +4,7 @@ import { supabase } from '../../supabaseClient';
 import type { FechamentoSetor, OpResumo, Palete, Setor } from './api';
 import {
     SITUACAO_LABEL, fechamentoOp, formatarDataHora, formatarQtd,
-    listarOps, listarSetores, mensagemErro,
+    limparNumeroOp, listarOps, listarSetores, mensagemErro,
 } from './api';
 import './Rastreio.css';
 
@@ -16,7 +16,7 @@ const Fechamento: React.FC = () => {
     const [ops, setOps] = useState<OpResumo[]>([]);
     const [setores, setSetores] = useState<Setor[]>([]);
     const [numeroOp, setNumeroOp] = useState('');
-    const [opAberta, setOpAberta] = useState<number | null>(null);
+    const [opAberta, setOpAberta] = useState<string | null>(null);
     const [linhas, setLinhas] = useState<FechamentoSetor[]>([]);
     const [paletes, setPaletes] = useState<PaleteComOperador[]>([]);
     const [carregando, setCarregando] = useState(false);
@@ -27,8 +27,8 @@ const Fechamento: React.FC = () => {
         listarSetores().then(setSetores).catch(() => { });
     }, []);
 
-    const abrir = async (n: number) => {
-        setNumeroOp(String(n));
+    const abrir = async (n: string) => {
+        setNumeroOp(n);
         setCarregando(true);
         setErro(null);
         try {
@@ -61,11 +61,11 @@ const Fechamento: React.FC = () => {
                 <p className="rast-ajuda" style={{ marginBottom: 16 }}>
                     Confere se o que saiu de um setor chegou todo no próximo, e mostra quem assinou cada palete.
                 </p>
-                <form className="rast-linha" onSubmit={e => { e.preventDefault(); const n = parseInt(numeroOp, 10); if (n) abrir(n); }}>
+                <form className="rast-linha" onSubmit={e => { e.preventDefault(); const n = limparNumeroOp(numeroOp); if (n) abrir(n); }}>
                     <div className="rast-campo estreito">
                         <label htmlFor="rast-f-op">Número da OP</label>
                         <input id="rast-f-op" inputMode="numeric" list="rast-fech-ops" value={numeroOp} autoFocus
-                            onChange={e => setNumeroOp(e.target.value.replace(/\D/g, ''))} placeholder="20418" />
+                            onChange={e => setNumeroOp(limparNumeroOp(e.target.value))} placeholder="20418 ou 20363_01" />
                         <datalist id="rast-fech-ops">
                             {ops.map(o => <option key={o.id} value={o.numero_op}>{o.pedido ? `pedido ${o.pedido}` : ''}</option>)}
                         </datalist>

@@ -136,7 +136,7 @@ export async function montarFicha(d: DadosFicha): Promise<string> {
 }
 
 // Por onde o material passou antes de virar este palete, e quem mexeu.
-function montarRastro(rastro: RastroEtapa[], numeroOp: number): string {
+function montarRastro(rastro: RastroEtapa[], numeroOp: string): string {
     if (!rastro.length) return '';
     const lista = (xs: string[], max = 5) =>
         xs.length > max ? `${xs.slice(0, max).map(esc).join(', ')} e mais ${xs.length - max}` : xs.map(esc).join(', ') || '-';
@@ -226,7 +226,7 @@ export async function imprimirFichas(paleteIds: string[]) {
     const { data: paletes, error } = await supabase.from('rast_paletes').select('*').in('id', paleteIds);
     if (error) throw error;
     const lista = (paletes || []) as Palete[];
-    lista.sort((a, b) => a.numero_op - b.numero_op || a.setor_origem_id - b.setor_origem_id || a.numero - b.numero);
+    lista.sort((a, b) => a.numero_op.localeCompare(b.numero_op, 'pt-BR', { numeric: true }) || a.setor_origem_id - b.setor_origem_id || a.numero - b.numero);
 
     const opIds = [...new Set(lista.map(p => p.op_id))];
     const operIds = [...new Set(lista.map(p => p.operador_id))];

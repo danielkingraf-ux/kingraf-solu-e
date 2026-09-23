@@ -28,7 +28,7 @@ interface SetorPaletes {
 
 interface LinhaPainel {
     op: string;
-    numero_op: number;
+    numero_op: string;
     descricao: string | null;
     cliente: string | null;
     pedido: string | null;

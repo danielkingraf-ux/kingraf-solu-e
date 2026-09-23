@@ -108,7 +108,7 @@ const Bipagem: React.FC = () => {
                 p_codigo: cod, p_setor_id: setor.id, p_matricula: matricula.trim(),
             });
             if (error) throw error;
-            const d = data as { tipo: string; quantidade: number; unidade: string; etapa: string; numero_op: number };
+            const d = data as { tipo: string; quantidade: number; unidade: string; etapa: string; numero_op: string };
             registrar(d.tipo === 'saida_terceiros'
                 ? { tipo: 'terceiros', titulo: `${cod} liberado para terceiros`, texto: `${formatarQtd(d.quantidade)} ${d.unidade} saindo para ${d.etapa}. OP ${d.numero_op}.` }
                 : d.tipo === 'finalizado'

@@ -4,7 +4,7 @@ import { supabase } from '../../supabaseClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import type { Etapa, Maquina, Op, OpResumo, Palete, Produto, Setor } from './api';
 import {
-    buscarOp, fechamentoOp, formatarDataHora, formatarQtd, lerMatricula, listarMaquinas, listarOps, listarSetores,
+    buscarOp, fechamentoOp, formatarDataHora, formatarQtd, lerMatricula, limparNumeroOp, listarMaquinas, listarOps, listarSetores,
     mensagemErro, nomeDestino, proximaEtapa, salvarMatricula,
 } from './api';
 import { acimaDoPrevisto, useLiberacao } from './liberacao';
@@ -58,12 +58,12 @@ const NovoPalete: React.FC = () => {
 
     const buscar = (e?: React.FormEvent) => {
         e?.preventDefault();
-        const n = parseInt(numeroOp.trim(), 10);
+        const n = limparNumeroOp(numeroOp);
         if (n) abrirOp(n);
     };
 
-    const abrirOp = async (n: number) => {
-        setNumeroOp(String(n));
+    const abrirOp = async (n: string) => {
+        setNumeroOp(n);
         setBuscando(true);
         setErro(null);
         setOp(null);
@@ -182,7 +182,7 @@ const NovoPalete: React.FC = () => {
                     <div className="rast-campo estreito">
                         <label htmlFor="rast-op">Número da OP</label>
                         <input id="rast-op" inputMode="numeric" value={numeroOp} autoFocus
-                            onChange={e => setNumeroOp(e.target.value.replace(/\D/g, ''))} placeholder="20418" />
+                            onChange={e => setNumeroOp(limparNumeroOp(e.target.value))} placeholder="20418 ou 20363_01" />
                     </div>
                     <button className="rast-btn primario" type="submit" disabled={buscando || !numeroOp}>
                         <Search size={18} /> {buscando ? 'Abrindo...' : 'Abrir OP'}

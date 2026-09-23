@@ -66,7 +66,8 @@ export interface Cliente {
 
 export interface Op {
     id: string;
-    numero_op: number;
+    /** Texto: 20418, ou 20363_01 na reimpressao. */
+    numero_op: string;
     id_wo: number | null;
     descricao: string | null;
     cliente_id: number | null;
@@ -97,7 +98,7 @@ export interface Palete {
     id: string;
     codigo: string;
     op_id: string;
-    numero_op: number;
+    numero_op: string;
     produto_id: string | null;
     setor_origem_id: number;
     numero: number;
@@ -168,7 +169,7 @@ export async function listarOps(limite = 50): Promise<OpResumo[]> {
         .in('numero_op', ops.map(o => o.numero_op));
     if (e2) throw e2;
 
-    const linhas = (paletes || []) as { numero_op: number; situacao: Situacao }[];
+    const linhas = (paletes || []) as { numero_op: string; situacao: Situacao }[];
     return ops.map(o => {
         const daOp = linhas.filter(p => p.numero_op === o.numero_op && p.situacao !== 'cancelado');
         return {
@@ -200,7 +201,7 @@ export interface FechamentoSetor {
     operadores: string[];
 }
 
-export async function fechamentoOp(numeroOp: number): Promise<FechamentoSetor[]> {
+export async function fechamentoOp(numeroOp: string): Promise<FechamentoSetor[]> {
     const { data, error } = await supabase.rpc('rast_fechamento_op', { p_numero_op: numeroOp });
     if (error) throw error;
     // NUMERIC chega como string no PostgREST quando o valor tem casas decimais
@@ -238,7 +239,7 @@ export async function listarClientes(): Promise<Cliente[]> {
 }
 
 /** Versao ativa da OP, o roteiro e os modelos dela. */
-export async function buscarOp(numero: number): Promise<{ op: Op; roteiro: Etapa[]; produtos: Produto[] } | null> {
+export async function buscarOp(numero: string): Promise<{ op: Op; roteiro: Etapa[]; produtos: Produto[] } | null> {
     const { data: op, error } = await supabase
         .from('rast_ops')
         .select('*')
@@ -306,8 +307,14 @@ export function codigoDoTexto(texto: string): string {
 }
 
 /** 20418-IMP-003 vira IMP-003 quando a OP ja esta escrita ao lado. */
-export const codigoCurto = (codigo: string, numeroOp: number) =>
-    codigo.startsWith(`${numeroOp}-`) ? codigo.slice(String(numeroOp).length + 1) : codigo;
+export const codigoCurto = (codigo: string, numeroOp: string) =>
+    codigo.startsWith(`${numeroOp}-`) ? codigo.slice(numeroOp.length + 1) : codigo;
+
+/**
+ * Numero da OP como a fabrica escreve: 20418, ou 20363_01 na reimpressao, que
+ * e uma OP separada. So digitos e o sublinhado da reimpressao.
+ */
+export const limparNumeroOp = (texto: string) => texto.replace(/[^0-9_]/g, '');
 
 export function nomeDestino(destino: Etapa | null | undefined, setores: Setor[]): string {
     if (!destino) return 'Expedição';
