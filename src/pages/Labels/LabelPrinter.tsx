@@ -43,7 +43,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             destino: '',
             obs: '',
             operador: '',
-            // Caixas NESTE palete. O ultimo palete da OP costuma ter menos.
+            // Caixas CHEIAS neste palete. A incompleta vem a mais, em ultimaCaixa.
             qtdCaixas: '',
             qtdPorCaixa: '',
             // Unidades da caixa incompleta deste palete (a "sobra" da divisao:
@@ -73,24 +73,26 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
 
     const inteiroDe = (v: string) => parseInt(String(v).replace(/\./g, ''), 10) || 0;
 
-    // Unidades neste palete. Com caixa incompleta: (caixas - 1) cheias + ela.
-    const totalPallet = () => {
-        const caixas = inteiroDe(labelData.especifico.qtdCaixas);
-        const porCaixa = inteiroDe(labelData.especifico.qtdPorCaixa);
-        const ultima = inteiroDe(labelData.especifico.ultimaCaixa);
-        if (caixas > 0 && ultima > 0) return (caixas - 1) * porCaixa + ultima;
-        return caixas * porCaixa;
-    };
+    // "Caixas cheias" sao so as cheias; a caixa incompleta vem A MAIS (como o
+    // operador le e como a etiqueta imprime: CAIXAS 9 + 1 CX COM 600).
+    const caixasCheias = inteiroDe(labelData.especifico.qtdCaixas);
+    const unidadesIncompleta = inteiroDe(labelData.especifico.ultimaCaixa);
+    // Caixas que estao de fato no palete: as cheias mais a incompleta.
+    const caixasNoPalete = caixasCheias + (unidadesIncompleta > 0 ? 1 : 0);
+
+    // Unidades neste palete: 9 x 1.600 + 600 = 15.000.
+    const totalPallet = () => caixasCheias * inteiroDe(labelData.especifico.qtdPorCaixa) + unidadesIncompleta;
 
     // O que a OP pede x o que o vinco rodou. Ver planoPalete.ts. O divisor de
-    // caixas para paletes e o padrao do palete cheio; etiqueta antiga so tem
-    // "Qtd. Caixas", que era usado para isso.
+    // caixas para paletes e o padrao do palete cheio, contando a caixa
+    // incompleta como caixa; no 1o palete ele sai das caixas deste palete.
     const plano: PlanoOP = {
         quantidadeOP: labelData.especifico.quantidadeOP,
         folhasVinco: labelData.especifico.folhasVinco,
         bocas: labelData.especifico.bocas,
         quantidadePorCaixa: labelData.especifico.qtdPorCaixa,
-        caixasPorPallet: labelData.especifico.caixasPorPalete || (primeiroCheio ? labelData.especifico.qtdCaixas : '')
+        caixasPorPallet: labelData.especifico.caixasPorPalete
+            || (primeiroCheio && caixasNoPalete > 0 ? String(caixasNoPalete) : '')
     };
     const conta = calcular(plano);
     const divisao = dividirEmCaixas(plano);
@@ -115,8 +117,8 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     // Caixas deste palete na numeracao das etiquetas de caixa (ex.: 11 a 14).
     const caixaInicioExibida = inteiroDe(labelData.especifico.caixaInicio)
         || (expedidos ? expedidos.ultimaCaixa + 1 : 1);
-    const caixaFimExibida = caixaInicioExibida + inteiroDe(labelData.especifico.qtdCaixas) - 1;
-    const faixaCaixas = inteiroDe(labelData.especifico.qtdCaixas) > 0
+    const caixaFimExibida = caixaInicioExibida + caixasNoPalete - 1;
+    const faixaCaixas = caixasNoPalete > 0
         ? (caixaFimExibida > caixaInicioExibida ? `${caixaInicioExibida} a ${caixaFimExibida}` : String(caixaInicioExibida))
         : null;
 
@@ -143,8 +145,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         const chave = `${labelData.op}|${numeroExibido}|${divisao.paletes}`;
         if (numeroExibido !== divisao.paletes || autoUltimo.current === chave) return;
         autoUltimo.current = chave;
+        // caixasUltimoPalete conta a incompleta; o campo e so das cheias.
         setEspecifico({
-            qtdCaixas: String(divisao.caixasUltimoPalete),
+            qtdCaixas: String(divisao.caixasUltimoPalete - (divisao.sobra > 0 ? 1 : 0)),
             ultimaCaixa: divisao.sobra > 0 ? String(divisao.sobra) : ''
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,7 +347,8 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         // Etiqueta de palete nova = um palete a mais que saiu da colagem.
         // Reimprimir a mesma etiqueta nao conta de novo.
         const novoPalete = !savedId && numeracaoAutomatica;
-        const caixasDoPalete = inteiroDe(labelData.especifico.qtdCaixas);
+        // Caixas fisicas no palete (cheias + a incompleta), para a faixa.
+        const caixasDoPalete = caixasNoPalete;
 
         // Numero do palete e faixa de caixas: a tela pode estar velha (outra
         // estacao imprimiu no meio), vale o que o banco disser agora.
@@ -385,7 +389,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         // banco confere os 10% (gatilho prod_trava_etiqueta_palete). O 1o
         // palete cheio ja vira o padrao de caixas por palete.
         const planoAGravar: PlanoOP = primeiroCheio && !labelData.especifico.caixasPorPalete
-            ? { ...plano, caixasPorPallet: labelData.especifico.qtdCaixas }
+            ? { ...plano, caixasPorPallet: String(caixasNoPalete) }
             : plano;
         if (labelType === 'pallet') {
             try {
@@ -656,16 +660,16 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
                                     <div className="form-group animate-fade-in-up delay-450">
-                                        <label>Caixas neste palete</label>
-                                        <input type="number" name="qtdCaixas" value={labelData.especifico.qtdCaixas} onChange={handleChange} placeholder="Nº de caixas" />
+                                        <label>Caixas cheias</label>
+                                        <input type="number" name="qtdCaixas" value={labelData.especifico.qtdCaixas} onChange={handleChange} placeholder="Nº de caixas cheias" />
                                     </div>
                                     <div className="form-group animate-fade-in-up delay-450">
                                         <label>Qtd. por Caixa</label>
                                         <input type="number" name="qtdPorCaixa" value={labelData.especifico.qtdPorCaixa} onChange={handleChange} placeholder="Unidades" />
                                     </div>
                                     <div className="form-group animate-fade-in-up delay-450">
-                                        <label>Caixa incompleta</label>
-                                        <input type="number" name="ultimaCaixa" value={labelData.especifico.ultimaCaixa} onChange={handleChange} placeholder="Unidades (se houver)" />
+                                        <label>+ Caixa incompleta</label>
+                                        <input type="number" name="ultimaCaixa" value={labelData.especifico.ultimaCaixa} onChange={handleChange} placeholder="Unidades nela (se houver)" />
                                     </div>
                                 </div>
                                 {/* 1o palete da OP: ainda nao existe padrao de caixas por
