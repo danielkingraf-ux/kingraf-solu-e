@@ -652,8 +652,9 @@
 
     .label-mockup {
         box-shadow: none;
-        width: 210mm;
-        height: 295mm;
+        /* Tamanho real vem de .label-mockup.a4-page-preview (200 x 285 mm). */
+        width: 200mm;
+        height: 285mm;
         border: none;
         padding: 15mm;
         margin: 0;
@@ -945,10 +946,31 @@
    conteudo inteiro para caber. Mesmo tamanho na tela e no papel: o
    .a4-page-preview do BoxLabel.css punha min-height 297mm na tela e
    'auto' na impressao, e a conta da tela nao valia no papel. */
+/* 200 x 285 mm, a 5 mm da borda da A4 (210 x 297): folga de 5-6 mm em volta.
+   Era 210 x 295 colado no canto, com 2 mm de sobra: margem que o driver da
+   impressora impoe ou 1px de arredondamento jogavam uma 2a folha. O mesmo
+   tamanho na tela e no papel, para a reducao calculada na tela valer. */
 .label-mockup.a4-page-preview {
-    height: 295mm;
+    width: 200mm;
+    height: 285mm;
     min-height: 0;
     overflow: hidden;
+}
+
+@media print {
+    #printable-label {
+        top: 5mm;
+        left: 5mm;
+    }
+
+    /* Uma folha e so: nada da pagina passa da A4, nem em branco. So quando a
+       etiqueta de palete esta na tela (a de caixa tem regras proprias). */
+    html:has(#printable-label),
+    body:has(#printable-label) {
+        height: 296mm !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
 }
 
 .label-encaixe {
