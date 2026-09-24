@@ -580,6 +580,9 @@
 }
 
 /* Print Styles */
+/* Mesma pagina com nome da etiqueta de palete (margem 0). */
+@page etiqueta { size: A4 portrait; margin: 0; }
+
 @media print {
     .box-label-container * {
         -webkit-print-color-adjust: exact !important;
@@ -606,6 +609,7 @@
     }
 
     .box-label-container {
+        page: etiqueta;
         display: block;
         height: auto;
         background: white;

@@ -133,8 +133,13 @@
     .mp .mp-etapa { min-width: 0; }
 }
 
+/* Mesma pagina com nome do manual do rastreio (margem de 14 mm so aqui). */
+@page manual { size: A4; margin: 14mm; }
+
 /* Impressao: so o manual, sem menu, cabecalho do app nem botao. */
 @media print {
+    .mp { page: manual; }
+
     body:has(.mp) .sidebar,
     body:has(.mp) .top-header,
     body:has(.mp) .sidebar-backdrop,

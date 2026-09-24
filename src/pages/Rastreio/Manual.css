@@ -281,7 +281,11 @@
     .rast-manual .rodape-folha { display: none; }
   }
 
-  @page { size: A4; margin: 14mm; }
+  /* Pagina com nome: um @page sem nome vale para o app inteiro, e no site
+     publicado todo o CSS vira um arquivo so. Os 14 mm do manual venciam o
+     margin: 0 das etiquetas, que passavam a sair em duas folhas. */
+  @page manual { size: A4; margin: 14mm; }
+  @media print { .rast-manual { page: manual; } }
 
   @media (max-width: 700px) {
     .rast-manual .duas, .rast-manual .tres { grid-template-columns: 1fr; }

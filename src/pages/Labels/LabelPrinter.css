@@ -957,11 +957,17 @@
     overflow: hidden;
 }
 
+/* Pagina com nome para as etiquetas: nenhum @page de outra tela (o manual
+   usa 14 mm) mexe na margem delas, mesmo com todo o CSS num arquivo so. */
+@page etiqueta { size: A4 portrait; margin: 0; }
+
 @media print {
     #printable-label {
         top: 5mm;
         left: 5mm;
     }
+
+    .label-printer-container { page: etiqueta; }
 
     /* Uma folha e so: nada da pagina passa da A4, nem em branco. So quando a
        etiqueta de palete esta na tela (a de caixa tem regras proprias). */
