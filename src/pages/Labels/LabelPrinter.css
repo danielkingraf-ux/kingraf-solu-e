@@ -983,3 +983,146 @@
 .label-mockup .faixa-escolha {
     flex-shrink: 0;
 }
+
+/* ---- Etiqueta de informacao: 8 por folha, texto livre ----
+   Mesma posicao da etiqueta de caixa (BoxLabel.css, impressao): a 5 mm da
+   borda, grade 2 x 4 de 200 x 287 mm com 2 mm entre etiquetas, cada uma com
+   99 x 70 mm. Assim sai no mesmo papel ja cortado. */
+.label-mockup.a4-page-preview.info-folha {
+    width: 200mm;
+    height: 287mm;
+    padding: 0;
+}
+
+.info-grade {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 2mm;
+    width: 100%;
+    height: 100%;
+}
+
+.info-etiqueta {
+    display: flex;
+    padding: 4mm;
+    overflow: hidden;
+    background: #FFF;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* O texto ocupa a etiqueta inteira, centrado na altura; a letra e o
+   alinhamento vem da tela (LabelPrinter.tsx). */
+.info-texto {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.12;
+    color: #000;
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    text-transform: uppercase;
+}
+
+/* Enquanto nao tem texto, o exemplo aparece apagado so na tela. */
+.info-texto.exemplo { color: #CBD5E1; }
+
+@media screen {
+    .info-etiqueta { outline: 1px dashed rgba(0, 0, 0, 0.25); outline-offset: -1px; }
+    .info-etiqueta.vazia { background: #F8FAFC; }
+}
+
+/* ---- Editor da etiqueta de informacao (barra lateral) ---- */
+.info-editor .form-group textarea {
+    width: 100%;
+    padding: 0.875rem 1.1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    color: #FFF;
+    font-size: 1rem;
+    font-family: inherit;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.info-editor .form-group textarea:focus {
+    outline: none;
+    border-color: var(--kingraf-orange);
+    box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.15);
+}
+
+.info-tamanho {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.info-tamanho button,
+.info-botoes button {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+    color: #FFF;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.info-tamanho input[type="range"] {
+    flex: 1;
+    accent-color: var(--kingraf-orange);
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+.info-tamanho b {
+    min-width: 56px;
+    text-align: right;
+    color: #FFF;
+    font-variant-numeric: tabular-nums;
+}
+
+.info-opcoes {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 16px;
+}
+
+.info-botoes {
+    display: flex;
+    gap: 6px;
+}
+
+.info-botoes button.ativo {
+    background: var(--kingraf-orange);
+    border-color: var(--kingraf-orange);
+}
+
+.info-select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+    color: #FFF;
+    font-weight: 700;
+}
+
+.info-select option { background: var(--bg-sidebar); }
+
+.conta-ajuda.aviso { color: #FCD34D; }
+
+@media (max-width: 640px) {
+    .info-opcoes { grid-template-columns: 1fr; }
+}

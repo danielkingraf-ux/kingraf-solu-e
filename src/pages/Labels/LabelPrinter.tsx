@@ -16,6 +16,10 @@ import { codigoDoPalete, desenharCodigos, type CodigosDesenhados } from './codig
 /** Etiquetas carregadas por vez na Biblioteca. */
 const LIMITE_BIBLIOTECA = 200;
 
+/** Faixa de tamanho da letra da etiqueta de informacao, em pontos. */
+const FONTE_MIN = 10;
+const FONTE_MAX = 96;
+
 interface LabelPrinterProps {
     onBack: () => void;
 }
@@ -44,6 +48,12 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
             destino: '',
             obs: '',
             operador: '',
+            // Etiqueta de informacao: texto livre, 8 por folha como a de caixa.
+            texto: '',
+            fonte: '28',
+            negrito: 'sim',
+            alinhamento: 'centro' as 'centro' | 'esquerda',
+            quantidadeEtiquetas: '8',
             // Caixas CHEIAS neste palete. A incompleta vem a mais, em ultimaCaixa.
             qtdCaixas: '',
             qtdPorCaixa: '',
@@ -131,6 +141,29 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
         ? null
         : labelData.especifico.codigoPalete || codigoDoPalete(labelData.op, numeroExibido);
     const [codigos, setCodigos] = useState<CodigosDesenhados | null>(null);
+
+    // Etiqueta de informacao: 8 por folha, texto livre. O operador escolhe o
+    // tamanho da letra; se o texto nao couber na etiqueta nesse tamanho, ela
+    // sai no maior tamanho que cabe (fonteEfetiva) em vez de cortar o texto.
+    const fonteEscolhida = Math.min(FONTE_MAX, Math.max(FONTE_MIN, parseInt(labelData.especifico.fonte, 10) || 28));
+    const quantidadeInfo = Math.min(8, Math.max(1, parseInt(labelData.especifico.quantidadeEtiquetas, 10) || 8));
+    const [fonteEfetiva, setFonteEfetiva] = useState(fonteEscolhida);
+    const infoGradeRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        if (labelType !== 'info') return;
+        const texto = infoGradeRef.current?.querySelector<HTMLElement>('.info-texto');
+        const caixa = texto?.parentElement;
+        if (!texto || !caixa) { setFonteEfetiva(fonteEscolhida); return; }
+        let tamanho = fonteEscolhida;
+        for (; tamanho > FONTE_MIN; tamanho--) {
+            texto.style.fontSize = `${tamanho}pt`;
+            if (texto.scrollHeight <= texto.clientHeight && texto.scrollWidth <= texto.clientWidth) break;
+        }
+        // Deixa o tamanho final aplicado: a etiqueta medida e uma das que
+        // aparecem, e o React nao repoe o estilo se o valor nao mudar.
+        texto.style.fontSize = `${tamanho}pt`;
+        setFonteEfetiva(tamanho);
+    }, [labelType, fonteEscolhida, labelData.especifico.texto, labelData.especifico.negrito, labelData.especifico.alinhamento]);
 
     // A etiqueta e uma folha A4 so. O rodape (codigo de barras, faixa de
     // escolha) fica preso no fim; se o que vem acima nao couber no espaco que
@@ -314,7 +347,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 .eq('tipo', libraryTab)
                 .order('created_at', { ascending: false })
                 .limit(LIMITE_BIBLIOTECA);
-            if (termo) historico = historico.or(`op.ilike.%${termo}%,cliente.ilike.%${termo}%,info_extra->>destino.ilike.%${termo}%`);
+            if (termo) historico = historico.or(`op.ilike.%${termo}%,cliente.ilike.%${termo}%,info_extra->>destino.ilike.%${termo}%,info_extra->>texto.ilike.%${termo}%`);
 
             let caixas = supabase
                 .from('prod_etiquetas_caixa')
@@ -382,7 +415,8 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (['lote', 'destino', 'obs', 'operador', 'qtdCaixas', 'qtdPorCaixa',
-             'quantidadeOP', 'folhasVinco', 'bocas', 'ultimaCaixa', 'caixasPorPalete'].includes(name)) {
+             'quantidadeOP', 'folhasVinco', 'bocas', 'ultimaCaixa', 'caixasPorPalete',
+             'texto', 'fonte', 'quantidadeEtiquetas'].includes(name)) {
             setLabelData((prev: any) => ({
                 ...prev,
                 especifico: { ...prev.especifico, [name]: value }
@@ -403,11 +437,16 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
     };
 
     const handlePrint = async () => {
-        if (!labelData.op) {
+        // Etiqueta de informacao e livre: OP so e obrigatoria no palete.
+        if (labelType === 'pallet' && !labelData.op) {
             alert('Por favor, preencha a OP antes de salvar.');
             return;
         }
         const op = labelData.op.trim().toUpperCase();
+        if (labelType === 'info' && !labelData.especifico.texto.trim()) {
+            alert('Digite o texto da etiqueta antes de imprimir.');
+            return;
+        }
         // Etiqueta de palete nova = um palete a mais que saiu da colagem.
         // Reimprimir a mesma etiqueta nao conta de novo.
         const novoPalete = !savedId && numeracaoAutomatica;
@@ -586,6 +625,10 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                 qtdCaixas: '', qtdPorCaixa: '', ultimaCaixa: '', caixaInicio: '', caixaFim: '',
                 quantidadeOP: '', caixasPorPalete: '', folhasVinco: '', bocas: '', codigoPalete: '',
                 destinoPalete: 'expedicao' as 'expedicao' | 'escolha',
+                fonte: '28', negrito: 'sim', alinhamento: 'centro' as 'centro' | 'esquerda', quantidadeEtiquetas: '8',
+                // Etiqueta de informacao antiga tinha Destino e Observacoes:
+                // vira o texto livre, uma linha cada.
+                texto: [item.info_extra?.destino, item.info_extra?.obs].filter(Boolean).join('\n'),
                 ...(item.info_extra || {}),
                 // Usar como modelo e palete NOVO: nao herda o numero, o codigo
                 // nem a liberacao da etiqueta de origem.
@@ -725,7 +768,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         </div>
 
                         <div className="form-group animate-fade-in-up delay-100">
-                            <label>Ordem de Produção (OP)</label>
+                            <label>Ordem de Produção (OP){labelType === 'info' ? ' · opcional' : ''}</label>
                             <input name="op" value={labelData.op} onChange={handleChange} onBlur={handleOPBlur} placeholder="Ex: 123456" />
                         </div>
 
@@ -863,16 +906,77 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         )}
 
                         {labelType === 'info' && (
-                            <div className="form-group animate-fade-in-up delay-200">
-                                <label>Destino / Setor</label>
-                                <input name="destino" value={labelData.especifico.destino} onChange={handleChange} />
-                            </div>
-                        )}
+                            // Etiqueta livre: o que for digitado sai igual em cada
+                            // etiqueta da folha, no tamanho escolhido.
+                            <div className="info-editor animate-fade-in-up delay-200">
+                                <div className="form-group">
+                                    <label htmlFor="info-texto">Texto da etiqueta</label>
+                                    <textarea
+                                        id="info-texto"
+                                        name="texto"
+                                        rows={5}
+                                        value={labelData.especifico.texto}
+                                        onChange={handleChange}
+                                        placeholder={'Ex.:\nNÃO EMPILHAR\nMATERIAL PARA ESCOLHA'}
+                                    />
+                                    <small className="conta-ajuda">Enter quebra a linha. O mesmo texto sai em cada etiqueta da folha.</small>
+                                </div>
 
-                        {labelType === 'info' && (
-                            <div className="form-group animate-fade-in-up delay-600">
-                                <label>Observações</label>
-                                <input name="obs" value={labelData.especifico.obs} onChange={handleChange} />
+                                <div className="info-controles">
+                                    <div className="form-group">
+                                        <label>Tamanho da letra</label>
+                                        <div className="info-tamanho">
+                                            <button type="button" aria-label="Diminuir a letra"
+                                                onClick={() => setEspecifico({ fonte: String(Math.max(FONTE_MIN, fonteEscolhida - 2)) })}>A−</button>
+                                            <input
+                                                type="range"
+                                                min={FONTE_MIN}
+                                                max={FONTE_MAX}
+                                                name="fonte"
+                                                value={fonteEscolhida}
+                                                onChange={handleChange}
+                                                aria-label="Tamanho da letra"
+                                            />
+                                            <button type="button" aria-label="Aumentar a letra"
+                                                onClick={() => setEspecifico({ fonte: String(Math.min(FONTE_MAX, fonteEscolhida + 2)) })}>A+</button>
+                                            <b>{fonteEscolhida} pt</b>
+                                        </div>
+                                        {fonteEfetiva < fonteEscolhida && (
+                                            <small className="conta-ajuda aviso">
+                                                Não cabe em {fonteEscolhida} pt: a etiqueta está saindo em {fonteEfetiva} pt para o texto caber inteiro.
+                                            </small>
+                                        )}
+                                    </div>
+
+                                    <div className="info-opcoes">
+                                        <div className="form-group">
+                                            <label>Letra</label>
+                                            <div className="info-botoes">
+                                                <button type="button" className={labelData.especifico.negrito === 'sim' ? 'ativo' : ''}
+                                                    onClick={() => setEspecifico({ negrito: labelData.especifico.negrito === 'sim' ? '' : 'sim' })}>
+                                                    <b>Negrito</b>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Alinhamento</label>
+                                            <div className="info-botoes">
+                                                {([['centro', 'Centro'], ['esquerda', 'Esquerda']] as const).map(([valor, texto]) => (
+                                                    <button key={valor} type="button"
+                                                        className={labelData.especifico.alinhamento === valor ? 'ativo' : ''}
+                                                        onClick={() => setEspecifico({ alinhamento: valor })}>{texto}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label htmlFor="info-qtd">Etiquetas na folha</label>
+                                            <select id="info-qtd" className="info-select" value={quantidadeInfo}
+                                                onChange={e => setEspecifico({ quantidadeEtiquetas: e.target.value })}>
+                                                {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -976,7 +1080,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             <p className="conta-veredito neutro">{rastreioAviso}</p>
                         )}
 
-                        {!numeracaoAutomatica && (
+                        {!numeracaoAutomatica && labelType !== 'info' && (
                             <div className="form-group animate-fade-in-up delay-600">
                                 <label>Numeração / Volume</label>
                                 <input name="boxNumber" value={labelData.boxNumber} onChange={handleChange} />
@@ -1037,7 +1141,9 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                             ) : (
                                 filteredHistory.map((item: any) => {
                                     const reference = item.op || item.volume || '---';
-                                    const description = item.cliente || item.info_extra?.destino || 'Sem cliente/destino';
+                                    const description = item.cliente
+                                        || String(item.info_extra?.texto || '').split('\n')[0]
+                                        || item.info_extra?.destino || 'Sem cliente/destino';
                                     const detail = item.tipo === 'caixa'
                                         ? `Seq: ${item.info_extra?.range_start || '-'} - ${item.info_extra?.range_end || '-'}`
                                         : `Volume: ${item.volume || '---'}`;
@@ -1104,6 +1210,32 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                     <span>Visualização: Etiquetas para {labelType.charAt(0).toUpperCase() + labelType.slice(1)}</span>
                 </div>
 
+                {labelType === 'info' ? (
+                    // Folha de 8 etiquetas na mesma posicao da etiqueta de caixa
+                    // (2 x 4, 99 x 70 mm), para usar o mesmo papel. Posicao sem
+                    // etiqueta fica em branco, sem mexer nas outras.
+                    <div className="label-mockup a4-page-preview info-folha animate-scale-in" id="printable-label">
+                        <div className="info-grade" ref={infoGradeRef}>
+                            {Array.from({ length: 8 }, (_, i) => (
+                                <div key={i} className={`info-etiqueta ${i < quantidadeInfo ? '' : 'vazia'}`}>
+                                    {i < quantidadeInfo && (
+                                        <div
+                                            className={`info-texto ${labelData.especifico.texto.trim() ? '' : 'exemplo'}`}
+                                            style={{
+                                                fontSize: `${fonteEfetiva}pt`,
+                                                fontWeight: labelData.especifico.negrito === 'sim' ? 800 : 500,
+                                                textAlign: labelData.especifico.alinhamento === 'esquerda' ? 'left' : 'center',
+                                                alignItems: labelData.especifico.alinhamento === 'esquerda' ? 'flex-start' : 'center'
+                                            }}
+                                        >
+                                            {labelData.especifico.texto.trim() ? labelData.especifico.texto : 'DIGITE O TEXTO'}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
                 <div className={`label-mockup a4-page-preview animate-scale-in model-${labelType}`} id="printable-label">
                     <div className="label-header">
                         <div className="label-brand-box">
@@ -1129,29 +1261,14 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         e reduzido por inteiro para caber na A4. */}
                     <div className="label-encaixe" ref={encaixeRef}>
                     <div className="label-content" ref={conteudoRef}>
-                        {labelType === 'info' ? (
-                            <>
-                                <div className="label-field large">
-                                    <label>DESTINO / SETOR</label>
-                                    <div className="value">{labelData.especifico.destino || 'SETOR DE LOGÍSTICA'}</div>
-                                </div>
-                                <div className="label-field large">
-                                    <label>CONTEÚDO / OBS</label>
-                                    <div className="value">{labelData.especifico.obs || 'INFORMAÇÃO DE CONTROLE'}</div>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="label-field large">
-                                    <label>CLIENTE</label>
-                                    <div className="value">{labelData.client || 'CLIENTE MODELO LTDA'}</div>
-                                </div>
-                                <div className="label-field large">
-                                    <label>PRODUTO</label>
-                                    <div className="value">{labelData.product || 'CAIXA DE PAPELÃO PADRÃO'}</div>
-                                </div>
-                            </>
-                        )}
+                        <div className="label-field large">
+                            <label>CLIENTE</label>
+                            <div className="value">{labelData.client || 'CLIENTE MODELO LTDA'}</div>
+                        </div>
+                        <div className="label-field large">
+                            <label>PRODUTO</label>
+                            <div className="value">{labelData.product || 'CAIXA DE PAPELÃO PADRÃO'}</div>
+                        </div>
 
                         <div style={{ display: 'flex', gap: '25px' }}>
                             <div className="label-field" style={{ flex: 1 }}>
@@ -1234,6 +1351,7 @@ const LabelPrinter: React.FC<LabelPrinterProps> = ({ onBack }) => {
                         </div>
                     )}
                 </div>
+                )}
             </main>
         </div >
     );
